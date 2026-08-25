@@ -395,11 +395,6 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
         <span class="val" id="lastSync">―</span>
       </div>
       <span class="status-chip" id="syncChip" data-s="未同期"><span class="dot"></span><span id="syncText">未同期</span></span>
-      <select class="selectlike" id="syncMode" title="モック同期の挙動（動作確認用）">
-        <option value="ok">同期：正常</option>
-        <option value="partial">同期：一部商品取得エラー</option>
-        <option value="auth">同期：認証エラー</option>
-      </select>
       <button class="btn btn-primary" id="syncBtn">ネクストエンジンから最新データを取得</button>
     </div>
   </header>
@@ -412,10 +407,12 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
       <span class="dbstate" id="sharedState">読み込み中…</span>
     </div>
     <div class="dbactions">
+      <button class="btn btn-sm btn-primary" id="pushShared" hidden>GitHubに保存して全員に反映</button>
       <button class="btn btn-sm" id="reloadShared">共有データを再読み込み</button>
       <label class="btn btn-sm filebtn">CSVを取り込む<input type="file" id="csvIn" accept=".csv,text/csv" hidden></label>
       <button class="btn btn-sm" id="csvOut">CSVを書き出す</button>
       <button class="btn btn-sm" id="jsonOut">共有用JSONを書き出す</button>
+      <button class="btn btn-sm" id="ghSetup">保存設定</button>
       <button class="btn btn-sm ghost" id="clearAll">全消去</button>
     </div>
   </div>
@@ -453,10 +450,10 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
   </section>
 
   <p class="foot">
-    ネクストエンジン連携はモック同期（ダミー値）で動作しています。実接続時は client_secret / access_token / refresh_token をサーバー側で保持し、
-    <code>POST /api_v1_master_goods/search</code>（goods_id, goods_name, goods_stock_constant）と
-    <code>POST /api_v1_master_stock/search</code>（stock_goods_id, stock_free_quantity, stock_last_modified_date）を呼ぶ同期APIに、この画面の同期ボタンを差し替えてください。
-    入力内容はこのブラウザにのみ保存されます。
+    ネクストエンジンの在庫定数・フリー在庫は、GitHub Actions（サーバー側）が <code>ne-sync-worker</code> から取得して <code>data.json</code> に書き込みます。
+    ブラウザからネクストエンジンを直接呼ぶことはなく、<code>NE_READ_API_TOKEN</code> はこの画面には渡りません。
+    毎朝7:00に自動実行され、「ネクストエンジンから最新データを取得」を押すと手動でも実行できます。
+    取得できなかった商品は0で埋めず、前回取得値を残して「前回値」と表示します。
   </p>
 </div>
 
@@ -538,7 +535,8 @@ function blankState(){
     filters:{ q:'', res:'すべて', sta:'すべて' },
     filters2:{ q:'', res:'すべて', sta:'すべて' },
     tab:'main',
-    sharedStamp:null
+    sharedStamp:null,
+    ne:null
   };
 }
 let state = blankState();
@@ -564,20 +562,83 @@ function normalize(raw){
     apiFree :num(raw.apiFree  !== undefined ? raw.apiFree  : raw.free),
     manTeisu:num(raw.manTeisu), manFree:num(raw.manFree),
     stale:!!raw.stale, matchError:!!raw.matchError,
+    neStockFound: raw.neStockFound, neGoodsFound: raw.neGoodsFound,
     lastFetch: raw.lastFetch || null,
     status: raw.status === '対応済' ? '対応済' : '未対応',
     note: raw.note ? String(raw.note) : ''
   };
 }
 
+/* ============ GitHub 設定（トークンはこのブラウザにのみ保存） ============ */
+const GH_LS = 'hokan-hantei-kun-github';
+const GH_DEFAULT = { owner:'kaiyoshida0318', repo:'hokan-hantei-kun', branch:'main', path:'data.json' };
+function ghLoad(){
+  try{ return Object.assign({}, GH_DEFAULT, JSON.parse(localStorage.getItem(GH_LS) || '{}')); }
+  catch(e){ return Object.assign({}, GH_DEFAULT); }
+}
+function ghSave(cfg){ try{ localStorage.setItem(GH_LS, JSON.stringify(cfg)); }catch(e){} }
+let gh = ghLoad();
+const ghReady = () => !!(gh.token && gh.owner && gh.repo && gh.path);
+const rawURL = () => 'https://raw.githubusercontent.com/'+gh.owner+'/'+gh.repo+'/'+gh.branch+'/'+gh.path;
+const apiURL = () => 'https://api.github.com/repos/'+gh.owner+'/'+gh.repo+'/contents/'+gh.path;
+function ghHeaders(){
+  const h = { 'Accept':'application/vnd.github+json', 'X-GitHub-Api-Version':'2022-11-28' };
+  if(gh.token) h['Authorization'] = 'Bearer ' + gh.token;
+  return h;
+}
+function fetchT(url, opts, ms){
+  const c = new AbortController();
+  const t = setTimeout(() => c.abort(), ms || 8000);
+  return fetch(url, Object.assign({signal:c.signal}, opts || {})).finally(() => clearTimeout(t));
+}
+function b64utf8(str){
+  const bytes = new TextEncoder().encode(str);
+  let s = '';
+  bytes.forEach(b => { s += String.fromCharCode(b); });
+  return btoa(s);
+}
+function ghError(status){
+  return {
+    401:'トークンが正しくないか、期限切れです。保存設定から入れ直してください。',
+    403:'このトークンにはこのリポジトリへの書き込み権限がありません（Contents を Read and write にしてください）。',
+    404:'リポジトリまたはファイルのパスが違うか、トークンがこのリポジトリを選んでいません。',
+    409:'ほかのPCが先に保存しました。「共有データを再読み込み」してからもう一度保存してください。',
+    422:'ほかのPCが先に保存しました。「共有データを再読み込み」してからもう一度保存してください。'
+  }[status] || ('GitHubがエラーを返しました（' + status + '）');
+}
+async function ghPut(json){
+  let sha = null;
+  const cur = await fetchT(apiURL() + '?ref=' + encodeURIComponent(gh.branch) + '&t=' + Date.now(), {headers:ghHeaders(), cache:'no-store'}, 15000);
+  if(cur.ok){ sha = (await cur.json()).sha; }
+  else if(cur.status !== 404){ throw new Error(ghError(cur.status)); }
+  const res = await fetchT(apiURL(), {
+    method:'PUT', headers:Object.assign({'Content-Type':'application/json'}, ghHeaders()),
+    body: JSON.stringify(Object.assign({
+      message:'保管形式判定くん：共有データを更新', content:b64utf8(json), branch:gh.branch
+    }, sha ? {sha} : {}))
+  }, 20000);
+  if(!res.ok) throw new Error(ghError(res.status));
+  return true;
+}
+
 /* ---- 共有データ（data.json）の読み込み ---- */
 async function fetchShared(){
+  if(gh.owner && gh.repo && gh.path){
+    try{
+      const r = await fetchT(rawURL() + '?t=' + Date.now(), {cache:'no-store'}, 8000);
+      if(r.ok){
+        const j = await r.json();
+        if(j && Array.isArray(j.items))
+          return { status:'読込済', updatedAt:j.updatedAt || null, ne:j.ne || null, items:j.items.map(normalize).filter(x => x.code) };
+      }
+    }catch(e){ /* 同一フォルダの data.json にフォールバック */ }
+  }
   try{
-    const res = await fetch('data.json?t=' + Date.now(), {cache:'no-store'});
+    const res = await fetchT('data.json?t=' + Date.now(), {cache:'no-store'}, 8000);
     if(!res.ok) return { status: res.status === 404 ? '未設定' : '取得失敗' };
     const j = await res.json();
     if(!j || !Array.isArray(j.items)) return { status:'形式エラー' };
-    return { status:'読込済', updatedAt: j.updatedAt || null, items: j.items.map(normalize).filter(x => x.code) };
+    return { status:'読込済', updatedAt: j.updatedAt || null, ne: j.ne || null, items: j.items.map(normalize).filter(x => x.code) };
   }catch(e){
     return { status: location.protocol === 'file:' ? 'ローカル表示' : '取得失敗' };
   }
@@ -585,6 +646,10 @@ async function fetchShared(){
 function adoptShared(sh){
   state = blankState();
   state.items = sh.items;
+  state.ne = sh.ne || null;
+  if(sh.ne){
+    state.sync = { status: sh.ne.status || '未同期', at: jstStr(sh.ne.syncedAt), message: sh.ne.message || '' };
+  }
   state.sharedStamp = sh.updatedAt || String(sh.items.length);
   state.dirty = false;
   save();
@@ -594,7 +659,7 @@ function renderShared(){
   const el = $('sharedState');
   const s = sharedInfo;
   const msg = {
-    '読込済':'<b>'+ (s.updatedAt || '日付なし') +'</b> 時点のデータを読み込み済み（'+ s.count +'件）',
+    '読込済':'<b>'+ (jstStr(s.updatedAt) || '日付なし') +'</b> 時点のデータを読み込み済み（'+ s.count +'件）',
     '未設定':'リポジトリに data.json がまだありません。CSVを取り込んでから「共有用JSONを書き出す」で作成してください。',
     '取得失敗':'data.json を取得できませんでした。表示中のデータはこの端末に保存されているものです。',
     '形式エラー':'data.json の形式が正しくありません。{"updatedAt":"…","items":[…]} の形で保存してください。',
@@ -677,11 +742,14 @@ function sharedJSON(){
   const p = n => String(n).padStart(2,'0');
   const d = new Date();
   return JSON.stringify({
+    ne: state.ne || undefined,
     updatedAt: d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()),
     items: state.items.map(it => ({
       code:it.code, name:it.name, kubun:it.kubun, smallCap:it.smallCap, boxCap:it.boxCap,
       curMain:it.curMain, curSub:it.curSub, apiTeisu:it.apiTeisu, apiFree:it.apiFree,
-      lastFetch:it.lastFetch, status:it.status, note:it.note
+      lastFetch:it.lastFetch, stale:it.stale, matchError:it.matchError,
+      neStockFound:it.neStockFound, neGoodsFound:it.neGoodsFound,
+      status:it.status, note:it.note
     }))
   }, null, 2);
 }
@@ -990,7 +1058,8 @@ function openDrawer(code){
     '<dt>小箱上限</dt><dd>'+fmt(it.smallCap)+(it.smallCapEdited?'（SKU個別）':'')+'</dd>'+
     '<dt>箱上限</dt><dd>'+fmt(it.boxCap)+(it.boxCapEdited?'（SKU個別）':'')+'</dd>'+
     '<dt>箱上限の50%（降格しきい値）</dt><dd>'+fmt(half)+'</dd>'+
-    '<dt>データ最終取得日時</dt><dd>'+esc(it.lastFetch || '未取得')+'</dd>'+
+    '<dt>NEからの最終取得日時</dt><dd>'+esc(jstStr(it.lastFetch) || '未取得')+'</dd>'+
+    (it.matchError ? '<dt>NE照合</dt><dd>商品コード未検出</dd>' : '')+
   '</dl></div>'+
 
   '<div class="dsec"><h3>判定理由</h3>'+
@@ -1063,48 +1132,65 @@ function applyField(it, field, value){
   else if(field === 'manFree'){ it.manFree = numify(value); }
 }
 
-/* ============ NE モック同期 ============ */
-function nowStr(){
-  const d = new Date(), p = n => String(n).padStart(2,'0');
+/* ============ NE同期（サーバー側＝GitHub Actions を起動） ============ */
+function nowStr(d){
+  d = d || new Date();
+  const p = n => String(n).padStart(2,'0');
   return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());
 }
-function mockValue(base){
-  if(base === null || base === undefined) return null;
-  const delta = Math.round((Math.random() - 0.42) * Math.max(8, base * 0.35));
-  return Math.max(0, base + delta);
+function jstStr(iso){
+  if(!iso) return null;
+  const d = new Date(iso);
+  return isNaN(d) ? String(iso) : nowStr(d);
 }
-function sync(){
-  const mode = $('syncMode').value;
+const actionsURL = () => 'https://github.com/'+gh.owner+'/'+gh.repo+'/actions/workflows/ne-sync.yml';
+
+async function sync(){
+  const btn = $('syncBtn');
+  if(!ghReady()){
+    showText('ネクストエンジン同期の実行',
+      '同期はGitHub Actions（サーバー側）で実行します。ブラウザから直接ネクストエンジンを呼ぶことはありません。\n\n'+
+      '・毎朝7:00に自動実行されます。\n'+
+      '・今すぐ実行したい場合は、次のページを開いて「Run workflow」を押してください。\n'+
+      actionsURL()+'\n\n'+
+      'このボタンから実行できるようにするには、「保存設定」でトークンを登録してください'+
+      '（トークンの権限に Actions: Read and write が必要です）。');
+    return;
+  }
   state.sync.status = '同期中'; state.sync.message = ''; renderSync();
-  $('syncBtn').disabled = true;
-  setTimeout(() => {
-    const stamp = nowStr();
-    if(mode === 'auth'){
-      state.sync.status = '認証エラー';
-      state.sync.message = 'access_token の更新に失敗しました（refresh_token を確認してください）。';
-      state.items.forEach(it => { if(it.lastFetch) it.stale = true; });
+  btn.disabled = true;
+  try{
+    const res = await fetchT('https://api.github.com/repos/'+gh.owner+'/'+gh.repo+'/actions/workflows/ne-sync.yml/dispatches', {
+      method:'POST',
+      headers: Object.assign({'Content-Type':'application/json'}, ghHeaders()),
+      body: JSON.stringify({ ref: gh.branch })
+    }, 20000);
+    if(res.status === 204){
+      state.sync.status = '同期中';
+      state.sync.message = 'GitHub Actionsで実行中です。1〜2分後に「共有データを再読み込み」を押してください。';
+      renderSync();
+      toast('同期を開始しました。1〜2分後に共有データを再読み込みしてください');
+    }else if(res.status === 403 || res.status === 404){
+      state.sync.status = '未同期';
+      renderSync();
+      showText('このトークンでは同期を実行できません',
+        'トークンの権限に Actions: Read and write がありません。\n\n'+
+        '対処は2つです。\n'+
+        '1) GitHubでトークンを作り直し、Permissions に Actions（Read and write）を追加する\n'+
+        '2) 次のページを開いて「Run workflow」を手で押す\n'+
+        actionsURL());
     }else{
-      const failCodes = mode === 'partial' ? ['ABC-006','BOX-021'] : [];
-      state.items.forEach(it => {
-        if(failCodes.includes(it.code)){ it.stale = true; return; }
-        if(it.code === 'NEW-031' && mode === 'partial'){ return; } // 一度も取得できないSKU
-        if(it.code === 'NEW-031'){ it.apiTeisu = 120; it.apiFree = 60; }
-        else { it.apiTeisu = mockValue(it.apiTeisu); it.apiFree = mockValue(it.apiFree); }
-        it.stale = false; it.lastFetch = stamp;
-      });
-      if(mode === 'partial'){
-        state.sync.status = '一部商品取得エラー';
-        state.sync.message = failCodes.join('・')+' の在庫情報を取得できませんでした。';
-      }else{
-        state.sync.status = '同期成功'; state.sync.message = '';
-      }
-      state.sync.at = stamp;
+      state.sync.status = '同期失敗';
+      state.sync.message = ghError(res.status);
+      renderSync();
     }
-    markDirty();
-    $('syncBtn').disabled = false;
-    render();
-    toast(state.sync.status === '同期成功' ? '同期完了：全SKUの保管判定を再計算しました' : state.sync.status);
-  }, 850);
+  }catch(e){
+    state.sync.status = '同期失敗';
+    state.sync.message = 'GitHubに接続できませんでした。';
+    renderSync();
+  }finally{
+    btn.disabled = false;
+  }
 }
 
 /* ============ その他UI ============ */
@@ -1235,6 +1321,102 @@ $('jsonOut').addEventListener('click', () => {
   if(!state.items.length){ toast('書き出す商品がありません'); return; }
   offerFile('data.json', sharedJSON(), 'application/json');
 });
+$('pushShared').addEventListener('click', async () => {
+  if(!ghReady()){ openGhSetup(); return; }
+  if(!state.items.length){ toast('保存する商品がありません'); return; }
+  const btn = $('pushShared');
+  btn.disabled = true; btn.textContent = '保存中…';
+  try{
+    const json = sharedJSON();
+    await ghPut(json);
+    state.sharedStamp = JSON.parse(json).updatedAt;
+    state.dirty = false;
+    sharedInfo = { status:'読込済', updatedAt:state.sharedStamp, count:state.items.length };
+    render();
+    toast('GitHubに保存しました。ほかのPCは再読み込みで反映されます');
+  }catch(e){
+    showText('GitHubに保存できませんでした', String(e.message || e));
+  }finally{
+    btn.disabled = false; btn.textContent = 'GitHubに保存して全員に反映';
+  }
+});
+
+function openGhSetup(){
+  const d = $('drawer');
+  d.innerHTML =
+  '<div class="dhead"><div><h2>共有データの保存設定</h2>'+
+    '<span class="code">GitHubに直接保存できるようにします（担当者のPCのみ）</span></div>'+
+    '<button class="iconbtn" id="dclose" aria-label="閉じる">×</button></div>'+
+  '<div class="dsec"><h3>保存先</h3>'+
+    '<div class="grid2">'+
+      '<div class="field"><label>オーナー（ユーザー名）</label><input data-gh="owner" value="'+esc(gh.owner)+'"></div>'+
+      '<div class="field"><label>リポジトリ名</label><input data-gh="repo" value="'+esc(gh.repo)+'"></div>'+
+      '<div class="field"><label>ブランチ</label><input data-gh="branch" value="'+esc(gh.branch)+'"></div>'+
+      '<div class="field"><label>ファイル名</label><input data-gh="path" value="'+esc(gh.path)+'"></div>'+
+    '</div></div>'+
+  '<div class="dsec"><h3>アクセストークン</h3>'+
+    '<div class="field"><label>Fine-grained personal access token</label>'+
+      '<input type="password" data-gh="token" autocomplete="off" placeholder="'+(gh.token ? '設定済み（変更する場合のみ入力）' : 'github_pat_… を貼り付け')+'"></div>'+
+    '<p class="reason-box">このトークンは<b>このブラウザにのみ</b>保存され、GitHubには送られません（保存先のGitHubへの通信にのみ使います）。共用PCや、ほかの人も使うブラウザでは設定しないでください。CSVや共有用JSONにも含まれません。</p>'+
+    '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">'+
+      '<button class="btn btn-sm btn-primary" id="ghTest">接続を確認して保存</button>'+
+      '<button class="btn btn-sm ghost" id="ghClear">トークンを削除</button>'+
+    '</div>'+
+    '<p id="ghMsg" class="reason-box" style="margin-top:12px;display:none"></p>'+
+  '</div>'+
+  '<div class="dsec"><h3>トークンの作り方</h3>'+
+    '<ol class="errlist" style="color:var(--ink-2)">'+
+      '<li>GitHub → 右上のアイコン → Settings → 一番下の Developer settings</li>'+
+      '<li>Personal access tokens → Fine-grained tokens → Generate new token</li>'+
+      '<li>Repository access で「Only select repositories」→ このリポジトリだけを選ぶ</li>'+
+      '<li>Permissions → Repository permissions → <b>Contents</b> を <b>Read and write</b> にする</li>'+
+      '<li>Expiration（期限）を決めて Generate token。表示された文字列をこの画面に貼り付ける</li>'+
+    '</ol>'+
+    '<p class="reason-box">トークンは表示されたときにしかコピーできません。リポジトリのファイルには絶対に貼り付けないでください（Publicなので誰でも読めてしまい、GitHubに自動で無効化されます）。</p>'+
+  '</div>';
+  $('scrim').classList.add('show'); d.classList.add('show'); d.setAttribute('aria-hidden','false');
+  $('dclose').onclick = closeDrawer;
+  const readForm = () => {
+    const next = Object.assign({}, gh);
+    d.querySelectorAll('[data-gh]').forEach(el => {
+      const k = el.dataset.gh, v = el.value.trim();
+      if(k === 'token'){ if(v) next.token = v; }
+      else if(v) next[k] = v;
+    });
+    return next;
+  };
+  const msg = (text, ok) => {
+    const m = $('ghMsg');
+    m.style.display = 'block';
+    m.style.color = ok ? 'var(--dn)' : 'var(--alert)';
+    m.textContent = text;
+  };
+  $('ghTest').onclick = async () => {
+    const next = readForm();
+    if(!next.token){ msg('トークンが入力されていません。', false); return; }
+    const saved = gh; gh = next;
+    try{
+      const r = await fetchT(apiURL() + '?ref=' + encodeURIComponent(gh.branch) + '&t=' + Date.now(), {headers:ghHeaders(), cache:'no-store'}, 15000);
+      if(!r.ok && r.status !== 404) throw new Error(ghError(r.status));
+      ghSave(gh);
+      msg(r.status === 404
+        ? '接続できました。'+gh.path+' はまだ無いので、最初の保存で新規作成します。'
+        : '接続できました。「GitHubに保存して全員に反映」で保存できます。', true);
+      renderGhButton();
+    }catch(e){
+      gh = saved;
+      const m = String(e.message || e);
+      msg(/fetch|abort|network|Failed/i.test(m) ? 'GitHubに接続できませんでした。通信環境とリポジトリ名を確認してください。' : m, false);
+    }
+  };
+  $('ghClear').onclick = () => {
+    delete gh.token; ghSave(gh); renderGhButton();
+    msg('このブラウザからトークンを削除しました。', true);
+  };
+}
+function renderGhButton(){ $('pushShared').hidden = !ghReady(); }
+$('ghSetup').addEventListener('click', openGhSetup);
+
 $('clearAll').addEventListener('click', () => {
   if(!state.items.length){ toast('データはすでに空です'); return; }
   const keep = state.items.length;
@@ -1248,18 +1430,23 @@ $('clearAll').addEventListener('click', () => {
 (async function boot(){
   renderRules();
   const saved = load();
-  const sh = await fetchShared();
-  sharedInfo = { status:sh.status, updatedAt:sh.updatedAt || null, count:(sh.items||[]).length };
-  const stamp = sh.updatedAt || String((sh.items||[]).length);
-  if(sh.status === '読込済' && (!saved || saved.sharedStamp !== stamp)){
-    adoptShared(sh);                       // 共有データが新しいので取り込む
-  }else if(saved){
+  if(saved){
     state = Object.assign(blankState(), saved);
     state.items = (saved.items || []).map(normalize);
   }
   $('manualMode').checked = !!state.manualMode;
   $('q').value = state.filters.q; $('q2').value = state.filters2.q;
+  renderGhButton();
   switchTab(state.tab || 'main');
+  render();                                  // まず手元の状態で表示
+
+  const sh = await fetchShared();            // 共有データは取れ次第反映
+  sharedInfo = { status:sh.status, updatedAt:sh.updatedAt || null, count:(sh.items||[]).length };
+  const stamp = sh.updatedAt || String((sh.items||[]).length);
+  if(sh.status === '読込済' && (!saved || saved.sharedStamp !== stamp)){
+    adoptShared(sh);
+    switchTab(state.tab || 'main');
+  }
   render();
 })();
 
