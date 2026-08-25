@@ -1,0 +1,1287 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>保管形式判定くん</title>
+<meta name="description" content="在庫定数とフリー在庫から、主保管（小箱／箱／コンテナ）と予備保管コンテナの要否を自動判定する倉庫向け管理ツール。">
+<style>
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0}
+img,svg,video{max-width:100%;height:auto}
+</style>
+</head>
+<body>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Noto+Sans+JP:wght@400;500&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+:root{
+  --ground:#F4F6F8;
+  --surface:#FFFFFF;
+  --surface-2:#EDF0F4;
+  --surface-3:#E4E9EF;
+  --ink:#131820;
+  --ink-2:#495566;
+  --ink-3:#7B8798;
+  --line:#DCE1E8;
+  --line-strong:#C3CAD4;
+  --accent:#1B4B73;
+  --accent-soft:#E6EEF5;
+  --on-accent:#FFFFFF;
+  --up:#93450F;        /* 拡大方向：昇格・予備追加 */
+  --up-bg:#FAECE0;
+  --up-line:#E7C9AC;
+  --dn:#0F6152;        /* 縮小方向：降格・予備解除 */
+  --dn-bg:#E2F0EC;
+  --dn-line:#A9CFC5;
+  --alert:#A3231F;     /* 要確認 */
+  --alert-bg:#FAE7E5;
+  --alert-line:#E6B5B1;
+  --hold:#6B7686;      /* 維持 */
+  --hold-bg:#EDF0F4;
+  --band-cur:#F0F2F5;
+  --band-qty:#F5F1EA;
+  --band-rec:#E9F0F6;
+  --shadow:0 1px 2px rgba(19,24,32,.06), 0 8px 24px rgba(19,24,32,.07);
+  --radius:6px;
+  --f-ui:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif;
+  --f-body:"Noto Sans JP","Hiragino Kaku Gothic ProN",system-ui,sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,"SFMono-Regular",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#101419;
+    --surface:#171C23;
+    --surface-2:#1E242C;
+    --surface-3:#262D36;
+    --ink:#E9EDF2;
+    --ink-2:#A7B2C0;
+    --ink-3:#7A8592;
+    --line:#2B323B;
+    --line-strong:#3C4550;
+    --accent:#7FB3D9;
+    --accent-soft:#1C2A36;
+    --on-accent:#0E141A;
+    --up:#E3A776;
+    --up-bg:#2E2119;
+    --up-line:#4D3524;
+    --dn:#7FCBB6;
+    --dn-bg:#152621;
+    --dn-line:#27453B;
+    --alert:#E99A94;
+    --alert-bg:#2E1B1A;
+    --alert-line:#4A2A28;
+    --hold:#94A0B0;
+    --hold-bg:#212831;
+    --band-cur:#1B212A;
+    --band-qty:#231F1A;
+    --band-rec:#182430;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#101419;
+  --surface:#171C23;
+  --surface-2:#1E242C;
+  --surface-3:#262D36;
+  --ink:#E9EDF2;
+  --ink-2:#A7B2C0;
+  --ink-3:#7A8592;
+  --line:#2B323B;
+  --line-strong:#3C4550;
+  --accent:#7FB3D9;
+  --accent-soft:#1C2A36;
+  --on-accent:#0E141A;
+  --up:#E3A776;
+  --up-bg:#2E2119;
+  --up-line:#4D3524;
+  --dn:#7FCBB6;
+  --dn-bg:#152621;
+  --dn-line:#27453B;
+  --alert:#E99A94;
+  --alert-bg:#2E1B1A;
+  --alert-line:#4A2A28;
+  --hold:#94A0B0;
+  --hold-bg:#212831;
+  --band-cur:#1B212A;
+  --band-qty:#231F1A;
+  --band-rec:#182430;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
+}
+
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--ground);
+  color:var(--ink);
+  font-family:var(--f-ui);
+  font-size:14px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
+
+/* ---------- shell ---------- */
+.wrap{max-width:1600px;margin:0 auto;padding:20px 20px 80px}
+
+.masthead{
+  display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;justify-content:space-between;
+  padding:18px 20px;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--radius);box-shadow:var(--shadow);
+}
+.brand h1{
+  margin:0;font-size:26px;font-weight:700;letter-spacing:.02em;line-height:1.2;
+}
+.brand .sub{margin:4px 0 0;color:var(--ink-3);font-size:12.5px;letter-spacing:.06em}
+
+/* sync panel */
+.sync{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.sync-meta{text-align:right;line-height:1.45}
+.sync-meta .lbl{display:block;font-size:10.5px;letter-spacing:.14em;color:var(--ink-3)}
+.sync-meta .val{font-family:var(--f-num);font-size:12.5px;color:var(--ink-2)}
+.status-chip{
+  display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:100px;
+  font-size:12px;font-weight:500;border:1px solid var(--line-strong);background:var(--surface-2);color:var(--ink-2);
+}
+.status-chip .dot{width:7px;height:7px;border-radius:50%;background:var(--ink-3)}
+.status-chip[data-s="同期成功"]{background:var(--dn-bg);border-color:var(--dn-line);color:var(--dn)}
+.status-chip[data-s="同期成功"] .dot{background:var(--dn)}
+.status-chip[data-s="同期中"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.status-chip[data-s="同期中"] .dot{background:var(--accent);animation:pulse 1s infinite}
+.status-chip[data-s="同期失敗"],.status-chip[data-s="認証エラー"]{background:var(--alert-bg);border-color:var(--alert-line);color:var(--alert)}
+.status-chip[data-s="同期失敗"] .dot,.status-chip[data-s="認証エラー"] .dot{background:var(--alert)}
+.status-chip[data-s="一部商品取得エラー"]{background:var(--up-bg);border-color:var(--up-line);color:var(--up)}
+.status-chip[data-s="一部商品取得エラー"] .dot{background:var(--up)}
+@keyframes pulse{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+.btn{
+  border:1px solid var(--line-strong);background:var(--surface-2);color:var(--ink);
+  padding:8px 14px;border-radius:var(--radius);cursor:pointer;font-weight:500;
+  transition:background .12s,border-color .12s;
+}
+.btn:hover{background:var(--surface-3)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn-primary:hover{filter:brightness(1.08)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.btn-sm{padding:5px 10px;font-size:12.5px}
+
+.selectlike{
+  border:1px solid var(--line-strong);background:var(--surface);border-radius:var(--radius);
+  padding:7px 9px;font-size:12.5px;
+}
+
+/* banner */
+.banner{
+  margin-top:14px;display:none;gap:10px;align-items:flex-start;
+  padding:11px 14px;border-radius:var(--radius);font-size:13px;
+  background:var(--alert-bg);border:1px solid var(--alert-line);color:var(--alert);
+}
+.banner.show{display:flex}
+.banner b{font-weight:700}
+
+/* ---------- data bar ---------- */
+.databar{
+  margin-top:14px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;
+  padding:10px 14px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+}
+.dbinfo{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.dbinfo .lbl{font-size:10.5px;letter-spacing:.12em;color:var(--ink-3)}
+.dbstate{font-size:12.5px;color:var(--ink-2);font-family:var(--f-body)}
+.dbstate b{font-family:var(--f-num);font-weight:500;color:var(--ink)}
+.dbstate.warn{color:var(--up)}
+.dbactions{display:flex;gap:8px;flex-wrap:wrap}
+.filebtn{display:inline-flex;align-items:center;cursor:pointer}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--ink-3)}
+.btn.ghost:hover{background:var(--alert-bg);border-color:var(--alert-line);color:var(--alert)}
+
+/* ---------- empty state ---------- */
+.intro{padding:34px 26px;font-family:var(--f-body);max-width:760px}
+.intro h2{font-family:var(--f-ui);font-size:17px;margin:0 0 6px}
+.intro p{font-size:13px;color:var(--ink-2);line-height:1.8;margin:0 0 14px}
+.steps{display:grid;gap:10px;margin:0 0 18px;padding:0;list-style:none;counter-reset:s}
+.steps li{
+  counter-increment:s;display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:start;
+  background:var(--surface-2);border-radius:var(--radius);padding:11px 14px;font-size:13px;color:var(--ink-2);
+}
+.steps li::before{
+  content:counter(s);font-family:var(--f-num);font-size:11px;color:var(--on-accent);background:var(--accent);
+  width:20px;height:20px;border-radius:50%;display:grid;place-items:center;margin-top:2px;
+}
+.csvspec{
+  font-family:var(--f-num);font-size:11.5px;background:var(--surface-2);border:1px solid var(--line);
+  border-radius:var(--radius);padding:11px 13px;overflow-x:auto;white-space:pre;line-height:1.7;
+}
+
+/* ---------- KPI ---------- */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:14px}
+.kpi{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  padding:11px 13px;cursor:pointer;text-align:left;transition:border-color .12s,background .12s;
+}
+.kpi:hover{border-color:var(--line-strong)}
+.kpi[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.kpi .k{display:block;font-size:10.5px;letter-spacing:.1em;color:var(--ink-3)}
+.kpi .v{display:block;font-family:var(--f-num);font-size:24px;font-weight:600;line-height:1.25}
+.kpi.up .v{color:var(--up)} .kpi.dn .v{color:var(--dn)} .kpi.al .v{color:var(--alert)}
+
+/* ---------- tabs ---------- */
+.tabs{display:flex;gap:2px;margin:18px 0 0;border-bottom:1px solid var(--line)}
+.tab{
+  border:1px solid transparent;border-bottom:none;background:none;padding:9px 16px;cursor:pointer;
+  font-weight:500;color:var(--ink-3);border-radius:var(--radius) var(--radius) 0 0;
+}
+.tab[aria-selected="true"]{background:var(--surface);border-color:var(--line);color:var(--ink);margin-bottom:-1px}
+.tab:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+
+.panel{background:var(--surface);border:1px solid var(--line);border-top:none;border-radius:0 0 var(--radius) var(--radius);box-shadow:var(--shadow)}
+.panel[hidden]{display:none}
+
+/* ---------- toolbar ---------- */
+.toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line)}
+.search{flex:1 1 220px;min-width:180px;position:relative}
+.search input{width:100%;padding:8px 10px;border:1px solid var(--line-strong);background:var(--surface);border-radius:var(--radius)}
+.search input:focus-visible{outline:2px solid var(--accent);outline-offset:-1px}
+.fgroup{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.fgroup > .glabel{font-size:10.5px;letter-spacing:.12em;color:var(--ink-3);margin-right:2px}
+.chip{
+  border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-2);
+  padding:4px 11px;border-radius:100px;font-size:12.5px;cursor:pointer;
+}
+.chip[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.toggle{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-2);cursor:pointer}
+.toggle input{accent-color:var(--accent);width:15px;height:15px}
+
+/* ---------- table ---------- */
+.tablewrap{overflow:auto;max-height:min(72vh,780px)}
+table{border-collapse:separate;border-spacing:0;width:100%;font-size:12.5px}
+#tblMain{min-width:1980px}
+#tblChange{min-width:1240px}
+thead th{
+  position:sticky;background:var(--surface-2);text-align:left;font-weight:500;
+  border-bottom:1px solid var(--line);white-space:nowrap;color:var(--ink-2);
+}
+tr.grouprow th{
+  top:0;z-index:6;font-size:10px;letter-spacing:.14em;color:var(--ink-3);
+  padding:6px 10px;border-bottom:1px solid var(--line);
+}
+tr.headrow th{top:27px;z-index:6;padding:7px 10px;font-size:11.5px}
+tbody td{padding:6px 10px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+tbody tr:hover td{background:var(--surface-2)}
+.b-cur{background:var(--band-cur)} .b-qty{background:var(--band-qty)} .b-rec{background:var(--band-rec)}
+tbody tr:hover .b-cur,tbody tr:hover .b-qty,tbody tr:hover .b-rec{filter:brightness(.985)}
+:root[data-theme="dark"] tbody tr:hover .b-cur,:root[data-theme="dark"] tbody tr:hover .b-qty,:root[data-theme="dark"] tbody tr:hover .b-rec{filter:brightness(1.25)}
+td.code{font-family:var(--f-num);font-weight:500}
+td.stripe{border-left:3px solid transparent;padding-left:9px}
+tr[data-cat="up"] td.stripe{border-left-color:var(--up)}
+tr[data-cat="dn"] td.stripe{border-left-color:var(--dn)}
+tr[data-cat="al"] td.stripe{border-left-color:var(--alert)}
+tr[data-cat="hold"] td.stripe{border-left-color:transparent}
+.name{width:196px;max-width:196px;overflow:hidden;text-overflow:ellipsis}
+.reason{width:360px;min-width:360px;white-space:normal;font-family:var(--f-body);font-size:11.5px;line-height:1.55;color:var(--ink-2);padding-top:9px;padding-bottom:9px}
+.n{font-family:var(--f-num);font-variant-numeric:tabular-nums;text-align:right}
+th.n{text-align:right}
+.qty-key{font-weight:600;color:var(--ink)}
+
+/* inline inputs */
+.cell-in{
+  border:1px solid transparent;background:transparent;border-radius:4px;
+  padding:3px 5px;font-size:12.5px;
+}
+.cell-in:hover{border-color:var(--line-strong);background:var(--surface)}
+.cell-in:focus{outline:none;border-color:var(--accent);background:var(--surface);box-shadow:0 0 0 2px var(--accent-soft)}
+input.cell-in.n{font-family:var(--f-num);text-align:right;width:62px}
+select.cell-in{
+  cursor:pointer;appearance:none;padding-right:17px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0h8L4 5z' fill='%238A94A3'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 5px center;
+}
+select.cell-in[data-f="kubun"]{width:116px}
+select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[data-f="status"]{width:84px}
+.note-in{width:150px}
+.capcell{display:inline-flex;align-items:center;gap:4px;justify-content:flex-end}
+.ro{color:var(--ink-3)}
+
+/* pills */
+.pill{display:inline-block;padding:2px 9px;border-radius:100px;font-size:11.5px;font-weight:500;border:1px solid transparent;white-space:nowrap}
+.pill.hold{background:var(--hold-bg);color:var(--hold);border-color:var(--line-strong)}
+.pill.up{background:var(--up-bg);color:var(--up);border-color:var(--up-line)}
+.pill.dn{background:var(--dn-bg);color:var(--dn);border-color:var(--dn-line)}
+.pill.al{background:var(--alert-bg);color:var(--alert);border-color:var(--alert-line)}
+.need{font-weight:600}
+.need.yes{color:var(--up)} .need.no{color:var(--ink-3);font-weight:400}
+.tag{
+  display:inline-block;margin-left:5px;padding:0 5px;border-radius:3px;font-size:9.5px;letter-spacing:.06em;
+  border:1px solid var(--line-strong);color:var(--ink-3);vertical-align:middle;
+}
+.tag.warn{border-color:var(--up-line);color:var(--up);background:var(--up-bg)}
+.arrow{color:var(--ink-3);padding:0 2px}
+.empty{padding:44px 20px;text-align:center;color:var(--ink-3);font-family:var(--f-body)}
+.rowbtn{border:none;background:none;color:var(--accent);cursor:pointer;font-size:11.5px;text-decoration:underline;padding:2px 4px;border-radius:4px}
+.rowbtn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+/* ---------- drawer ---------- */
+.scrim{position:fixed;inset:0;background:rgba(10,14,19,.42);opacity:0;pointer-events:none;transition:opacity .16s;z-index:40}
+.scrim.show{opacity:1;pointer-events:auto}
+.drawer{
+  position:fixed;top:0;right:0;height:100%;width:min(470px,94vw);background:var(--surface);
+  border-left:1px solid var(--line);box-shadow:var(--shadow);z-index:50;overflow-y:auto;
+  transform:translateX(100%);transition:transform .18s ease-out;
+}
+.drawer.show{transform:none}
+.dhead{padding:18px 20px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.dhead .code{font-family:var(--f-num);font-size:12.5px;color:var(--ink-3)}
+.dhead h2{margin:2px 0 0;font-size:18px;font-weight:700}
+.dsec{padding:16px 20px;border-bottom:1px solid var(--line)}
+.dsec h3{margin:0 0 10px;font-size:10.5px;letter-spacing:.14em;color:var(--ink-3);font-weight:500}
+.kv{display:grid;grid-template-columns:1fr auto;gap:5px 12px;font-size:13px}
+.kv dt{color:var(--ink-2)} .kv dd{margin:0;text-align:right;font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.transit{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px}
+.state{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius);padding:9px 12px;min-width:120px}
+.state .lbl{display:block;font-size:10px;letter-spacing:.12em;color:var(--ink-3)}
+.state .v{font-weight:500}
+.state.rec{background:var(--band-rec);border-color:var(--accent)}
+.bigarrow{font-size:18px;color:var(--ink-3)}
+.reason-box{font-family:var(--f-body);font-size:13px;line-height:1.7;color:var(--ink-2);background:var(--surface-2);border-radius:var(--radius);padding:11px 13px}
+.field{display:grid;gap:5px;margin-bottom:11px}
+.field label{font-size:11.5px;color:var(--ink-3);letter-spacing:.04em}
+.field select,.field input,.field textarea{
+  border:1px solid var(--line-strong);background:var(--surface);border-radius:var(--radius);padding:7px 9px;font-size:13px;width:100%;
+}
+.field textarea{min-height:66px;resize:vertical;font-family:var(--f-body)}
+.field select:focus-visible,.field input:focus-visible,.field textarea:focus-visible{outline:2px solid var(--accent);outline-offset:-1px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+.errlist{margin:0;padding-left:18px;font-family:var(--f-body);font-size:12.5px;color:var(--alert);line-height:1.7}
+.iconbtn{border:1px solid var(--line-strong);background:var(--surface-2);border-radius:var(--radius);width:30px;height:30px;cursor:pointer;line-height:1;font-size:16px}
+
+/* ---------- rules tab ---------- */
+.rules{padding:22px 24px;font-family:var(--f-body);max-width:900px}
+.rules h2{font-family:var(--f-ui);font-size:15px;margin:26px 0 8px;letter-spacing:.02em}
+.rules h2:first-child{margin-top:0}
+.rules p{margin:0 0 8px;font-size:13px;color:var(--ink-2);line-height:1.8}
+.rules code{font-family:var(--f-num);background:var(--surface-2);padding:1px 5px;border-radius:3px;font-size:12px}
+.routes{display:grid;gap:8px;margin:6px 0 4px}
+.route{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--surface-2);border-radius:var(--radius);padding:9px 12px}
+.route .rk{font-family:var(--f-ui);font-weight:500;min-width:105px;font-size:12.5px}
+.step{background:var(--surface);border:1px solid var(--line-strong);border-radius:100px;padding:2px 11px;font-size:12px;font-family:var(--f-ui)}
+.rtable{width:auto;font-size:12.5px;margin:6px 0;font-family:var(--f-ui)}
+.rtable th,.rtable td{border:1px solid var(--line);padding:5px 12px;white-space:nowrap}
+.rtable thead th{position:static;background:var(--surface-2)}
+.ok{color:var(--dn);font-weight:600} .ng{color:var(--alert);font-weight:600}
+
+/* toast */
+.toast{
+  position:fixed;left:50%;bottom:26px;transform:translate(-50%,14px);opacity:0;pointer-events:none;
+  background:var(--ink);color:var(--ground);padding:10px 18px;border-radius:100px;font-size:13px;z-index:60;
+  transition:opacity .18s,transform .18s;box-shadow:var(--shadow);
+}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.foot{margin-top:16px;font-family:var(--f-body);font-size:11.5px;color:var(--ink-3);line-height:1.7}
+</style>
+
+<div class="wrap">
+  <header class="masthead">
+    <div class="brand">
+      <h1>保管形式判定くん</h1>
+      <p class="sub">在庫定数・フリー在庫から 主保管／予備保管 を自動判定</p>
+    </div>
+    <div class="sync">
+      <div class="sync-meta">
+        <span class="lbl">NE 最終同期日時</span>
+        <span class="val" id="lastSync">―</span>
+      </div>
+      <span class="status-chip" id="syncChip" data-s="未同期"><span class="dot"></span><span id="syncText">未同期</span></span>
+      <select class="selectlike" id="syncMode" title="モック同期の挙動（動作確認用）">
+        <option value="ok">同期：正常</option>
+        <option value="partial">同期：一部商品取得エラー</option>
+        <option value="auth">同期：認証エラー</option>
+      </select>
+      <button class="btn btn-primary" id="syncBtn">ネクストエンジンから最新データを取得</button>
+    </div>
+  </header>
+
+  <div class="banner" id="banner"></div>
+
+  <div class="databar">
+    <div class="dbinfo">
+      <span class="lbl">共有データ（data.json）</span>
+      <span class="dbstate" id="sharedState">読み込み中…</span>
+    </div>
+    <div class="dbactions">
+      <button class="btn btn-sm" id="reloadShared">共有データを再読み込み</button>
+      <label class="btn btn-sm filebtn">CSVを取り込む<input type="file" id="csvIn" accept=".csv,text/csv" hidden></label>
+      <button class="btn btn-sm" id="csvOut">CSVを書き出す</button>
+      <button class="btn btn-sm" id="jsonOut">共有用JSONを書き出す</button>
+      <button class="btn btn-sm ghost" id="clearAll">全消去</button>
+    </div>
+  </div>
+
+  <div class="kpis" id="kpis"></div>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true" data-tab="main">メイン一覧</button>
+    <button class="tab" role="tab" aria-selected="false" data-tab="change">変更対象一覧 <span id="changeCount" class="num"></span></button>
+    <button class="tab" role="tab" aria-selected="false" data-tab="rules">判定ルール</button>
+  </div>
+
+  <section class="panel" id="panel-main">
+    <div class="toolbar">
+      <div class="search"><input type="search" id="q" placeholder="商品コード・商品名で検索"></div>
+      <div class="fgroup"><span class="glabel">判定結果</span><span id="resFilters"></span></div>
+      <div class="fgroup"><span class="glabel">対応状況</span><span id="staFilters"></span></div>
+      <label class="toggle"><input type="checkbox" id="manualMode"> 管理者：手動入力モード</label>
+    </div>
+    <div class="tablewrap"><table id="tblMain"></table></div>
+  </section>
+
+  <section class="panel" id="panel-change" hidden>
+    <div class="toolbar">
+      <div class="search"><input type="search" id="q2" placeholder="商品コード・商品名で検索"></div>
+      <div class="fgroup"><span class="glabel">判定結果</span><span id="resFilters2"></span></div>
+      <div class="fgroup"><span class="glabel">対応状況</span><span id="staFilters2"></span></div>
+      <button class="btn btn-sm" id="copyBtn">一覧をテキストで表示</button>
+    </div>
+    <div class="tablewrap"><table id="tblChange"></table></div>
+  </section>
+
+  <section class="panel" id="panel-rules" hidden>
+    <div class="rules" id="rulesBody"></div>
+  </section>
+
+  <p class="foot">
+    ネクストエンジン連携はモック同期（ダミー値）で動作しています。実接続時は client_secret / access_token / refresh_token をサーバー側で保持し、
+    <code>POST /api_v1_master_goods/search</code>（goods_id, goods_name, goods_stock_constant）と
+    <code>POST /api_v1_master_stock/search</code>（stock_goods_id, stock_free_quantity, stock_last_modified_date）を呼ぶ同期APIに、この画面の同期ボタンを差し替えてください。
+    入力内容はこのブラウザにのみ保存されます。
+  </p>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-hidden="true"></aside>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============ 定数 ============ */
+const KUBUN = ['小箱-多収納','小箱-少収納','箱-多収納','箱-少収納','コンテナ'];
+const DEFAULT_CAPS = {
+  '小箱-多収納':{s:150,b:750},
+  '小箱-少収納':{s:30,b:150},
+  '箱-多収納'  :{s:null,b:190},
+  '箱-少収納'  :{s:null,b:40},
+  'コンテナ'   :{s:null,b:null}
+};
+const RESULTS = ['維持','昇格','降格','予備保管追加','予備保管解除','昇格＋予備保管追加','降格＋予備保管解除','要確認'];
+const CAT = {
+  '維持':'hold','昇格':'up','予備保管追加':'up','昇格＋予備保管追加':'up',
+  '降格':'dn','予備保管解除':'dn','降格＋予備保管解除':'dn','要確認':'al'
+};
+const RANK = {'小箱':0,'箱':1,'コンテナ':2};
+const usesSmall = k => k.startsWith('小箱');
+const usesBox   = k => k.startsWith('小箱') || k.startsWith('箱');
+function allowedMains(k){
+  if(k === 'コンテナ') return ['コンテナ'];
+  if(k.startsWith('小箱')) return ['小箱','箱'];
+  return ['箱'];
+}
+function allowedSubs(k, main){
+  return (k !== 'コンテナ' && main === '箱') ? ['なし','コンテナ'] : ['なし'];
+}
+const fmt = v => (v === null || v === undefined || v === '') ? '―' : Number(v).toLocaleString('ja-JP');
+
+/* ============ 初期データ（仕様書ケース1〜10を再現＋追加） ============ */
+function seed(){
+  const S = (code,name,kubun,s,b,main,sub,teisu,free,extra) => Object.assign({
+    code, name, kubun, smallCap:s, boxCap:b,
+    smallCapEdited: s !== DEFAULT_CAPS[kubun].s,
+    boxCapEdited:   b !== DEFAULT_CAPS[kubun].b,
+    curMain:main, curSub:sub,
+    apiTeisu:teisu, apiFree:free,
+    manTeisu:null, manFree:null,
+    stale:false, matchError:false,
+    lastFetch: teisu === null && free === null ? null : '2026-07-28 06:00',
+    status:'未対応', note:''
+  }, extra || {});
+  return [
+    S('ABC-001','モバイルバッテリー 5000mAh','小箱-多収納',100,500,'小箱','なし',80,60),
+    S('ABC-002','USB-C ケーブル 1m ブラック','小箱-多収納',100,500,'小箱','なし',200,150),
+    S('ABC-003','ワイヤレスイヤホン 充電ケース付','小箱-多収納',100,500,'小箱','なし',800,600),
+    S('ABC-004','スマホリング スタンド兼用','小箱-多収納',100,500,'箱','なし',40,30),
+    S('ABC-005','レンズクリーナー 30ml','小箱-多収納',100,500,'箱','なし',200,180),
+    S('ABC-006','A4クリアファイル 10枚組','小箱-多収納',100,500,'箱','コンテナ',700,650),
+    S('ABC-007','卓上カレンダー 2027','小箱-多収納',100,500,'箱','コンテナ',400,300,{note:'年末に再入荷予定'}),
+    S('ABC-008','マウスパッド 大判','小箱-多収納',100,500,'箱','コンテナ',40,20),
+    S('ABC-009','名刺ケース アルミ','小箱-多収納',100,500,'小箱','なし',80,300,{note:'セール用の一時入荷（8月末まで）'}),
+    S('CNT-001','折りたたみコンテナ 50L','コンテナ',null,null,'コンテナ','なし',50,30),
+    S('SML-011','アロマオイル 10ml 詰替','小箱-少収納',30,150,'小箱','なし',25,18),
+    S('SML-012','ハンドクリーム 50g','小箱-少収納',30,150,'小箱','なし',120,90),
+    S('BOX-021','ペットフード ドライ 5kg','箱-少収納',null,40,'箱','なし',60,55),
+    S('BOX-022','トイレットペーパー 12ロール','箱-多収納',null,190,'箱','なし',60,50),
+    S('NEW-031','【新規】保冷バッグ Lサイズ','小箱-多収納',150,750,'小箱','なし',null,null),
+    S('NG-041','園芸用プランター 60cm','箱-多収納',null,190,'小箱','なし',35,30)
+  ];
+}
+
+/* ============ 状態 ============ */
+const LS = 'hokan-hantei-kun-v2';
+function blankState(){
+  return {
+    items: [],
+    sync:{ status:'未同期', at:null, message:'' },
+    manualMode:false,
+    filters:{ q:'', res:'すべて', sta:'すべて' },
+    filters2:{ q:'', res:'すべて', sta:'すべて' },
+    tab:'main',
+    sharedStamp:null
+  };
+}
+let state = blankState();
+let sharedInfo = { status:'読み込み中', updatedAt:null, count:0 };
+function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ return null; } }
+function save(){ try{ localStorage.setItem(LS, JSON.stringify(state)); }catch(e){} }
+
+/* ---- 商品1件を正規化（欠けた項目は基礎区分の初期値で補う） ---- */
+function normalize(raw){
+  const kubun = KUBUN.includes(raw.kubun) ? raw.kubun : '小箱-多収納';
+  const def = DEFAULT_CAPS[kubun];
+  const num = v => (v === '' || v === null || v === undefined || isNaN(Number(v))) ? null : Number(v);
+  const sc = raw.smallCap === undefined ? def.s : num(raw.smallCap);
+  const bc = raw.boxCap === undefined ? def.b : num(raw.boxCap);
+  let main = ['小箱','箱','コンテナ'].includes(raw.curMain) ? raw.curMain : allowedMains(kubun)[0];
+  let sub  = raw.curSub === 'コンテナ' ? 'コンテナ' : 'なし';
+  return {
+    code:String(raw.code || '').trim(), name:String(raw.name || '').trim(),
+    kubun, smallCap:sc, boxCap:bc,
+    smallCapEdited: sc !== def.s, boxCapEdited: bc !== def.b,
+    curMain:main, curSub:sub,
+    apiTeisu:num(raw.apiTeisu !== undefined ? raw.apiTeisu : raw.teisu),
+    apiFree :num(raw.apiFree  !== undefined ? raw.apiFree  : raw.free),
+    manTeisu:num(raw.manTeisu), manFree:num(raw.manFree),
+    stale:!!raw.stale, matchError:!!raw.matchError,
+    lastFetch: raw.lastFetch || null,
+    status: raw.status === '対応済' ? '対応済' : '未対応',
+    note: raw.note ? String(raw.note) : ''
+  };
+}
+
+/* ---- 共有データ（data.json）の読み込み ---- */
+async function fetchShared(){
+  try{
+    const res = await fetch('data.json?t=' + Date.now(), {cache:'no-store'});
+    if(!res.ok) return { status: res.status === 404 ? '未設定' : '取得失敗' };
+    const j = await res.json();
+    if(!j || !Array.isArray(j.items)) return { status:'形式エラー' };
+    return { status:'読込済', updatedAt: j.updatedAt || null, items: j.items.map(normalize).filter(x => x.code) };
+  }catch(e){
+    return { status: location.protocol === 'file:' ? 'ローカル表示' : '取得失敗' };
+  }
+}
+function adoptShared(sh){
+  state = blankState();
+  state.items = sh.items;
+  state.sharedStamp = sh.updatedAt || String(sh.items.length);
+  state.dirty = false;
+  save();
+}
+function markDirty(){ state.dirty = true; }
+function renderShared(){
+  const el = $('sharedState');
+  const s = sharedInfo;
+  const msg = {
+    '読込済':'<b>'+ (s.updatedAt || '日付なし') +'</b> 時点のデータを読み込み済み（'+ s.count +'件）',
+    '未設定':'リポジトリに data.json がまだありません。CSVを取り込んでから「共有用JSONを書き出す」で作成してください。',
+    '取得失敗':'data.json を取得できませんでした。表示中のデータはこの端末に保存されているものです。',
+    '形式エラー':'data.json の形式が正しくありません。{"updatedAt":"…","items":[…]} の形で保存してください。',
+    'ローカル表示':'ファイルを直接開いているため共有データは読み込めません。公開URLから開くと共有データが反映されます。',
+    '読み込み中':'読み込み中…'
+  }[s.status] || s.status;
+  el.className = 'dbstate' + (['取得失敗','形式エラー'].includes(s.status) ? ' warn' : '');
+  el.innerHTML = msg + (state.dirty
+    ? ' <span class="tag warn">この端末だけの変更あり</span>' : '');
+}
+
+/* ---- CSV ---- */
+const CSV_COLS = ['商品コード','商品名','基礎区分','小箱上限','箱上限','現在の主保管','現在の予備保管','在庫定数','フリー在庫','対応状況','備考'];
+function parseCSV(text){
+  const rows = []; let row = [], cur = '', q = false;
+  text = text.replace(/^﻿/, '');
+  for(let i = 0; i < text.length; i++){
+    const c = text[i];
+    if(q){
+      if(c === '"'){ if(text[i+1] === '"'){ cur += '"'; i++; } else q = false; }
+      else cur += c;
+    }else{
+      if(c === '"') q = true;
+      else if(c === ','){ row.push(cur); cur = ''; }
+      else if(c === '\n'){ row.push(cur); rows.push(row); row = []; cur = ''; }
+      else if(c !== '\r') cur += c;
+    }
+  }
+  if(cur !== '' || row.length){ row.push(cur); rows.push(row); }
+  return rows.filter(r => r.some(v => String(v).trim() !== ''));
+}
+async function readTextFile(file){
+  const buf = await file.arrayBuffer();
+  try{ return new TextDecoder('utf-8', {fatal:true}).decode(buf); }
+  catch(e){ return new TextDecoder('shift_jis').decode(buf); }
+}
+function importCSV(text){
+  const rows = parseCSV(text);
+  if(!rows.length) return { added:0, updated:0, errors:['ファイルが空です'] };
+  const head = rows[0].map(h => h.replace(/\s/g,''));
+  const idx = n => head.indexOf(n);
+  if(idx('商品コード') < 0) return { added:0, updated:0, errors:['1行目に「商品コード」の見出しが見つかりません'] };
+  const get = (r, n) => { const i = idx(n); return i < 0 ? undefined : String(r[i] === undefined ? '' : r[i]).trim(); };
+  let added = 0, updated = 0; const errors = [];
+  rows.slice(1).forEach((r, i) => {
+    const code = get(r,'商品コード');
+    if(!code) return;
+    const kubunRaw = get(r,'基礎区分');
+    if(kubunRaw && !KUBUN.includes(kubunRaw)){ errors.push((i+2)+'行目：基礎区分「'+kubunRaw+'」は使用できません'); return; }
+    const raw = {
+      code, name:get(r,'商品名') || '', kubun:kubunRaw || undefined,
+      smallCap:get(r,'小箱上限'), boxCap:get(r,'箱上限'),
+      curMain:get(r,'現在の主保管'), curSub:get(r,'現在の予備保管'),
+      teisu:get(r,'在庫定数'), free:get(r,'フリー在庫'),
+      status:get(r,'対応状況'), note:get(r,'備考') || get(r,'備考・例外対応') || ''
+    };
+    Object.keys(raw).forEach(k => { if(raw[k] === '') delete raw[k]; });
+    const item = normalize(raw);
+    const ex = state.items.findIndex(x => x.code === item.code);
+    if(ex >= 0){
+      const prev = state.items[ex];
+      state.items[ex] = Object.assign({}, prev, item, {
+        note: raw.note !== undefined ? item.note : prev.note,
+        status: raw.status !== undefined ? item.status : prev.status
+      });
+      updated++;
+    }else{ state.items.push(item); added++; }
+  });
+  if(added || updated) markDirty();
+  return { added, updated, errors };
+}
+function exportCSV(){
+  const lines = [CSV_COLS.join(',')];
+  const q = v => { const s = v === null || v === undefined ? '' : String(v); return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
+  state.items.forEach(it => lines.push([it.code,it.name,it.kubun,it.smallCap,it.boxCap,it.curMain,it.curSub,
+    usedTeisu(it),usedFree(it),it.status,it.note].map(q).join(',')));
+  return '﻿' + lines.join('\r\n') + '\r\n';
+}
+function sharedJSON(){
+  const p = n => String(n).padStart(2,'0');
+  const d = new Date();
+  return JSON.stringify({
+    updatedAt: d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()),
+    items: state.items.map(it => ({
+      code:it.code, name:it.name, kubun:it.kubun, smallCap:it.smallCap, boxCap:it.boxCap,
+      curMain:it.curMain, curSub:it.curSub, apiTeisu:it.apiTeisu, apiFree:it.apiFree,
+      lastFetch:it.lastFetch, status:it.status, note:it.note
+    }))
+  }, null, 2);
+}
+function offerFile(name, text, mime){
+  try{
+    const url = URL.createObjectURL(new Blob([text], {type:mime + ';charset=utf-8'}));
+    const a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+  }catch(e){}
+  showText(name, text);
+}
+function showText(title, text){
+  const d = $('drawer');
+  d.innerHTML = '<div class="dhead"><div><h2>'+esc(title)+'</h2><span class="code">ダウンロードされない場合は、下のテキストを選択してコピーしてください</span></div>'+
+    '<button class="iconbtn" id="dclose" aria-label="閉じる">×</button></div>'+
+    '<div class="dsec"><textarea style="width:100%;min-height:62vh;font-family:var(--f-num);font-size:11px;border:1px solid var(--line-strong);border-radius:6px;padding:10px;background:var(--surface-2)">'+esc(text)+'</textarea></div>';
+  $('scrim').classList.add('show'); d.classList.add('show'); d.setAttribute('aria-hidden','false');
+  $('dclose').onclick = closeDrawer;
+  const ta = d.querySelector('textarea'); ta.focus(); ta.select();
+}
+
+const usedTeisu = it => (state.manualMode && it.manTeisu !== null && it.manTeisu !== undefined) ? it.manTeisu : it.apiTeisu;
+const usedFree  = it => (state.manualMode && it.manFree  !== null && it.manFree  !== undefined) ? it.manFree  : it.apiFree;
+
+/* ============ 判定ロジック ============ */
+function validate(it){
+  const e = [];
+  const t = usedTeisu(it), f = usedFree(it);
+  if(it.matchError) e.push('API商品照合エラー：ネクストエンジン側に一致する商品コードがありません');
+  if(t === null || t === undefined || t === '') e.push('在庫定数が未取得（未入力）です');
+  if(f === null || f === undefined || f === '') e.push('フリー在庫が未取得（未入力）です');
+  if(usesSmall(it.kubun) && (it.smallCap === null || it.smallCap === undefined || it.smallCap === '')) e.push('小箱を使用する基礎区分ですが、小箱上限が未入力です');
+  if(usesBox(it.kubun)   && (it.boxCap   === null || it.boxCap   === undefined || it.boxCap   === '')) e.push('箱を使用する基礎区分ですが、箱上限が未入力です');
+  if(it.smallCap !== null && it.boxCap !== null && it.smallCap > it.boxCap) e.push('小箱上限（'+it.smallCap+'）が箱上限（'+it.boxCap+'）より大きくなっています');
+  [['在庫定数',t],['フリー在庫',f],['小箱上限',it.smallCap],['箱上限',it.boxCap]].forEach(([n,v])=>{
+    if(v !== null && v !== undefined && v !== '' && Number(v) < 0) e.push(n+'にマイナス値が入力されています');
+  });
+  if(!allowedMains(it.kubun).includes(it.curMain)) e.push('基礎区分「'+it.kubun+'」では現在の主保管に「'+it.curMain+'」を設定できません');
+  if(it.curMain === '小箱' && it.curSub === 'コンテナ') e.push('主保管が小箱なのに予備保管がコンテナになっています');
+  if(it.curMain === 'コンテナ' && it.curSub === 'コンテナ') e.push('主保管がコンテナなのに予備保管もコンテナになっています');
+  return e;
+}
+
+function judge(it){
+  const errs = validate(it);
+  const t = usedTeisu(it), f = usedFree(it);
+  const qty = (t === null || f === null || t === undefined || f === undefined) ? null : Math.max(Number(t), Number(f));
+
+  if(errs.length){
+    return { qty, recMain:null, recSub:null, result:'要確認', cat:'al',
+             reason:'【要確認】'+errs.join(' / ')+'。自動判定は行いません。', need:null, errs };
+  }
+
+  const s = it.smallCap, b = it.boxCap, k = it.kubun;
+  const half = b !== null ? b * 0.5 : null;
+  const src = Number(f) > Number(t)
+    ? '在庫定数'+fmt(t)+'に対してフリー在庫'+fmt(f)+'のため、判定用在庫数'+fmt(qty)+'を採用。'
+    : '判定用在庫数は在庫定数'+fmt(t)+'とフリー在庫'+fmt(f)+'の大きい方＝'+fmt(qty)+'。';
+
+  let recMain, recSub, mainNote, subNote = '', blocked = false;
+
+  if(k === 'コンテナ'){
+    recMain = 'コンテナ'; recSub = 'なし';
+    mainNote = '基礎区分「コンテナ」のため、在庫数に関わらず主保管はコンテナで固定。';
+  }else{
+    // 判定用在庫数を収納できる最小の状態（＝理想状態）
+    let ideal;
+    if(usesSmall(k) && qty <= s) ideal = '小箱';
+    else ideal = '箱';
+
+    if(RANK[ideal] > RANK[it.curMain]){
+      recMain = ideal;
+      mainNote = '判定用在庫数'+fmt(qty)+' ＞ 小箱上限'+fmt(s)+'のため、主保管を小箱から箱へ昇格。';
+    }else if(RANK[ideal] < RANK[it.curMain]){
+      // 降格候補：①50%未満 ②降格先に収まる
+      const c1 = qty < half, c2 = qty <= s;
+      if(c1 && c2){
+        recMain = ideal;
+        mainNote = '判定用在庫数'+fmt(qty)+' ＜ 箱上限'+fmt(b)+'の50%（'+fmt(half)+'）、かつ小箱上限'+fmt(s)+'以内のため、主保管を箱から小箱へ降格。';
+      }else{
+        recMain = it.curMain; blocked = true;
+        mainNote = c1
+          ? '判定用在庫数'+fmt(qty)+' ＜ 箱上限'+fmt(b)+'の50%（'+fmt(half)+'）だが、小箱上限'+fmt(s)+'を超えているため、主保管は箱を維持。'
+          : '判定用在庫数'+fmt(qty)+' は箱上限'+fmt(b)+'の50%（'+fmt(half)+'）未満ではないため、主保管は箱を維持。';
+      }
+    }else{
+      recMain = it.curMain;
+      if(recMain === '小箱'){
+        mainNote = '判定用在庫数'+fmt(qty)+' ≦ 小箱上限'+fmt(s)+'のため、主保管は小箱を維持。';
+      }else if(!usesSmall(k)){
+        mainNote = '基礎区分「'+k+'」は小箱を使用しないため、主保管は箱を維持。';
+      }else if(qty > b){
+        mainNote = '判定用在庫数'+fmt(qty)+' ＞ 箱上限'+fmt(b)+'のため、主保管は箱のまま。';
+      }else{
+        mainNote = '判定用在庫数'+fmt(qty)+' ≦ 箱上限'+fmt(b)+'、かつ50%（'+fmt(half)+'）以上のため、主保管は箱を維持。';
+      }
+    }
+    recSub = (recMain === '箱' && qty > b) ? 'コンテナ' : 'なし';
+  }
+
+  if(recSub === 'コンテナ' && it.curSub !== 'コンテナ') subNote = '判定用在庫数'+fmt(qty)+' ＞ 箱上限'+fmt(b)+'のため、予備保管としてコンテナを追加。';
+  else if(recSub === 'なし' && it.curSub === 'コンテナ') subNote = '判定用在庫数'+fmt(qty)+' ≦ 箱上限'+fmt(b)+'のため、予備コンテナを解除。';
+  else if(recSub === 'コンテナ' && it.curSub === 'コンテナ') subNote = '判定用在庫数'+fmt(qty)+' ＞ 箱上限'+fmt(b)+'のため、予備コンテナを維持。';
+
+  const mainDelta = RANK[recMain] - RANK[it.curMain];
+  const subDelta = recSub === it.curSub ? 0 : (recSub === 'コンテナ' ? 1 : -1);
+  let result;
+  if(mainDelta > 0 && subDelta > 0) result = '昇格＋予備保管追加';
+  else if(mainDelta < 0 && subDelta < 0) result = '降格＋予備保管解除';
+  else if(mainDelta > 0) result = '昇格';
+  else if(mainDelta < 0) result = '降格';
+  else if(subDelta > 0) result = '予備保管追加';
+  else if(subDelta < 0) result = '予備保管解除';
+  else result = '維持';
+
+  const need = (recMain !== it.curMain || recSub !== it.curSub) ? '要' : '不要';
+  const staleNote = it.stale ? '※在庫数値は前回取得値です。' : '';
+
+  return { qty, recMain, recSub, result, cat:CAT[result], need, blocked, errs:[],
+           reason:(staleNote + src + mainNote + subNote) };
+}
+
+/* ============ 描画 ============ */
+const $ = id => document.getElementById(id);
+const esc = s => String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function rows(){ return state.items.map(it => ({ it, j: judge(it) })); }
+
+function matches(r, f){
+  const q = f.q.trim().toLowerCase();
+  if(q && !(r.it.code.toLowerCase().includes(q) || r.it.name.toLowerCase().includes(q))) return false;
+  if(f.res !== 'すべて' && r.j.result !== f.res) return false;
+  if(f.sta !== 'すべて' && r.it.status !== f.sta) return false;
+  return true;
+}
+
+function renderKpis(){
+  const R = rows();
+  const c = r => R.filter(r2 => r2.j.result === r).length;
+  const defs = [
+    ['全SKU', R.length, '', 'すべて'],
+    ['変更要', R.filter(x => x.j.need === '要').length, 'up', '__need'],
+    ['昇格', c('昇格') + c('昇格＋予備保管追加'), 'up', '昇格'],
+    ['降格', c('降格') + c('降格＋予備保管解除'), 'dn', '降格'],
+    ['予備保管追加', c('予備保管追加'), 'up', '予備保管追加'],
+    ['予備保管解除', c('予備保管解除'), 'dn', '予備保管解除'],
+    ['要確認', c('要確認'), 'al', '要確認'],
+    ['未対応', R.filter(x => x.it.status === '未対応' && x.j.need === '要').length, '', '__todo']
+  ];
+  $('kpis').innerHTML = defs.map(([k,v,cls,key]) =>
+    '<button class="kpi '+cls+'" data-key="'+key+'"><span class="k">'+k+'</span><span class="v num">'+v+'</span></button>'
+  ).join('');
+  $('changeCount').textContent = '(' + R.filter(x => x.j.need === '要').length + ')';
+}
+
+function selCell(value, options, attrs){
+  return '<select class="cell-in" '+attrs+'>'+options.map(o =>
+    '<option'+(o === value ? ' selected' : '')+'>'+esc(o)+'</option>').join('')+'</select>';
+}
+
+function numCell(v, attrs, disabled){
+  return '<input class="cell-in n" type="number" min="0" value="'+(v === null || v === undefined ? '' : v)+'" '+attrs+(disabled ? ' disabled' : '')+'>';
+}
+
+function pill(text, cat){ return '<span class="pill '+cat+'">'+esc(text)+'</span>'; }
+
+function renderMain(){
+  $('tblMain').style.minWidth = state.items.length ? '' : '0';
+  if(!state.items.length){
+    $('tblMain').innerHTML = '<tbody><tr><td><div class="intro">'+
+      '<h2>まだ商品が登録されていません</h2>'+
+      '<p>商品リストをCSVで取り込むと、その場で保管形式の判定が始まります。</p>'+
+      '<ol class="steps">'+
+        '<li>下の見出し行をそのまま使ったCSVを用意します（商品コード以外は空欄でも構いません）。</li>'+
+        '<li>上の「CSVを取り込む」で読み込みます。基礎区分を入れておくと収納上限が自動で入ります。</li>'+
+        '<li>取り込んだあと「共有用JSONを書き出す」で data.json を作り、リポジトリに置くと全員が同じデータを見られます。</li>'+
+      '</ol>'+
+      '<div class="csvspec">商品コード,商品名,基礎区分,小箱上限,箱上限,現在の主保管,現在の予備保管,在庫定数,フリー在庫,対応状況,備考\n'+
+      'ABC-001,USB-C ケーブル 1m,小箱-多収納,100,500,小箱,なし,200,150,未対応,\n'+
+      'BOX-021,ペットフード 5kg,箱-少収納,,40,箱,なし,60,55,未対応,</div>'+
+      '<p style="margin-top:14px">基礎区分は <b>小箱-多収納 / 小箱-少収納 / 箱-多収納 / 箱-少収納 / コンテナ</b>、現在の主保管は <b>小箱 / 箱 / コンテナ</b>、現在の予備保管は <b>なし / コンテナ</b> のいずれかで入力してください。</p>'+
+      '<p><button class="btn btn-sm" id="loadSample">サンプルデータを入れて試す</button></p>'+
+      '</div></td></tr></tbody>';
+    const ls = $('loadSample');
+    if(ls) ls.onclick = () => { state.items = seed(); markDirty(); render(); toast('サンプル16件を読み込みました'); };
+    return;
+  }
+  const R = rows().filter(r => matches(r, state.filters));
+  const head =
+    '<thead>'+
+    '<tr class="grouprow"><th colspan="3">商品</th><th colspan="2">収納上限</th><th colspan="2">現在の保管</th>'+
+    '<th colspan="3">在庫数量</th><th colspan="2">推奨の保管</th><th colspan="3">判定</th><th colspan="2">運用</th></tr>'+
+    '<tr class="headrow">'+
+      '<th>商品コード</th><th>商品名</th><th>基礎区分</th>'+
+      '<th class="n">小箱上限</th><th class="n">箱上限</th>'+
+      '<th class="b-cur">現在の主保管</th><th class="b-cur">現在の予備保管</th>'+
+      '<th class="b-qty n">在庫定数</th><th class="b-qty n">フリー在庫</th><th class="b-qty n">判定用在庫数</th>'+
+      '<th class="b-rec">推奨主保管</th><th class="b-rec">推奨予備保管</th>'+
+      '<th>判定結果</th><th>判定理由</th><th>変更要否</th>'+
+      '<th>対応状況</th><th>備考・例外対応</th>'+
+    '</tr></thead>';
+
+  const body = R.map(({it,j}) => {
+    const mm = state.manualMode;
+    const t = usedTeisu(it), f = usedFree(it);
+    const manT = mm && it.manTeisu !== null && it.manTeisu !== undefined;
+    const manF = mm && it.manFree !== null && it.manFree !== undefined;
+    return '<tr data-cat="'+j.cat+'" data-code="'+esc(it.code)+'">'+
+      '<td class="code stripe">'+esc(it.code)+'</td>'+
+      '<td class="name" title="'+esc(it.name)+'">'+esc(it.name)+'</td>'+
+      '<td>'+selCell(it.kubun, KUBUN, 'data-f="kubun" data-code="'+esc(it.code)+'"')+'</td>'+
+      '<td class="n">'+(usesSmall(it.kubun) ? '<span class="capcell">'+numCell(it.smallCap,'data-f="smallCap" data-code="'+esc(it.code)+'"')+(it.smallCapEdited?'<span class="tag">個別</span>':'')+'</span>' : '<span class="ro">―</span>')+'</td>'+
+      '<td class="n">'+(usesBox(it.kubun) ? '<span class="capcell">'+numCell(it.boxCap,'data-f="boxCap" data-code="'+esc(it.code)+'"')+(it.boxCapEdited?'<span class="tag">個別</span>':'')+'</span>' : '<span class="ro">―</span>')+'</td>'+
+      '<td class="b-cur">'+selCell(it.curMain, allowedMains(it.kubun).includes(it.curMain) ? allowedMains(it.kubun) : [it.curMain].concat(allowedMains(it.kubun)), 'data-f="curMain" data-code="'+esc(it.code)+'"')+'</td>'+
+      '<td class="b-cur">'+selCell(it.curSub, allowedSubs(it.kubun, it.curMain).includes(it.curSub) ? allowedSubs(it.kubun, it.curMain) : [it.curSub].concat(allowedSubs(it.kubun, it.curMain)), 'data-f="curSub" data-code="'+esc(it.code)+'"')+'</td>'+
+      '<td class="b-qty n"><span class="capcell">'+(mm ? numCell(t,'data-f="manTeisu" data-code="'+esc(it.code)+'"') : '<span class="num">'+fmt(t)+'</span>')+(manT?'<span class="tag warn">手入力</span>':(it.stale?'<span class="tag warn">前回値</span>':''))+'</span></td>'+
+      '<td class="b-qty n"><span class="capcell">'+(mm ? numCell(f,'data-f="manFree" data-code="'+esc(it.code)+'"') : '<span class="num">'+fmt(f)+'</span>')+(manF?'<span class="tag warn">手入力</span>':'')+'</span></td>'+
+      '<td class="b-qty n qty-key">'+fmt(j.qty)+'</td>'+
+      '<td class="b-rec">'+(j.recMain ? esc(j.recMain) : '<span class="ro">―</span>')+'</td>'+
+      '<td class="b-rec">'+(j.recSub ? esc(j.recSub) : '<span class="ro">―</span>')+'</td>'+
+      '<td>'+pill(j.result, j.cat)+'</td>'+
+      '<td class="reason">'+esc(j.reason)+'</td>'+
+      '<td>'+(j.need ? '<span class="need '+(j.need === '要' ? 'yes' : 'no')+'">'+j.need+'</span>' : '<span class="ro">―</span>')+'</td>'+
+      '<td>'+selCell(it.status, ['未対応','対応済'], 'data-f="status" data-code="'+esc(it.code)+'"')+'</td>'+
+      '<td><input class="cell-in note-in" value="'+esc(it.note)+'" data-f="note" data-code="'+esc(it.code)+'" placeholder="—"><button class="rowbtn" data-open="'+esc(it.code)+'">詳細</button></td>'+
+    '</tr>';
+  }).join('');
+
+  $('tblMain').innerHTML = head + '<tbody>' + body + '</tbody>';
+  if(!R.length) $('tblMain').innerHTML = head + '<tbody><tr><td colspan="17" class="empty">条件に一致する商品はありません。</td></tr></tbody>';
+}
+
+function renderChange(){
+  const R = rows().filter(r => r.j.need === '要' || r.j.result === '要確認').filter(r => matches(r, state.filters2));
+  const head = '<thead><tr class="headrow">'+
+    '<th>商品コード</th><th>商品名</th><th class="n">判定用在庫数</th>'+
+    '<th class="b-cur">現在の主保管</th><th class="b-cur">現在の予備保管</th>'+
+    '<th class="b-rec">推奨主保管</th><th class="b-rec">推奨予備保管</th>'+
+    '<th>判定結果</th><th>判定理由</th><th>対応状況</th><th></th></tr></thead>';
+  const body = R.map(({it,j}) =>
+    '<tr data-cat="'+j.cat+'" data-code="'+esc(it.code)+'">'+
+    '<td class="code stripe">'+esc(it.code)+'</td>'+
+    '<td class="name" title="'+esc(it.name)+'">'+esc(it.name)+'</td>'+
+    '<td class="n qty-key">'+fmt(j.qty)+'</td>'+
+    '<td class="b-cur">'+esc(it.curMain)+'</td><td class="b-cur">'+esc(it.curSub)+'</td>'+
+    '<td class="b-rec">'+(j.recMain ? esc(j.recMain) : '―')+'</td><td class="b-rec">'+(j.recSub ? esc(j.recSub) : '―')+'</td>'+
+    '<td>'+pill(j.result, j.cat)+'</td>'+
+    '<td class="reason">'+esc(j.reason)+'</td>'+
+    '<td>'+selCell(it.status, ['未対応','対応済'], 'data-f="status" data-code="'+esc(it.code)+'"')+'</td>'+
+    '<td><button class="rowbtn" data-open="'+esc(it.code)+'">詳細</button></td></tr>'
+  ).join('');
+  $('tblChange').innerHTML = head + '<tbody>' + (body || '<tr><td colspan="11" class="empty">変更が必要な商品はありません。今月の移動作業はゼロです。</td></tr>') + '</tbody>';
+}
+
+function renderFilters(){
+  const mk = (target, cur, list, key) => list.map(v =>
+    '<button class="chip" data-fk="'+key+'" data-t="'+target+'" data-v="'+esc(v)+'" aria-pressed="'+(cur === v)+'">'+esc(v)+'</button>').join('');
+  $('resFilters').innerHTML  = mk('filters',  state.filters.res,  ['すべて'].concat(RESULTS), 'res');
+  $('staFilters').innerHTML  = mk('filters',  state.filters.sta,  ['すべて','未対応','対応済'], 'sta');
+  $('resFilters2').innerHTML = mk('filters2', state.filters2.res, ['すべて'].concat(RESULTS), 'res');
+  $('staFilters2').innerHTML = mk('filters2', state.filters2.sta, ['すべて','未対応','対応済'], 'sta');
+}
+
+function renderSync(){
+  const s = state.sync;
+  $('syncChip').dataset.s = s.status;
+  $('syncText').textContent = s.status;
+  $('lastSync').textContent = s.at || '―';
+  const bad = ['同期失敗','認証エラー','一部商品取得エラー'].includes(s.status);
+  const b = $('banner');
+  b.classList.toggle('show', bad);
+  if(bad) b.innerHTML = '<b>最新データ取得失敗</b><span>'+esc(s.message)+'　表示中の在庫定数・フリー在庫は前回正常取得した値です（最新値ではありません）。</span>';
+}
+
+function render(){
+  renderKpis(); renderFilters(); renderMain(); renderChange(); renderSync(); renderShared(); save();
+}
+
+/* ============ 詳細ドロワー ============ */
+let openCode = null;
+function openDrawer(code){
+  const it = state.items.find(x => x.code === code);
+  if(!it) return;
+  const j = judge(it);
+  openCode = code;
+  const half = it.boxCap !== null ? it.boxCap * 0.5 : null;
+  const d = $('drawer');
+  d.innerHTML =
+  '<div class="dhead"><div><span class="code">'+esc(it.code)+'</span><h2>'+esc(it.name)+'</h2>'+
+    '<div style="margin-top:8px">'+pill(j.result, j.cat)+(j.need ? ' <span class="need '+(j.need==='要'?'yes':'no')+'" style="font-size:12px">変更要否：'+j.need+'</span>' : '')+'</div></div>'+
+    '<button class="iconbtn" id="dclose" aria-label="閉じる">×</button></div>'+
+
+  '<div class="dsec"><h3>現在 → 推奨</h3><div class="transit">'+
+    '<div class="state"><span class="lbl">現在</span><span class="v">主：'+esc(it.curMain)+'</span><br><span class="v">予備：'+esc(it.curSub)+'</span></div>'+
+    '<span class="bigarrow">→</span>'+
+    '<div class="state rec"><span class="lbl">推奨</span><span class="v">主：'+esc(j.recMain || '―')+'</span><br><span class="v">予備：'+esc(j.recSub || '―')+'</span></div>'+
+  '</div></div>'+
+
+  '<div class="dsec"><h3>判定に使った数値</h3><dl class="kv">'+
+    '<dt>在庫定数（NE取得）</dt><dd>'+fmt(it.apiTeisu)+'</dd>'+
+    '<dt>フリー在庫（NE取得）</dt><dd>'+fmt(it.apiFree)+'</dd>'+
+    (it.manTeisu !== null && it.manTeisu !== undefined ? '<dt>在庫定数（手入力値）</dt><dd>'+fmt(it.manTeisu)+'</dd>' : '')+
+    (it.manFree !== null && it.manFree !== undefined ? '<dt>フリー在庫（手入力値）</dt><dd>'+fmt(it.manFree)+'</dd>' : '')+
+    '<dt><b>判定に使用中：判定用在庫数</b></dt><dd><b>'+fmt(j.qty)+'</b></dd>'+
+    '<dt>小箱上限</dt><dd>'+fmt(it.smallCap)+(it.smallCapEdited?'（SKU個別）':'')+'</dd>'+
+    '<dt>箱上限</dt><dd>'+fmt(it.boxCap)+(it.boxCapEdited?'（SKU個別）':'')+'</dd>'+
+    '<dt>箱上限の50%（降格しきい値）</dt><dd>'+fmt(half)+'</dd>'+
+    '<dt>データ最終取得日時</dt><dd>'+esc(it.lastFetch || '未取得')+'</dd>'+
+  '</dl></div>'+
+
+  '<div class="dsec"><h3>判定理由</h3>'+
+    (j.errs && j.errs.length
+      ? '<ul class="errlist">'+j.errs.map(e => '<li>'+esc(e)+'</li>').join('')+'</ul>'
+      : '<p class="reason-box">'+esc(j.reason)+'</p>')+
+  '</div>'+
+
+  '<div class="dsec"><h3>ツール側で設定する項目</h3>'+
+    '<div class="field"><label>基礎区分</label><select data-df="kubun">'+KUBUN.map(k=>'<option'+(k===it.kubun?' selected':'')+'>'+k+'</option>').join('')+'</select></div>'+
+    '<div class="grid2">'+
+      '<div class="field"><label>小箱上限</label><input type="number" min="0" data-df="smallCap" value="'+(it.smallCap===null?'':it.smallCap)+'"'+(usesSmall(it.kubun)?'':' disabled')+'></div>'+
+      '<div class="field"><label>箱上限</label><input type="number" min="0" data-df="boxCap" value="'+(it.boxCap===null?'':it.boxCap)+'"'+(usesBox(it.kubun)?'':' disabled')+'></div>'+
+    '</div>'+
+    '<div class="grid2">'+
+      '<div class="field"><label>現在の主保管（実移動後に更新）</label><select data-df="curMain">'+allowedMains(it.kubun).map(m=>'<option'+(m===it.curMain?' selected':'')+'>'+m+'</option>').join('')+(allowedMains(it.kubun).includes(it.curMain)?'':'<option selected>'+esc(it.curMain)+'</option>')+'</select></div>'+
+      '<div class="field"><label>現在の予備保管</label><select data-df="curSub">'+allowedSubs(it.kubun, it.curMain).map(m=>'<option'+(m===it.curSub?' selected':'')+'>'+m+'</option>').join('')+(allowedSubs(it.kubun,it.curMain).includes(it.curSub)?'':'<option selected>'+esc(it.curSub)+'</option>')+'</select></div>'+
+    '</div>'+
+    '<div class="field"><label>対応状況</label><select data-df="status"><option'+(it.status==='未対応'?' selected':'')+'>未対応</option><option'+(it.status==='対応済'?' selected':'')+'>対応済</option></select></div>'+
+    '<div class="field"><label>備考・例外対応（自動判定は残ります）</label><textarea data-df="note" placeholder="例：セール前の一時入荷。9月に通常水準へ戻る見込み">'+esc(it.note)+'</textarea></div>'+
+    '<button class="btn btn-sm" id="applyRec">推奨どおりに移動完了として反映（現在の保管を更新＋対応済）</button>'+
+  '</div>';
+
+  $('scrim').classList.add('show');
+  d.classList.add('show'); d.setAttribute('aria-hidden','false');
+  $('dclose').onclick = closeDrawer;
+  const ar = $('applyRec');
+  if(ar) ar.onclick = () => {
+    if(!j.recMain){ toast('要確認のSKUは反映できません'); return; }
+    it.curMain = j.recMain; it.curSub = j.recSub; it.status = '対応済'; markDirty();
+    render(); openDrawer(code); toast(it.code+' の現在の保管を更新しました');
+  };
+  d.querySelectorAll('[data-df]').forEach(el => {
+    el.addEventListener('change', e => {
+      applyField(it, e.target.dataset.df, e.target.value);
+      render(); openDrawer(code);
+    });
+  });
+}
+function closeDrawer(){
+  openCode = null;
+  $('scrim').classList.remove('show');
+  $('drawer').classList.remove('show');
+  $('drawer').setAttribute('aria-hidden','true');
+}
+
+/* ============ 編集 ============ */
+function applyField(it, field, value){
+  markDirty();
+  const numify = v => (v === '' || v === null) ? null : Number(v);
+  if(field === 'kubun'){
+    it.kubun = value;
+    const d = DEFAULT_CAPS[value];
+    it.smallCap = d.s; it.boxCap = d.b; it.smallCapEdited = false; it.boxCapEdited = false;
+    const am = allowedMains(value);
+    if(!am.includes(it.curMain)){ it.curMain = am[0]; toast('基礎区分に合わせて現在の主保管を「'+am[0]+'」に補正し、収納上限を初期値に戻しました'); }
+    else toast('収納上限を基礎区分の初期値に戻しました');
+    if(!allowedSubs(it.kubun, it.curMain).includes(it.curSub)) it.curSub = 'なし';
+  }
+  else if(field === 'smallCap'){ it.smallCap = numify(value); it.smallCapEdited = it.smallCap !== DEFAULT_CAPS[it.kubun].s; }
+  else if(field === 'boxCap'){ it.boxCap = numify(value); it.boxCapEdited = it.boxCap !== DEFAULT_CAPS[it.kubun].b; }
+  else if(field === 'curMain'){
+    it.curMain = value;
+    if(!allowedSubs(it.kubun, value).includes(it.curSub)){ it.curSub = 'なし'; toast('主保管が'+value+'のため、予備保管を「なし」にしました'); }
+  }
+  else if(field === 'curSub'){ it.curSub = value; }
+  else if(field === 'status'){ it.status = value; }
+  else if(field === 'note'){ it.note = value; }
+  else if(field === 'manTeisu'){ it.manTeisu = numify(value); }
+  else if(field === 'manFree'){ it.manFree = numify(value); }
+}
+
+/* ============ NE モック同期 ============ */
+function nowStr(){
+  const d = new Date(), p = n => String(n).padStart(2,'0');
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());
+}
+function mockValue(base){
+  if(base === null || base === undefined) return null;
+  const delta = Math.round((Math.random() - 0.42) * Math.max(8, base * 0.35));
+  return Math.max(0, base + delta);
+}
+function sync(){
+  const mode = $('syncMode').value;
+  state.sync.status = '同期中'; state.sync.message = ''; renderSync();
+  $('syncBtn').disabled = true;
+  setTimeout(() => {
+    const stamp = nowStr();
+    if(mode === 'auth'){
+      state.sync.status = '認証エラー';
+      state.sync.message = 'access_token の更新に失敗しました（refresh_token を確認してください）。';
+      state.items.forEach(it => { if(it.lastFetch) it.stale = true; });
+    }else{
+      const failCodes = mode === 'partial' ? ['ABC-006','BOX-021'] : [];
+      state.items.forEach(it => {
+        if(failCodes.includes(it.code)){ it.stale = true; return; }
+        if(it.code === 'NEW-031' && mode === 'partial'){ return; } // 一度も取得できないSKU
+        if(it.code === 'NEW-031'){ it.apiTeisu = 120; it.apiFree = 60; }
+        else { it.apiTeisu = mockValue(it.apiTeisu); it.apiFree = mockValue(it.apiFree); }
+        it.stale = false; it.lastFetch = stamp;
+      });
+      if(mode === 'partial'){
+        state.sync.status = '一部商品取得エラー';
+        state.sync.message = failCodes.join('・')+' の在庫情報を取得できませんでした。';
+      }else{
+        state.sync.status = '同期成功'; state.sync.message = '';
+      }
+      state.sync.at = stamp;
+    }
+    markDirty();
+    $('syncBtn').disabled = false;
+    render();
+    toast(state.sync.status === '同期成功' ? '同期完了：全SKUの保管判定を再計算しました' : state.sync.status);
+  }, 850);
+}
+
+/* ============ その他UI ============ */
+let toastT;
+function toast(msg){
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600);
+}
+function switchTab(name){
+  state.tab = name;
+  document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
+  ['main','change','rules'].forEach(n => { $('panel-'+n).hidden = (n !== name); });
+  save();
+}
+
+function renderRules(){
+  const capRows = KUBUN.map(k => '<tr><td>'+k+'</td><td class="num">'+(DEFAULT_CAPS[k].s ?? '―')+'</td><td class="num">'+(DEFAULT_CAPS[k].b ?? '―')+'</td></tr>').join('');
+  $('rulesBody').innerHTML =
+  '<h2>判定用在庫数</h2>'+
+  '<p><code>判定用在庫数 ＝ MAX（在庫定数, フリー在庫）</code>　通常持っておきたい数量と、実際に場所を取っている数量のうち多い方で判定します。</p>'+
+
+  '<h2>基礎区分ごとの保管ルート</h2><div class="routes">'+
+    '<div class="route"><span class="rk">小箱-多収納<br>小箱-少収納</span><span class="step">主：小箱</span><span class="arrow">→</span><span class="step">主：箱</span><span class="arrow">→</span><span class="step">主：箱＋予備：コンテナ</span></div>'+
+    '<div class="route"><span class="rk">箱-多収納<br>箱-少収納</span><span class="step">主：箱</span><span class="arrow">→</span><span class="step">主：箱＋予備：コンテナ</span></div>'+
+    '<div class="route"><span class="rk">コンテナ</span><span class="step">主：コンテナ（固定）</span></div>'+
+  '</div>'+
+
+  '<h2>昇格・降格・予備保管</h2>'+
+  '<p><b>昇格</b>：判定用在庫数 ＞ 現在の主保管上限。ちょうど100%は維持。1段階ずつではなく、適切な主保管＋予備保管まで一気に判定します。</p>'+
+  '<p><b>降格</b>：①判定用在庫数 ＜ 現在の主保管上限×50% ②判定用在庫数 ≦ 降格先の上限　の両方を満たす場合のみ。ちょうど50%は維持。降格先に入らなければ降格しません。</p>'+
+  '<p><b>予備コンテナ追加</b>：主保管が箱で 判定用在庫数 ＞ 箱上限。<b>解除</b>：判定用在庫数 ≦ 箱上限。いずれも主保管は変えません。</p>'+
+
+  '<h2>収納上限の初期値</h2>'+
+  '<table class="rtable"><thead><tr><th>基礎区分</th><th>小箱上限</th><th>箱上限</th></tr></thead><tbody>'+capRows+'</tbody></table>'+
+  '<p>初期値は基礎区分ごとに自動設定され、SKU単位で上書きできます。上書きしたSKUには「個別」タグが付き、以降はそのSKUの値を使用します。</p>'+
+
+  '<h2>有効な保管の組み合わせ</h2>'+
+  '<table class="rtable"><thead><tr><th>主保管</th><th>予備保管</th><th>有効</th></tr></thead><tbody>'+
+    '<tr><td>小箱</td><td>なし</td><td class="ok">○</td></tr>'+
+    '<tr><td>箱</td><td>なし</td><td class="ok">○</td></tr>'+
+    '<tr><td>箱</td><td>コンテナ</td><td class="ok">○</td></tr>'+
+    '<tr><td>コンテナ</td><td>なし</td><td class="ok">○</td></tr>'+
+    '<tr><td>小箱</td><td>コンテナ</td><td class="ng">×</td></tr>'+
+    '<tr><td>コンテナ</td><td>コンテナ</td><td class="ng">×</td></tr>'+
+  '</tbody></table>'+
+
+  '<h2>要確認になる条件</h2>'+
+  '<p>在庫定数・フリー在庫の未取得、必要な収納上限の未入力、小箱上限＞箱上限、マイナス値、基礎区分と現在の主保管の矛盾、無効な主保管＋予備保管の組み合わせ、API商品照合エラー。これらは自動判定を行わず「要確認」と表示します（不足データを0として扱いません）。</p>'+
+
+  '<h2>月次の運用フロー</h2>'+
+  '<p>① 「ネクストエンジンから最新データを取得」を押す → ② 判定用在庫数と推奨保管が自動再計算される → ③ 変更対象一覧を確認する → ④ 倉庫で移動する → ⑤ 現在の主保管・予備保管を更新し、対応済にする。</p>';
+}
+
+/* ============ イベント ============ */
+document.addEventListener('change', e => {
+  const el = e.target;
+  if(el.dataset && el.dataset.f && el.dataset.code){
+    const it = state.items.find(x => x.code === el.dataset.code);
+    if(it){ applyField(it, el.dataset.f, el.value); render(); if(openCode === it.code) openDrawer(it.code); }
+  }
+});
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-open], .chip, .tab, .kpi');
+  if(!t) return;
+  if(t.dataset.open){ openDrawer(t.dataset.open); return; }
+  if(t.classList.contains('tab')){ switchTab(t.dataset.tab); return; }
+  if(t.classList.contains('chip')){
+    state[t.dataset.t][t.dataset.fk] = t.dataset.v;
+    render(); return;
+  }
+  if(t.classList.contains('kpi')){
+    const k = t.dataset.key;
+    if(k === '__need'){ state.filters2.res = 'すべて'; state.filters2.sta = 'すべて'; switchTab('change'); }
+    else if(k === '__todo'){ state.filters2.res = 'すべて'; state.filters2.sta = '未対応'; switchTab('change'); }
+    else { state.filters.res = k; switchTab('main'); }
+    render();
+  }
+});
+$('q').addEventListener('input', e => { state.filters.q = e.target.value; renderMain(); });
+$('q2').addEventListener('input', e => { state.filters2.q = e.target.value; renderChange(); });
+$('manualMode').addEventListener('change', e => {
+  state.manualMode = e.target.checked;
+  toast(state.manualMode ? '手動入力モード：在庫定数・フリー在庫を編集できます（通常運用ではAPI取得値を優先）' : '通常モード：API取得値で判定します');
+  render();
+});
+$('syncBtn').addEventListener('click', sync);
+$('scrim').addEventListener('click', closeDrawer);
+document.addEventListener('keydown', e => { if(e.key === 'Escape') closeDrawer(); });
+$('copyBtn').addEventListener('click', () => {
+  const R = rows().filter(r => r.j.need === '要' || r.j.result === '要確認');
+  const head = ['商品コード','商品名','判定用在庫数','現在の主保管','現在の予備保管','推奨主保管','推奨予備保管','判定結果','判定理由','対応状況'].join('\t');
+  const body = R.map(({it,j}) => [it.code,it.name,j.qty,it.curMain,it.curSub,j.recMain||'―',j.recSub||'―',j.result,j.reason,it.status].join('\t')).join('\n');
+  const d = $('drawer');
+  d.innerHTML = '<div class="dhead"><div><h2>変更対象一覧（'+R.length+'件）</h2><span class="code">選択してコピーし、Excel等に貼り付けてください</span></div><button class="iconbtn" id="dclose" aria-label="閉じる">×</button></div>'+
+    '<div class="dsec"><textarea style="width:100%;min-height:60vh;font-family:var(--f-num);font-size:11px;border:1px solid var(--line-strong);border-radius:6px;padding:10px;background:var(--surface-2)">'+esc(head+'\n'+body)+'</textarea></div>';
+  $('scrim').classList.add('show'); d.classList.add('show'); d.setAttribute('aria-hidden','false');
+  $('dclose').onclick = closeDrawer;
+  const ta = d.querySelector('textarea'); ta.focus(); ta.select();
+});
+
+/* ============ 共有データ・CSVのボタン ============ */
+$('reloadShared').addEventListener('click', async () => {
+  const sh = await fetchShared();
+  sharedInfo = { status:sh.status, updatedAt:sh.updatedAt || null, count:(sh.items||[]).length };
+  if(sh.status === '読込済'){
+    adoptShared(sh);
+    $('manualMode').checked = false;
+    switchTab(state.tab);
+    render();
+    toast('共有データを読み込みました（'+sh.items.length+'件）');
+  }else{ renderShared(); toast('共有データを読み込めませんでした：'+sh.status); }
+});
+$('csvIn').addEventListener('change', async e => {
+  const f = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if(!f) return;
+  const text = await readTextFile(f);
+  const r = importCSV(text);
+  render();
+  if(r.errors.length) showText('CSV取込の結果', '追加 '+r.added+'件 / 更新 '+r.updated+'件\n\n取り込めなかった行:\n'+r.errors.join('\n'));
+  else toast('CSVを取り込みました（追加 '+r.added+'件 / 更新 '+r.updated+'件）');
+});
+$('csvOut').addEventListener('click', () => {
+  if(!state.items.length){ toast('書き出す商品がありません'); return; }
+  offerFile('保管形式判定くん.csv', exportCSV(), 'text/csv');
+});
+$('jsonOut').addEventListener('click', () => {
+  if(!state.items.length){ toast('書き出す商品がありません'); return; }
+  offerFile('data.json', sharedJSON(), 'application/json');
+});
+$('clearAll').addEventListener('click', () => {
+  if(!state.items.length){ toast('データはすでに空です'); return; }
+  const keep = state.items.length;
+  state = blankState();
+  $('manualMode').checked = false;
+  render();
+  toast(keep + '件を消去しました。「共有データを再読み込み」で元に戻せます');
+});
+
+/* ============ 起動 ============ */
+(async function boot(){
+  renderRules();
+  const saved = load();
+  const sh = await fetchShared();
+  sharedInfo = { status:sh.status, updatedAt:sh.updatedAt || null, count:(sh.items||[]).length };
+  const stamp = sh.updatedAt || String((sh.items||[]).length);
+  if(sh.status === '読込済' && (!saved || saved.sharedStamp !== stamp)){
+    adoptShared(sh);                       // 共有データが新しいので取り込む
+  }else if(saved){
+    state = Object.assign(blankState(), saved);
+    state.items = (saved.items || []).map(normalize);
+  }
+  $('manualMode').checked = !!state.manualMode;
+  $('q').value = state.filters.q; $('q2').value = state.filters2.q;
+  switchTab(state.tab || 'main');
+  render();
+})();
+
+/* ============ 自己検証（仕様書ケース1〜10） ============ */
+(function selfTest(){
+  const expect = {
+    'ABC-001':['小箱','なし','維持'], 'ABC-002':['箱','なし','昇格'], 'ABC-003':['箱','コンテナ','昇格＋予備保管追加'],
+    'ABC-004':['小箱','なし','降格'], 'ABC-005':['箱','なし','維持'], 'ABC-006':['箱','コンテナ','維持'],
+    'ABC-007':['箱','なし','予備保管解除'], 'ABC-008':['小箱','なし','降格＋予備保管解除'],
+    'ABC-009':['箱','なし','昇格'], 'CNT-001':['コンテナ','なし','維持'],
+    'BOX-021':['箱','コンテナ','予備保管追加'], 'BOX-022':['箱','なし','維持'], 'NG-041':[null,null,'要確認'], 'NEW-031':[null,null,'要確認']
+  };
+  const base = seed(); const out = [];
+  base.forEach(it => {
+    const e = expect[it.code]; if(!e) return;
+    const j = judge(it);
+    const ok = j.recMain === e[0] && j.recSub === e[1] && j.result === e[2];
+    out.push((ok ? 'PASS ' : 'FAIL ') + it.code + ' → ' + j.recMain + '/' + j.recSub + '/' + j.result + (ok ? '' : '  期待:' + e.join('/')));
+  });
+  console.log('【判定ロジック自己検証】\n' + out.join('\n'));
+})();
+})();
+</script>
+</body>
+</html>
