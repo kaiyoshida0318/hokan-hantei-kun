@@ -1,0 +1,41 @@
+name: NE同期
+
+on:
+  schedule:
+    - cron: '0 22 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: ne-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: ネクストエンジンから在庫を取得して data.json を更新
+        env:
+          NE_SYNC_URL: ${{ vars.NE_SYNC_URL || secrets.NE_SYNC_URL }}
+          NE_READ_API_TOKEN: ${{ secrets.NE_READ_API_TOKEN }}
+        run: node scripts/ne-sync.mjs
+
+      - name: 変更があればコミット
+        run: |
+          if git diff --quiet -- data.json; then
+            echo "変更なし"
+            exit 0
+          fi
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data.json
+          git commit -m "NE同期：在庫定数・фリー在庫を更新"
+          git push
