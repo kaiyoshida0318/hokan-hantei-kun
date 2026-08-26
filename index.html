@@ -466,29 +466,78 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
 "use strict";
 
 /* ============ 定数 ============ */
-const KUBUN = ['小箱-多収納','小箱-少収納','箱-多収納','箱-少収納','コンテナ'];
-const DEFAULT_CAPS = {
-  '小箱-多収納':{s:150,b:750},
-  '小箱-少収納':{s:30,b:150},
-  '箱-多収納'  :{s:null,b:190},
-  '箱-少収納'  :{s:null,b:40},
-  'コンテナ'   :{s:null,b:null}
+/*
+ * 基礎区分の定義。
+ *
+ * 「多収納 / 少収納」は、収納上限の初期値を決めるための暫定的な分類です。
+ * 判定ロジックはこの名称を一切見ません。判定に使うのは
+ *   ① route（その商品が使える保管ルート：小箱 / 箱 / コンテナ）
+ *   ② SKUごとの 小箱上限・箱上限
+ * の2つだけです。
+ *
+ * 将来「小箱 / 箱 / コンテナ」の3分類へ統合する場合は、この表を3行に書き換え、
+ * KUBUN_ALIAS に旧名称からの読み替えを入れるだけで済みます。
+ * 判定・昇格・降格・予備保管のコードは変更不要です。
+ */
+const KUBUN_DEFS = [
+  { name:'小箱-多収納', route:'小箱',     smallCap:150,  boxCap:750  },
+  { name:'小箱-少収納', route:'小箱',     smallCap:30,   boxCap:150  },
+  { name:'箱-多収納',   route:'箱',       smallCap:null, boxCap:190  },
+  { name:'箱-少収納',   route:'箱',       smallCap:null, boxCap:40   },
+  { name:'コンテナ',    route:'コンテナ', smallCap:null, boxCap:null }
+];
+
+/* 旧名称 → 現行名称の読み替え表。区分を統合したときに、
+   既存の data.json / CSV をそのまま読み込めるようにするためのもの。
+   例）3分類へ統合する場合：
+   const KUBUN_ALIAS = {
+     '小箱-多収納':'小箱', '小箱-少収納':'小箱',
+     '箱-多収納'  :'箱',   '箱-少収納'  :'箱'
+   }; */
+const KUBUN_ALIAS = {};
+
+/* 保管ルートごとの主保管の並び（容量の小さい順）。
+   ここに段階を足せば、判定はそのまま多段階に対応します。 */
+const ROUTE_CHAIN = {
+  '小箱'   : ['小箱','箱'],
+  '箱'     : ['箱'],
+  'コンテナ': ['コンテナ']
 };
+
+const KUBUN = KUBUN_DEFS.map(d => d.name);
+const KUBUN_MAP = new Map(KUBUN_DEFS.map(d => [d.name, d]));
+
+function kubunDef(k){
+  const name = KUBUN_ALIAS[k] || k;
+  if(KUBUN_MAP.has(name)) return KUBUN_MAP.get(name);
+  // 表に無い名称でも、ルートだけは名前から推測して動かす（判定は上限で行うため）
+  if(/コンテナ/.test(name)) return { name, route:'コンテナ', smallCap:null, boxCap:null, unknown:true };
+  if(/^小箱/.test(name))    return { name, route:'小箱',     smallCap:null, boxCap:null, unknown:true };
+  if(/^箱/.test(name))      return { name, route:'箱',       smallCap:null, boxCap:null, unknown:true };
+  return null;
+}
+const routeOf = k => { const d = kubunDef(k); return d ? d.route : null; };
+const defCaps = k => { const d = kubunDef(k); return d ? {s:d.smallCap, b:d.boxCap} : {s:null, b:null}; };
 const RESULTS = ['維持','昇格','降格','予備保管追加','予備保管解除','昇格＋予備保管追加','降格＋予備保管解除','要確認'];
 const CAT = {
   '維持':'hold','昇格':'up','予備保管追加':'up','昇格＋予備保管追加':'up',
   '降格':'dn','予備保管解除':'dn','降格＋予備保管解除':'dn','要確認':'al'
 };
 const RANK = {'小箱':0,'箱':1,'コンテナ':2};
-const usesSmall = k => k.startsWith('小箱');
-const usesBox   = k => k.startsWith('小箱') || k.startsWith('箱');
-function allowedMains(k){
-  if(k === 'コンテナ') return ['コンテナ'];
-  if(k.startsWith('小箱')) return ['小箱','箱'];
-  return ['箱'];
-}
+/* 主保管の並び（容量の小さい順）。基礎区分の名称ではなく route で決まる。 */
+function allowedMains(k){ return ROUTE_CHAIN[routeOf(k)] || ['箱']; }
+/* 予備コンテナを付けられるのは、そのルートの一番大きい主保管のときだけ。 */
 function allowedSubs(k, main){
-  return (k !== 'コンテナ' && main === '箱') ? ['なし','コンテナ'] : ['なし'];
+  const chain = allowedMains(k);
+  return (routeOf(k) !== 'コンテナ' && main === chain[chain.length - 1]) ? ['なし','コンテナ'] : ['なし'];
+}
+const usesSmall = k => allowedMains(k).includes('小箱');
+const usesBox   = k => allowedMains(k).includes('箱');
+/* SKUごとの収納上限。判定はすべてこの値で行う。 */
+function capOf(it, main){
+  if(main === '小箱') return (it.smallCap === undefined) ? null : it.smallCap;
+  if(main === '箱')   return (it.boxCap   === undefined) ? null : it.boxCap;
+  return null;   // コンテナは上限なし
 }
 const fmt = v => (v === null || v === undefined || v === '') ? '―' : Number(v).toLocaleString('ja-JP');
 
@@ -496,8 +545,8 @@ const fmt = v => (v === null || v === undefined || v === '') ? '―' : Number(v)
 function seed(){
   const S = (code,name,kubun,s,b,main,sub,teisu,free,extra) => Object.assign({
     code, name, kubun, smallCap:s, boxCap:b,
-    smallCapEdited: s !== DEFAULT_CAPS[kubun].s,
-    boxCapEdited:   b !== DEFAULT_CAPS[kubun].b,
+    smallCapEdited: s !== defCaps(kubun).s,
+    boxCapEdited:   b !== defCaps(kubun).b,
     curMain:main, curSub:sub,
     apiTeisu:teisu, apiFree:free,
     manTeisu:null, manFree:null,
@@ -547,7 +596,7 @@ function save(){ try{ localStorage.setItem(LS, JSON.stringify(state)); }catch(e)
 /* ---- 商品1件を正規化（欠けた項目は基礎区分の初期値で補う） ---- */
 function normalize(raw){
   const kubun = KUBUN.includes(raw.kubun) ? raw.kubun : '小箱-多収納';
-  const def = DEFAULT_CAPS[kubun];
+  const def = defCaps(kubun);
   const num = v => (v === '' || v === null || v === undefined || isNaN(Number(v))) ? null : Number(v);
   const sc = raw.smallCap === undefined ? def.s : num(raw.smallCap);
   const bc = raw.boxCap === undefined ? def.b : num(raw.boxCap);
@@ -780,6 +829,7 @@ function validate(it){
   const e = [];
   const t = usedTeisu(it), f = usedFree(it);
   if(it.matchError) e.push('API商品照合エラー：ネクストエンジン側に一致する商品コードがありません');
+  if(!KUBUN_MAP.has(it.kubun) && !KUBUN_ALIAS[it.kubun]) e.push('基礎区分「'+it.kubun+'」は登録されていません');
   if(t === null || t === undefined || t === '') e.push('在庫定数が未取得（未入力）です');
   if(f === null || f === undefined || f === '') e.push('フリー在庫が未取得（未入力）です');
   if(usesSmall(it.kubun) && (it.smallCap === null || it.smallCap === undefined || it.smallCap === '')) e.push('小箱を使用する基礎区分ですが、小箱上限が未入力です');
@@ -789,8 +839,8 @@ function validate(it){
     if(v !== null && v !== undefined && v !== '' && Number(v) < 0) e.push(n+'にマイナス値が入力されています');
   });
   if(!allowedMains(it.kubun).includes(it.curMain)) e.push('基礎区分「'+it.kubun+'」では現在の主保管に「'+it.curMain+'」を設定できません');
-  if(it.curMain === '小箱' && it.curSub === 'コンテナ') e.push('主保管が小箱なのに予備保管がコンテナになっています');
-  if(it.curMain === 'コンテナ' && it.curSub === 'コンテナ') e.push('主保管がコンテナなのに予備保管もコンテナになっています');
+  if(it.curSub === 'コンテナ' && !allowedSubs(it.kubun, it.curMain).includes('コンテナ'))
+    e.push('主保管が'+it.curMain+'のときは予備保管にコンテナを設定できません');
   return e;
 }
 
@@ -804,56 +854,69 @@ function judge(it){
              reason:'【要確認】'+errs.join(' / ')+'。自動判定は行いません。', need:null, errs };
   }
 
-  const s = it.smallCap, b = it.boxCap, k = it.kubun;
-  const half = b !== null ? b * 0.5 : null;
+  const k = it.kubun;
+  const chain = allowedMains(k);                 // 容量の小さい順に並んだ主保管
+  const cap = m => capOf(it, m);                 // 判定はすべてSKUごとの上限で行う
+  const curIdx = Math.max(0, chain.indexOf(it.curMain));
+  const curCap = cap(chain[curIdx]);
+  const half = curCap !== null ? curCap * 0.5 : null;
+
   const src = Number(f) > Number(t)
     ? '在庫定数'+fmt(t)+'に対してフリー在庫'+fmt(f)+'のため、判定用在庫数'+fmt(qty)+'を採用。'
     : '判定用在庫数は在庫定数'+fmt(t)+'とフリー在庫'+fmt(f)+'の大きい方＝'+fmt(qty)+'。';
 
   let recMain, recSub, mainNote, subNote = '', blocked = false;
 
-  if(k === 'コンテナ'){
+  if(routeOf(k) === 'コンテナ'){
     recMain = 'コンテナ'; recSub = 'なし';
-    mainNote = '基礎区分「コンテナ」のため、在庫数に関わらず主保管はコンテナで固定。';
+    mainNote = '基礎区分「'+k+'」はコンテナ保管のため、在庫数に関わらず主保管はコンテナで固定。';
   }else{
-    // 判定用在庫数を収納できる最小の状態（＝理想状態）
-    let ideal;
-    if(usesSmall(k) && qty <= s) ideal = '小箱';
-    else ideal = '箱';
+    // 判定用在庫数を収納できる、いちばん小さい主保管を選ぶ（＝理想状態）
+    let idealIdx = chain.length - 1;
+    for(let i = 0; i < chain.length; i++){
+      const c = cap(chain[i]);
+      if(c !== null && qty <= c){ idealIdx = i; break; }
+    }
 
-    if(RANK[ideal] > RANK[it.curMain]){
-      recMain = ideal;
-      mainNote = '判定用在庫数'+fmt(qty)+' ＞ 小箱上限'+fmt(s)+'のため、主保管を小箱から箱へ昇格。';
-    }else if(RANK[ideal] < RANK[it.curMain]){
-      // 降格候補：①50%未満 ②降格先に収まる
-      const c1 = qty < half, c2 = qty <= s;
+    if(idealIdx > curIdx){
+      recMain = chain[idealIdx];
+      mainNote = '判定用在庫数'+fmt(qty)+' ＞ '+chain[curIdx]+'上限'+fmt(curCap)+'のため、主保管を'+chain[curIdx]+'から'+recMain+'へ昇格。';
+    }else if(idealIdx < curIdx){
+      // 降格は ①現在の主保管上限の50%未満 ②降格先に収まる の両方を満たすときだけ
+      const target = chain[idealIdx], targetCap = cap(target);
+      const c1 = half !== null && qty < half;
+      const c2 = targetCap !== null && qty <= targetCap;
       if(c1 && c2){
-        recMain = ideal;
-        mainNote = '判定用在庫数'+fmt(qty)+' ＜ 箱上限'+fmt(b)+'の50%（'+fmt(half)+'）、かつ小箱上限'+fmt(s)+'以内のため、主保管を箱から小箱へ降格。';
+        recMain = target;
+        mainNote = '判定用在庫数'+fmt(qty)+' ＜ '+chain[curIdx]+'上限'+fmt(curCap)+'の50%（'+fmt(half)+'）、かつ'+target+'上限'+fmt(targetCap)+'以内のため、主保管を'+chain[curIdx]+'から'+target+'へ降格。';
       }else{
-        recMain = it.curMain; blocked = true;
+        recMain = chain[curIdx]; blocked = true;
         mainNote = c1
-          ? '判定用在庫数'+fmt(qty)+' ＜ 箱上限'+fmt(b)+'の50%（'+fmt(half)+'）だが、小箱上限'+fmt(s)+'を超えているため、主保管は箱を維持。'
-          : '判定用在庫数'+fmt(qty)+' は箱上限'+fmt(b)+'の50%（'+fmt(half)+'）未満ではないため、主保管は箱を維持。';
+          ? '判定用在庫数'+fmt(qty)+' ＜ '+chain[curIdx]+'上限'+fmt(curCap)+'の50%（'+fmt(half)+'）だが、'+target+'上限'+fmt(targetCap)+'を超えているため、主保管は'+chain[curIdx]+'を維持。'
+          : '判定用在庫数'+fmt(qty)+' は'+chain[curIdx]+'上限'+fmt(curCap)+'の50%（'+fmt(half)+'）未満ではないため、主保管は'+chain[curIdx]+'を維持。';
       }
     }else{
-      recMain = it.curMain;
-      if(recMain === '小箱'){
-        mainNote = '判定用在庫数'+fmt(qty)+' ≦ 小箱上限'+fmt(s)+'のため、主保管は小箱を維持。';
-      }else if(!usesSmall(k)){
-        mainNote = '基礎区分「'+k+'」は小箱を使用しないため、主保管は箱を維持。';
-      }else if(qty > b){
-        mainNote = '判定用在庫数'+fmt(qty)+' ＞ 箱上限'+fmt(b)+'のため、主保管は箱のまま。';
+      recMain = chain[curIdx];
+      if(curCap !== null && qty > curCap){
+        mainNote = '判定用在庫数'+fmt(qty)+' ＞ '+recMain+'上限'+fmt(curCap)+'のため、主保管は'+recMain+'のまま。';
+      }else if(curIdx === 0 && chain.length === 1){
+        mainNote = 'この商品は'+recMain+'から保管する設定のため、主保管は'+recMain+'を維持。';
+      }else if(curIdx === 0){
+        mainNote = '判定用在庫数'+fmt(qty)+' ≦ '+recMain+'上限'+fmt(curCap)+'のため、主保管は'+recMain+'を維持。';
       }else{
-        mainNote = '判定用在庫数'+fmt(qty)+' ≦ 箱上限'+fmt(b)+'、かつ50%（'+fmt(half)+'）以上のため、主保管は箱を維持。';
+        mainNote = '判定用在庫数'+fmt(qty)+' ≦ '+recMain+'上限'+fmt(curCap)+'、かつ50%（'+fmt(half)+'）以上のため、主保管は'+recMain+'を維持。';
       }
     }
-    recSub = (recMain === '箱' && qty > b) ? 'コンテナ' : 'なし';
+
+    // 予備コンテナは「そのルートの一番大きい主保管でも入りきらない」ときだけ付く
+    const last = chain[chain.length - 1], lastCap = cap(last);
+    recSub = (recMain === last && lastCap !== null && qty > lastCap) ? 'コンテナ' : 'なし';
   }
 
-  if(recSub === 'コンテナ' && it.curSub !== 'コンテナ') subNote = '判定用在庫数'+fmt(qty)+' ＞ 箱上限'+fmt(b)+'のため、予備保管としてコンテナを追加。';
-  else if(recSub === 'なし' && it.curSub === 'コンテナ') subNote = '判定用在庫数'+fmt(qty)+' ≦ 箱上限'+fmt(b)+'のため、予備コンテナを解除。';
-  else if(recSub === 'コンテナ' && it.curSub === 'コンテナ') subNote = '判定用在庫数'+fmt(qty)+' ＞ 箱上限'+fmt(b)+'のため、予備コンテナを維持。';
+  const recCap = capOf(it, recMain);
+  if(recSub === 'コンテナ' && it.curSub !== 'コンテナ') subNote = '判定用在庫数'+fmt(qty)+' ＞ '+recMain+'上限'+fmt(recCap)+'のため、予備保管としてコンテナを追加。';
+  else if(recSub === 'なし' && it.curSub === 'コンテナ') subNote = '判定用在庫数'+fmt(qty)+' ≦ '+recMain+'上限'+fmt(recCap)+'のため、予備コンテナを解除。';
+  else if(recSub === 'コンテナ' && it.curSub === 'コンテナ') subNote = '判定用在庫数'+fmt(qty)+' ＞ '+recMain+'上限'+fmt(recCap)+'のため、予備コンテナを維持。';
 
   const mainDelta = RANK[recMain] - RANK[it.curMain];
   const subDelta = recSub === it.curSub ? 0 : (recSub === 'コンテナ' ? 1 : -1);
@@ -1036,7 +1099,9 @@ function openDrawer(code){
   if(!it) return;
   const j = judge(it);
   openCode = code;
-  const half = it.boxCap !== null ? it.boxCap * 0.5 : null;
+  const curChain = allowedMains(it.kubun);
+  const curCap = capOf(it, curChain[Math.max(0, curChain.indexOf(it.curMain))]);
+  const half = curCap !== null ? curCap * 0.5 : null;
   const d = $('drawer');
   d.innerHTML =
   '<div class="dhead"><div><span class="code">'+esc(it.code)+'</span><h2>'+esc(it.name)+'</h2>'+
@@ -1057,7 +1122,7 @@ function openDrawer(code){
     '<dt><b>判定に使用中：判定用在庫数</b></dt><dd><b>'+fmt(j.qty)+'</b></dd>'+
     '<dt>小箱上限</dt><dd>'+fmt(it.smallCap)+(it.smallCapEdited?'（SKU個別）':'')+'</dd>'+
     '<dt>箱上限</dt><dd>'+fmt(it.boxCap)+(it.boxCapEdited?'（SKU個別）':'')+'</dd>'+
-    '<dt>箱上限の50%（降格しきい値）</dt><dd>'+fmt(half)+'</dd>'+
+    '<dt>現在の主保管上限の50%（降格しきい値）</dt><dd>'+fmt(half)+'</dd>'+
     '<dt>NEからの最終取得日時</dt><dd>'+esc(jstStr(it.lastFetch) || '未取得')+'</dd>'+
     (it.matchError ? '<dt>NE照合</dt><dd>商品コード未検出</dd>' : '')+
   '</dl></div>'+
@@ -1112,15 +1177,15 @@ function applyField(it, field, value){
   const numify = v => (v === '' || v === null) ? null : Number(v);
   if(field === 'kubun'){
     it.kubun = value;
-    const d = DEFAULT_CAPS[value];
+    const d = defCaps(value);
     it.smallCap = d.s; it.boxCap = d.b; it.smallCapEdited = false; it.boxCapEdited = false;
     const am = allowedMains(value);
     if(!am.includes(it.curMain)){ it.curMain = am[0]; toast('基礎区分に合わせて現在の主保管を「'+am[0]+'」に補正し、収納上限を初期値に戻しました'); }
     else toast('収納上限を基礎区分の初期値に戻しました');
     if(!allowedSubs(it.kubun, it.curMain).includes(it.curSub)) it.curSub = 'なし';
   }
-  else if(field === 'smallCap'){ it.smallCap = numify(value); it.smallCapEdited = it.smallCap !== DEFAULT_CAPS[it.kubun].s; }
-  else if(field === 'boxCap'){ it.boxCap = numify(value); it.boxCapEdited = it.boxCap !== DEFAULT_CAPS[it.kubun].b; }
+  else if(field === 'smallCap'){ it.smallCap = numify(value); it.smallCapEdited = it.smallCap !== defCaps(it.kubun).s; }
+  else if(field === 'boxCap'){ it.boxCap = numify(value); it.boxCapEdited = it.boxCap !== defCaps(it.kubun).b; }
   else if(field === 'curMain'){
     it.curMain = value;
     if(!allowedSubs(it.kubun, value).includes(it.curSub)){ it.curSub = 'なし'; toast('主保管が'+value+'のため、予備保管を「なし」にしました'); }
@@ -1207,16 +1272,25 @@ function switchTab(name){
 }
 
 function renderRules(){
-  const capRows = KUBUN.map(k => '<tr><td>'+k+'</td><td class="num">'+(DEFAULT_CAPS[k].s ?? '―')+'</td><td class="num">'+(DEFAULT_CAPS[k].b ?? '―')+'</td></tr>').join('');
+  const capRows = KUBUN.map(k => '<tr><td>'+k+'</td><td class="num">'+(defCaps(k).s ?? '―')+'</td><td class="num">'+(defCaps(k).b ?? '―')+'</td></tr>').join('');
   $('rulesBody').innerHTML =
   '<h2>判定用在庫数</h2>'+
   '<p><code>判定用在庫数 ＝ MAX（在庫定数, フリー在庫）</code>　通常持っておきたい数量と、実際に場所を取っている数量のうち多い方で判定します。</p>'+
 
   '<h2>基礎区分ごとの保管ルート</h2><div class="routes">'+
-    '<div class="route"><span class="rk">小箱-多収納<br>小箱-少収納</span><span class="step">主：小箱</span><span class="arrow">→</span><span class="step">主：箱</span><span class="arrow">→</span><span class="step">主：箱＋予備：コンテナ</span></div>'+
-    '<div class="route"><span class="rk">箱-多収納<br>箱-少収納</span><span class="step">主：箱</span><span class="arrow">→</span><span class="step">主：箱＋予備：コンテナ</span></div>'+
-    '<div class="route"><span class="rk">コンテナ</span><span class="step">主：コンテナ（固定）</span></div>'+
+    Object.keys(ROUTE_CHAIN).map(r => {
+      const names = KUBUN_DEFS.filter(d => d.route === r).map(d => d.name);
+      if(!names.length) return '';
+      const chain = ROUTE_CHAIN[r];
+      const steps = chain.map(m => '<span class="step">主：'+m+'</span>');
+      if(r !== 'コンテナ') steps.push('<span class="step">主：'+chain[chain.length-1]+'＋予備：コンテナ</span>');
+      return '<div class="route"><span class="rk">'+names.join('<br>')+'</span>'+
+             steps.join('<span class="arrow">→</span>')+'</div>';
+    }).join('')+
   '</div>'+
+  '<p><b>「多収納 / 少収納」は収納上限の初期値を決めるための暫定的な分類です。</b>'+
+  '判定そのものはこの名称を見ず、使える保管ルートと、SKUごとの小箱上限・箱上限だけで行います。'+
+  'そのため、将来この分類を「小箱 / 箱 / コンテナ」の3つへ統合しても、判定結果は変わりません。</p>'+
 
   '<h2>昇格・降格・予備保管</h2>'+
   '<p><b>昇格</b>：判定用在庫数 ＞ 現在の主保管上限。ちょうど100%は維持。1段階ずつではなく、適切な主保管＋予備保管まで一気に判定します。</p>'+
@@ -1225,7 +1299,8 @@ function renderRules(){
 
   '<h2>収納上限の初期値</h2>'+
   '<table class="rtable"><thead><tr><th>基礎区分</th><th>小箱上限</th><th>箱上限</th></tr></thead><tbody>'+capRows+'</tbody></table>'+
-  '<p>初期値は基礎区分ごとに自動設定され、SKU単位で上書きできます。上書きしたSKUには「個別」タグが付き、以降はそのSKUの値を使用します。</p>'+
+  '<p>初期値は基礎区分ごとに自動設定され、SKU単位で上書きできます。上書きしたSKUには「個別」タグが付き、以降はそのSKUの値を使用します。'+
+  '<b>最終的な判定に使われるのは、この欄に入っているSKUごとの数値です。</b></p>'+
 
   '<h2>有効な保管の組み合わせ</h2>'+
   '<table class="rtable"><thead><tr><th>主保管</th><th>予備保管</th><th>有効</th></tr></thead><tbody>'+
