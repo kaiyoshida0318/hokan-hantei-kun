@@ -141,7 +141,7 @@ button,input,select,textarea{font:inherit;color:inherit}
   margin:0;font-size:27px;font-weight:700;letter-spacing:.02em;line-height:1.15;white-space:nowrap;
 }
 .brand h1 .hl{color:var(--brand)}
-.ver{font-family:var(--f-num);font-size:11px;color:var(--ink-3);letter-spacing:.02em;align-self:center}
+.ver{font-family:var(--f-num);font-size:11px;color:var(--ink-3);letter-spacing:.02em;align-self:flex-end;padding-bottom:4px}
 .brand .sub{margin:6px 0 0;color:var(--ink-3);font-size:12.5px;letter-spacing:.06em}
 
 /* sync panel */
@@ -608,7 +608,7 @@ function seed(){
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.0002';
+const APP_VERSION = 'v1.0003';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
