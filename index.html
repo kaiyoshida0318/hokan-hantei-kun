@@ -128,11 +128,11 @@ button,input,select,textarea{font:inherit;color:inherit}
 .num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
 
 /* ---------- shell ---------- */
-.wrap{max-width:1600px;margin:0 auto;padding:0 20px 80px}
+.wrap{max-width:none;margin:0;padding:0 16px 72px}
 
 .masthead{
   display:flex;flex-wrap:wrap;gap:20px 24px;align-items:flex-start;justify-content:space-between;
-  padding:12px 16px 4px;
+  padding:10px 16px 6px;
 }
 .masthead .sync{margin-top:12px}
 .brandline{display:flex;align-items:center;gap:11px}
@@ -142,7 +142,6 @@ button,input,select,textarea{font:inherit;color:inherit}
 }
 .brand h1 .hl{color:var(--brand)}
 .ver{font-family:var(--f-num);font-size:11px;color:var(--ink-3);letter-spacing:.02em;align-self:flex-end;padding-bottom:4px}
-.brand .sub{margin:6px 0 0;color:var(--ink-3);font-size:12.5px;letter-spacing:.06em}
 
 /* sync panel */
 .sync{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
@@ -237,7 +236,14 @@ button,input,select,textarea{font:inherit;color:inherit}
 .kpi.up .v{color:var(--up)} .kpi.dn .v{color:var(--dn)} .kpi.al .v{color:var(--alert)}
 
 /* ---------- tabs ---------- */
-.tabs{display:flex;gap:2px;margin:18px 0 0;border-bottom:1px solid var(--line)}
+.tabs{display:flex;gap:2px;margin:14px 0 0;border-bottom:1px solid var(--line);align-items:flex-end}
+.headtoggle{margin:0 0 6px auto}
+body.head-hidden .masthead,
+body.head-hidden .databar,
+body.head-hidden .kpis,
+body.head-hidden #banner{display:none}
+body.head-hidden .tabs{margin-top:8px}
+body.head-hidden .tablewrap{max-height:min(88vh,1400px)}
 .tab{
   border:1px solid transparent;border-bottom:none;background:none;padding:9px 16px;cursor:pointer;
   font-weight:500;color:var(--ink-3);border-radius:var(--radius) var(--radius) 0 0;
@@ -266,19 +272,19 @@ button,input,select,textarea{font:inherit;color:inherit}
 
 /* ---------- table ---------- */
 .tablewrap{overflow:auto;max-height:min(72vh,780px)}
-table{border-collapse:separate;border-spacing:0;width:100%;font-size:12.5px}
-#tblMain{min-width:1980px}
-#tblChange{min-width:1240px}
+table{border-collapse:separate;border-spacing:0;width:100%;font-size:14px}
+#tblMain{min-width:2140px}
+#tblChange{min-width:1340px}
 thead th{
   position:sticky;background:var(--surface-2);text-align:left;font-weight:500;
   border-bottom:1px solid var(--line);white-space:nowrap;color:var(--ink-2);
 }
 tr.grouprow th{
-  top:0;z-index:6;font-size:10px;letter-spacing:.14em;color:var(--ink-3);
+  top:0;z-index:6;font-size:10.5px;letter-spacing:.14em;color:var(--ink-3);
   padding:6px 10px;border-bottom:1px solid var(--line);
 }
-tr.headrow th{top:27px;z-index:6;padding:7px 10px;font-size:11.5px}
-tbody td{padding:6px 10px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+tr.headrow th{top:28px;z-index:6;padding:8px 10px;font-size:12.5px}
+tbody td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
 
 .b-cur{background:var(--band-cur)} .b-qty{background:var(--band-qty)} .b-rec{background:var(--band-rec)}
 
@@ -288,8 +294,8 @@ tr[data-cat="up"] td.stripe{border-left-color:var(--up)}
 tr[data-cat="dn"] td.stripe{border-left-color:var(--dn)}
 tr[data-cat="al"] td.stripe{border-left-color:var(--alert)}
 tr[data-cat="hold"] td.stripe{border-left-color:transparent}
-.name{width:196px;max-width:196px;overflow:hidden;text-overflow:ellipsis}
-.reason{width:360px;min-width:360px;white-space:normal;font-family:var(--f-body);font-size:11.5px;line-height:1.55;color:var(--ink-2);padding-top:9px;padding-bottom:9px}
+.name{width:214px;max-width:214px;overflow:hidden;text-overflow:ellipsis}
+.reason{width:390px;min-width:390px;white-space:normal;font-family:var(--f-body);font-size:12.5px;line-height:1.6;color:var(--ink-2);padding-top:9px;padding-bottom:9px}
 .n{font-family:var(--f-num);font-variant-numeric:tabular-nums;text-align:right}
 th.n{text-align:right}
 .qty-key{font-weight:600;color:var(--ink)}
@@ -297,24 +303,24 @@ th.n{text-align:right}
 /* inline inputs */
 .cell-in{
   border:1px solid transparent;background:transparent;border-radius:4px;
-  padding:3px 5px;font-size:12.5px;
+  padding:3px 5px;font-size:14px;
 }
 .cell-in:hover{border-color:var(--line-strong)}
 .cell-in:focus{outline:none;border-color:var(--accent);background:var(--surface);box-shadow:0 0 0 2px var(--accent-soft)}
-input.cell-in.n{font-family:var(--f-num);text-align:right;width:62px}
+input.cell-in.n{font-family:var(--f-num);text-align:right;width:70px}
 select.cell-in{
   cursor:pointer;appearance:none;padding-right:17px;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0h8L4 5z' fill='%238A94A3'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:right 5px center;
 }
-select.cell-in[data-f="kubun"]{width:116px}
-select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[data-f="status"]{width:84px}
-.note-in{width:150px}
+select.cell-in[data-f="kubun"]{width:128px}
+select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[data-f="status"]{width:96px}
+.note-in{width:165px}
 .capcell{display:inline-flex;align-items:center;gap:4px;justify-content:flex-end}
 .ro{color:var(--ink-3)}
 
 /* pills */
-.pill{display:inline-block;padding:2px 9px;border-radius:100px;font-size:11.5px;font-weight:500;border:1px solid transparent;white-space:nowrap}
+.pill{display:inline-block;padding:2px 9px;border-radius:100px;font-size:12.5px;font-weight:500;border:1px solid transparent;white-space:nowrap}
 .pill.hold{background:var(--hold-bg);color:var(--hold);border-color:var(--line-strong)}
 .pill.up{background:var(--up-bg);color:var(--up);border-color:var(--up-line)}
 .pill.dn{background:var(--dn-bg);color:var(--dn);border-color:var(--dn-line)}
@@ -322,13 +328,13 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
 .need{font-weight:600}
 .need.yes{color:var(--up)} .need.no{color:var(--ink-3);font-weight:400}
 .tag{
-  display:inline-block;margin-left:5px;padding:0 5px;border-radius:3px;font-size:9.5px;letter-spacing:.06em;
+  display:inline-block;margin-left:5px;padding:0 5px;border-radius:3px;font-size:10px;letter-spacing:.06em;
   border:1px solid var(--line-strong);color:var(--ink-3);vertical-align:middle;
 }
 .tag.warn{border-color:var(--up-line);color:var(--up);background:var(--up-bg)}
 .arrow{color:var(--ink-3);padding:0 2px}
 .empty{padding:44px 20px;text-align:center;color:var(--ink-3);font-family:var(--f-body)}
-.rowbtn{border:none;background:none;color:var(--accent);cursor:pointer;font-size:11.5px;text-decoration:underline;padding:2px 4px;border-radius:4px}
+.rowbtn{border:none;background:none;color:var(--accent);cursor:pointer;font-size:12.5px;text-decoration:underline;padding:2px 4px;border-radius:4px}
 .rowbtn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 
 /* ---------- drawer ---------- */
@@ -409,7 +415,6 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
       <h1>保管形式<span class="hl">判定</span>くん</h1>
       <span class="ver" id="ver"></span>
     </div>
-    <p class="sub">在庫定数・フリー在庫から 主保管／予備保管 を自動判定</p>
   </div>
   <div class="sync">
     <div class="sync-meta">
@@ -448,6 +453,7 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
     <button class="tab" role="tab" aria-selected="true" data-tab="main">メイン一覧</button>
     <button class="tab" role="tab" aria-selected="false" data-tab="change">変更対象一覧 <span id="changeCount" class="num"></span></button>
     <button class="tab" role="tab" aria-selected="false" data-tab="rules">判定ルール</button>
+    <button class="btn btn-sm headtoggle" id="headToggle" aria-pressed="false">ヘッダーを隠す</button>
   </div>
 
   <section class="panel" id="panel-main">
@@ -608,7 +614,7 @@ function seed(){
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.0003';
+const APP_VERSION = 'v1.0004';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
@@ -618,6 +624,7 @@ function blankState(){
     filters:{ q:'', res:'すべて', sta:'すべて' },
     filters2:{ q:'', res:'すべて', sta:'すべて' },
     tab:'main',
+    hideHead:false,
     sharedStamp:null,
     ne:null
   };
@@ -1540,6 +1547,15 @@ function openGhSetup(){
 function renderGhButton(){ $('pushShared').hidden = !ghReady(); }
 $('ghSetup').addEventListener('click', openGhSetup);
 
+function renderHeadToggle(){
+  const on = !!state.hideHead;
+  document.body.classList.toggle('head-hidden', on);
+  const b = $('headToggle');
+  b.textContent = on ? 'ヘッダーを表示' : 'ヘッダーを隠す';
+  b.setAttribute('aria-pressed', String(on));
+}
+$('headToggle').addEventListener('click', () => { state.hideHead = !state.hideHead; renderHeadToggle(); save(); });
+
 $('clearAll').addEventListener('click', () => {
   if(!state.items.length){ toast('データはすでに空です'); return; }
   const keep = state.items.length;
@@ -1561,6 +1577,7 @@ $('clearAll').addEventListener('click', () => {
   $('manualMode').checked = !!state.manualMode;
   $('q').value = state.filters.q; $('q2').value = state.filters2.q;
   renderGhButton();
+  renderHeadToggle();
   switchTab(state.tab || 'main');
   render();                                  // まず手元の状態で表示
 
