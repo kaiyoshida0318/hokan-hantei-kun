@@ -128,23 +128,20 @@ button,input,select,textarea{font:inherit;color:inherit}
 .num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
 
 /* ---------- shell ---------- */
-.wrap{max-width:1600px;margin:0 auto;padding:20px 20px 80px}
+.wrap{max-width:1600px;margin:0 auto;padding:0 20px 80px}
 
 .masthead{
-  display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;justify-content:space-between;
-  padding:18px 20px;background:var(--surface);border:1px solid var(--line);
-  border-radius:var(--radius);box-shadow:var(--shadow);
+  display:flex;flex-wrap:wrap;gap:20px 24px;align-items:flex-start;justify-content:space-between;
+  padding:12px 16px 4px;
 }
+.masthead .sync{margin-top:12px}
 .brandline{display:flex;align-items:center;gap:11px}
 .logomark{width:58px;height:46px;flex:none;display:block}
 .brand h1{
   margin:0;font-size:27px;font-weight:700;letter-spacing:.02em;line-height:1.15;white-space:nowrap;
 }
 .brand h1 .hl{color:var(--brand)}
-.ver{
-  font-family:var(--f-num);font-size:11px;color:var(--ink-3);letter-spacing:.02em;
-  border:1px solid var(--line);border-radius:100px;padding:1px 8px;align-self:center;
-}
+.ver{font-family:var(--f-num);font-size:11px;color:var(--ink-3);letter-spacing:.02em;align-self:center}
 .brand .sub{margin:6px 0 0;color:var(--ink-3);font-size:12.5px;letter-spacing:.06em}
 
 /* sync panel */
@@ -174,9 +171,9 @@ button,input,select,textarea{font:inherit;color:inherit}
   transition:background .12s,border-color .12s;
 }
 .btn:hover{background:var(--surface-3)}
+.btn.btn-primary:hover{background:var(--accent);border-color:var(--accent);color:var(--on-accent);filter:none}
 .btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .btn-primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
-.btn-primary:hover{filter:brightness(1.08)}
 .btn[disabled]{opacity:.5;cursor:not-allowed}
 .btn-sm{padding:5px 10px;font-size:12.5px}
 
@@ -393,37 +390,39 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
 .foot{margin-top:16px;font-family:var(--f-body);font-size:11.5px;color:var(--ink-3);line-height:1.7}
 </style>
 
-<div class="wrap">
   <header class="masthead">
-    <div class="brand">
-      <div class="brandline">
-        <svg class="logomark" viewBox="18 34 196 156" role="img" aria-label="保管形式判定くん">
-          <g fill="none" stroke="var(--ink)" stroke-width="9" stroke-linejoin="round" stroke-linecap="round">
-            <rect x="24" y="126" width="60" height="56" rx="4"/>
-            <path d="M24 144 H84"/><path d="M54 126 V144"/>
-            <rect x="104" y="80" width="102" height="102" rx="5"/>
-            <path d="M104 111 H206"/><path d="M155 80 V111"/>
-          </g>
-          <g stroke="var(--brand)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" fill="none">
-            <path d="M42 104 C 56 62, 110 50, 152 58"/>
-            <path d="M56 90 L41 106 L36 84"/>
-            <path d="M138 44 L154 59 L134 71"/>
-          </g>
-        </svg>
-        <h1>保管形式<span class="hl">判定</span>くん</h1>
-        <span class="ver" id="ver"></span>
-      </div>
-      <p class="sub">在庫定数・フリー在庫から 主保管／予備保管 を自動判定</p>
+  <div class="brand">
+    <div class="brandline">
+      <svg class="logomark" viewBox="18 34 196 156" role="img" aria-label="保管形式判定くん">
+        <g fill="none" stroke="var(--ink)" stroke-width="9" stroke-linejoin="round" stroke-linecap="round">
+          <rect x="24" y="126" width="60" height="56" rx="4"/>
+          <path d="M24 144 H84"/><path d="M54 126 V144"/>
+          <rect x="104" y="80" width="102" height="102" rx="5"/>
+          <path d="M104 111 H206"/><path d="M155 80 V111"/>
+        </g>
+        <g stroke="var(--brand)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" fill="none">
+          <path d="M42 104 C 56 62, 110 50, 152 58"/>
+          <path d="M56 90 L41 106 L36 84"/>
+          <path d="M138 44 L154 59 L134 71"/>
+        </g>
+      </svg>
+      <h1>保管形式<span class="hl">判定</span>くん</h1>
+      <span class="ver" id="ver"></span>
     </div>
-    <div class="sync">
-      <div class="sync-meta">
-        <span class="lbl">NE 最終同期日時</span>
-        <span class="val" id="lastSync">―</span>
-      </div>
-      <span class="status-chip" id="syncChip" data-s="未同期"><span class="dot"></span><span id="syncText">未同期</span></span>
-      <button class="btn btn-primary" id="syncBtn">NEから最新データ取得</button>
+    <p class="sub">在庫定数・フリー在庫から 主保管／予備保管 を自動判定</p>
+  </div>
+  <div class="sync">
+    <div class="sync-meta">
+      <span class="lbl">NE 最終同期日時</span>
+      <span class="val" id="lastSync">―</span>
     </div>
-  </header>
+    <span class="status-chip" id="syncChip" data-s="未同期"><span class="dot"></span><span id="syncText">未同期</span></span>
+    <button class="btn btn-primary" id="syncBtn">NEから最新データ取得</button>
+  </div>
+</header>
+
+<div class="wrap">
+
 
   <div class="banner" id="banner"></div>
 
@@ -609,7 +608,7 @@ function seed(){
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.0001';
+const APP_VERSION = 'v1.0002';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
