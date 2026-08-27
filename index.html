@@ -518,18 +518,25 @@ function kubunDef(k){
 }
 const routeOf = k => { const d = kubunDef(k); return d ? d.route : null; };
 const defCaps = k => { const d = kubunDef(k); return d ? {s:d.smallCap, b:d.boxCap} : {s:null, b:null}; };
-const RESULTS = ['維持','昇格','降格','予備保管追加','予備保管解除','昇格＋予備保管追加','降格＋予備保管解除','要確認'];
+const STATUSES = ['未対応','対応済','例外運用'];
+const RESULTS = ['維持','昇格','降格','予備保管追加','予備保管解除','昇格＋予備保管追加','昇格＋予備保管解除','降格＋予備保管解除','降格＋予備保管追加','要確認'];
 const CAT = {
-  '維持':'hold','昇格':'up','予備保管追加':'up','昇格＋予備保管追加':'up',
-  '降格':'dn','予備保管解除':'dn','降格＋予備保管解除':'dn','要確認':'al'
+  '維持':'hold','昇格':'up','予備保管追加':'up','昇格＋予備保管追加':'up','昇格＋予備保管解除':'up',
+  '降格':'dn','予備保管解除':'dn','降格＋予備保管解除':'dn','降格＋予備保管追加':'dn','要確認':'al'
 };
 const RANK = {'小箱':0,'箱':1,'コンテナ':2};
 /* 主保管の並び（容量の小さい順）。基礎区分の名称ではなく route で決まる。 */
 function allowedMains(k){ return ROUTE_CHAIN[routeOf(k)] || ['箱']; }
-/* 予備コンテナを付けられるのは、そのルートの一番大きい主保管のときだけ。 */
+/* 予備コンテナは、主保管が小箱でも箱でも設定できる（小箱＋コンテナは例外運用として有効）。
+   ただし主保管がコンテナのときは付けられない。 */
 function allowedSubs(k, main){
+  return (routeOf(k) !== 'コンテナ' && main !== 'コンテナ') ? ['なし','コンテナ'] : ['なし'];
+}
+/* 自動判定が推奨として出す予備保管は、そのルートの一番大きい主保管のときだけ。
+   小箱＋コンテナは担当者が選ぶ例外運用なので、ツールからは推奨しない。 */
+function recommendsSub(k, main){
   const chain = allowedMains(k);
-  return (routeOf(k) !== 'コンテナ' && main === chain[chain.length - 1]) ? ['なし','コンテナ'] : ['なし'];
+  return routeOf(k) !== 'コンテナ' && main === chain[chain.length - 1];
 }
 const usesSmall = k => allowedMains(k).includes('小箱');
 const usesBox   = k => allowedMains(k).includes('箱');
@@ -613,7 +620,7 @@ function normalize(raw){
     stale:!!raw.stale, matchError:!!raw.matchError,
     neStockFound: raw.neStockFound, neGoodsFound: raw.neGoodsFound,
     lastFetch: raw.lastFetch || null,
-    status: raw.status === '対応済' ? '対応済' : '未対応',
+    status: STATUSES.includes(raw.status) ? raw.status : '未対応',
     note: raw.note ? String(raw.note) : ''
   };
 }
@@ -909,8 +916,8 @@ function judge(it){
     }
 
     // 予備コンテナは「そのルートの一番大きい主保管でも入りきらない」ときだけ付く
-    const last = chain[chain.length - 1], lastCap = cap(last);
-    recSub = (recMain === last && lastCap !== null && qty > lastCap) ? 'コンテナ' : 'なし';
+    const lastCap = cap(chain[chain.length - 1]);
+    recSub = (recommendsSub(k, recMain) && lastCap !== null && qty > lastCap) ? 'コンテナ' : 'なし';
   }
 
   const recCap = capOf(it, recMain);
@@ -922,13 +929,18 @@ function judge(it){
   const subDelta = recSub === it.curSub ? 0 : (recSub === 'コンテナ' ? 1 : -1);
   let result;
   if(mainDelta > 0 && subDelta > 0) result = '昇格＋予備保管追加';
+  else if(mainDelta > 0 && subDelta < 0) result = '昇格＋予備保管解除';
   else if(mainDelta < 0 && subDelta < 0) result = '降格＋予備保管解除';
+  else if(mainDelta < 0 && subDelta > 0) result = '降格＋予備保管追加';
   else if(mainDelta > 0) result = '昇格';
   else if(mainDelta < 0) result = '降格';
   else if(subDelta > 0) result = '予備保管追加';
   else if(subDelta < 0) result = '予備保管解除';
   else result = '維持';
 
+  if(it.curMain === '小箱' && it.curSub === 'コンテナ' && !(recMain === '小箱' && recSub === 'コンテナ')){
+    subNote += '（小箱でのピッキングを続けたい場合は、小箱＋予備コンテナのまま運用しても構いません。その場合は対応状況を「例外運用」にしてください。）';
+  }
   const need = (recMain !== it.curMain || recSub !== it.curSub) ? '要' : '不要';
   const staleNote = it.stale ? '※在庫数値は前回取得値です。' : '';
 
@@ -1037,7 +1049,7 @@ function renderMain(){
       '<td>'+pill(j.result, j.cat)+'</td>'+
       '<td class="reason">'+esc(j.reason)+'</td>'+
       '<td>'+(j.need ? '<span class="need '+(j.need === '要' ? 'yes' : 'no')+'">'+j.need+'</span>' : '<span class="ro">―</span>')+'</td>'+
-      '<td>'+selCell(it.status, ['未対応','対応済'], 'data-f="status" data-code="'+esc(it.code)+'"')+'</td>'+
+      '<td>'+selCell(it.status, STATUSES, 'data-f="status" data-code="'+esc(it.code)+'"')+'</td>'+
       '<td><input class="cell-in note-in" value="'+esc(it.note)+'" data-f="note" data-code="'+esc(it.code)+'" placeholder="—"><button class="rowbtn" data-open="'+esc(it.code)+'">詳細</button></td>'+
     '</tr>';
   }).join('');
@@ -1047,7 +1059,10 @@ function renderMain(){
 }
 
 function renderChange(){
-  const R = rows().filter(r => r.j.need === '要' || r.j.result === '要確認').filter(r => matches(r, state.filters2));
+  const R = rows()
+    .filter(r => r.j.need === '要' || r.j.result === '要確認')
+    .filter(r => state.filters2.sta !== 'すべて' || r.it.status !== '例外運用')   // 例外運用は既定で伏せる
+    .filter(r => matches(r, state.filters2));
   const head = '<thead><tr class="headrow">'+
     '<th>商品コード</th><th>商品名</th><th class="n">判定用在庫数</th>'+
     '<th class="b-cur">現在の主保管</th><th class="b-cur">現在の予備保管</th>'+
@@ -1062,7 +1077,7 @@ function renderChange(){
     '<td class="b-rec">'+(j.recMain ? esc(j.recMain) : '―')+'</td><td class="b-rec">'+(j.recSub ? esc(j.recSub) : '―')+'</td>'+
     '<td>'+pill(j.result, j.cat)+'</td>'+
     '<td class="reason">'+esc(j.reason)+'</td>'+
-    '<td>'+selCell(it.status, ['未対応','対応済'], 'data-f="status" data-code="'+esc(it.code)+'"')+'</td>'+
+    '<td>'+selCell(it.status, STATUSES, 'data-f="status" data-code="'+esc(it.code)+'"')+'</td>'+
     '<td><button class="rowbtn" data-open="'+esc(it.code)+'">詳細</button></td></tr>'
   ).join('');
   $('tblChange').innerHTML = head + '<tbody>' + (body || '<tr><td colspan="11" class="empty">変更が必要な商品はありません。今月の移動作業はゼロです。</td></tr>') + '</tbody>';
@@ -1072,9 +1087,9 @@ function renderFilters(){
   const mk = (target, cur, list, key) => list.map(v =>
     '<button class="chip" data-fk="'+key+'" data-t="'+target+'" data-v="'+esc(v)+'" aria-pressed="'+(cur === v)+'">'+esc(v)+'</button>').join('');
   $('resFilters').innerHTML  = mk('filters',  state.filters.res,  ['すべて'].concat(RESULTS), 'res');
-  $('staFilters').innerHTML  = mk('filters',  state.filters.sta,  ['すべて','未対応','対応済'], 'sta');
+  $('staFilters').innerHTML  = mk('filters',  state.filters.sta,  ['すべて'].concat(STATUSES), 'sta');
   $('resFilters2').innerHTML = mk('filters2', state.filters2.res, ['すべて'].concat(RESULTS), 'res');
-  $('staFilters2').innerHTML = mk('filters2', state.filters2.sta, ['すべて','未対応','対応済'], 'sta');
+  $('staFilters2').innerHTML = mk('filters2', state.filters2.sta, ['すべて'].concat(STATUSES), 'sta');
 }
 
 function renderSync(){
@@ -1308,10 +1323,16 @@ function renderRules(){
     '<tr><td>箱</td><td>なし</td><td class="ok">○</td></tr>'+
     '<tr><td>箱</td><td>コンテナ</td><td class="ok">○</td></tr>'+
     '<tr><td>コンテナ</td><td>なし</td><td class="ok">○</td></tr>'+
-    '<tr><td>小箱</td><td>コンテナ</td><td class="ng">×</td></tr>'+
+    '<tr><td>小箱</td><td>コンテナ</td><td class="ok">○</td></tr>'+
     '<tr><td>コンテナ</td><td>コンテナ</td><td class="ng">×</td></tr>'+
   '</tbody></table>'+
 
+  '<p><b>小箱＋コンテナは、担当者が選ぶ例外運用です。</b>'+
+  '自動判定は通常「小箱上限を超えたら主保管を箱へ」と推奨します。予備保管はピッキング動線から外れる補助置き場で、'+
+  '小箱は上限が小さいぶんあふれる量が大きく、コンテナから小箱への補充が頻発するためです。'+
+  'ただし、箱ロケーションに空きがない、少量ずつ頻繁に出るので小箱ピッキングを崩したくない、'+
+  'セール前の一時入荷で恒久的に移すほどではない、といった場合は小箱＋コンテナのままで構いません。'+
+  'その場合は<b>対応状況を「例外運用」</b>にしてください。判定結果は残したまま、変更対象一覧から伏せられます。</p>'+
   '<h2>要確認になる条件</h2>'+
   '<p>在庫定数・フリー在庫の未取得、必要な収納上限の未入力、小箱上限＞箱上限、マイナス値、基礎区分と現在の主保管の矛盾、無効な主保管＋予備保管の組み合わせ、API商品照合エラー。これらは自動判定を行わず「要確認」と表示します（不足データを0として扱いません）。</p>'+
 
@@ -1355,7 +1376,7 @@ $('syncBtn').addEventListener('click', sync);
 $('scrim').addEventListener('click', closeDrawer);
 document.addEventListener('keydown', e => { if(e.key === 'Escape') closeDrawer(); });
 $('copyBtn').addEventListener('click', () => {
-  const R = rows().filter(r => r.j.need === '要' || r.j.result === '要確認');
+  const R = rows().filter(r => (r.j.need === '要' || r.j.result === '要確認') && r.it.status !== '例外運用');
   const head = ['商品コード','商品名','判定用在庫数','現在の主保管','現在の予備保管','推奨主保管','推奨予備保管','判定結果','判定理由','対応状況'].join('\t');
   const body = R.map(({it,j}) => [it.code,it.name,j.qty,it.curMain,it.curSub,j.recMain||'―',j.recSub||'―',j.result,j.reason,it.status].join('\t')).join('\n');
   const d = $('drawer');
