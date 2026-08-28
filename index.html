@@ -818,7 +818,7 @@ function seed(){
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.0025';
+const APP_VERSION = 'v1.0026';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
@@ -1250,7 +1250,7 @@ function buildXlsx(sheetRows, opts){
     const cs = cells.map((c, i) => c === null || c === undefined ? '' :
       '<c r="'+colLetter(i)+(r+1)+'"'+(c.s ? ' s="'+c.s+'"' : '')+' t="inlineStr"><is><t xml:space="preserve">'
       + xe(c.v) + '</t></is></c>').join('');
-    const ht = r === 0 ? ' ht="20" customHeight="1"' : (r === 1 ? ' ht="34" customHeight="1"' : '');
+    const ht = r === 0 ? ' ht="28" customHeight="1"' : (r === 1 ? ' ht="34" customHeight="1"' : '');
     return '<row r="'+(r+1)+'"'+ht+'>'+cs+'</row>';
   }).join('');
   const cols = (o.widths || []).map((w, i) =>
@@ -1272,9 +1272,9 @@ function buildXlsx(sheetRows, opts){
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
     '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+
     '<fonts count="3">'+
-      '<font><sz val="11"/><name val="Yu Gothic"/></font>'+
-      '<font><b/><sz val="11"/><name val="Yu Gothic"/></font>'+
-      '<font><sz val="10"/><color rgb="FF5C6877"/><name val="Yu Gothic"/></font>'+
+      '<font><sz val="10"/><name val="Yu Gothic"/></font>'+
+      '<font><b/><sz val="10"/><name val="Yu Gothic"/></font>'+
+      '<font><sz val="20"/><color rgb="FF000000"/><name val="Yu Gothic"/></font>'+
     '</fonts>'+
     '<fills count="4">'+
       '<fill><patternFill patternType="none"/></fill>'+
@@ -1327,7 +1327,7 @@ function buildXlsx(sheetRows, opts){
 }
 
 const XLS_NOTE = '※小箱＋コンテナは、担当者が選ぶ例外運用です。';
-const XLS_HEAD = ['商品コード','商品名','現在の\n主保管','現在の\n予備保管','推奨\n主保管','推奨\n予備保管','判定結果','対応可否'];
+const XLS_HEAD = ['商品コード','商品名','現在の\n主保管','現在の\n予備保管','推奨\n主保管','推奨\n予備保管','判定結果','対応\n可否'];
 function exportXlsx(list){
   if(!list.length){ toast('書き出す商品がありません'); return; }
   const rows = [];
@@ -2152,7 +2152,7 @@ $('pushShared').addEventListener('click', async () => {
   }catch(e){
     showText('GitHubに保存できませんでした', String(e.message || e), '');
   }finally{
-    btn.disabled = false; btn.textContent = 'GitHubに保存して全員に反映';
+    btn.disabled = false; btn.textContent = 'GitHubに保存';
   }
 });
 
@@ -2224,7 +2224,7 @@ function openGhSetup(){
       ghSave(gh);
       msg(r.status === 404
         ? '接続できました。'+gh.path+' はまだ無いので、最初の保存で新規作成します。'
-        : '接続できました。「GitHubに保存して全員に反映」で保存できます。', true);
+        : '接続できました。「GitHubに保存」で保存できます。', true);
       renderGhButton();
     }catch(e){
       gh = saved;
