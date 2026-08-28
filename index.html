@@ -287,10 +287,12 @@ thead th{
   border-bottom:1px solid var(--line);white-space:nowrap;color:var(--ink-2);
 }
 tr.grouprow th{
-  top:0;z-index:6;font-size:11px;letter-spacing:.1em;color:var(--ink-3);
-  padding:6px 10px;border-bottom:1px solid var(--line);
+  top:0;z-index:7;font-size:11px;letter-spacing:.1em;color:var(--ink-3);
+  padding:0 10px;height:30px;box-sizing:border-box;border-bottom:1px solid var(--line);
 }
 tr.headrow th{top:30px;z-index:6;padding:8px 10px;font-size:13px}
+/* 変更対象一覧はグループ行が無いので、見出し行を一番上に固定する */
+#tblChange tr.headrow th{top:0}
 tbody td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
 
 .b-cur{background:var(--band-cur)} .b-qty{background:var(--band-qty)} .b-rec{background:var(--band-rec)}
@@ -664,7 +666,7 @@ function seed(){
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.0008';
+const APP_VERSION = 'v1.0009';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
