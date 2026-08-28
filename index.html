@@ -818,7 +818,7 @@ function seed(){
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.0024';
+const APP_VERSION = 'v1.0025';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
@@ -1250,7 +1250,8 @@ function buildXlsx(sheetRows, opts){
     const cs = cells.map((c, i) => c === null || c === undefined ? '' :
       '<c r="'+colLetter(i)+(r+1)+'"'+(c.s ? ' s="'+c.s+'"' : '')+' t="inlineStr"><is><t xml:space="preserve">'
       + xe(c.v) + '</t></is></c>').join('');
-    return '<row r="'+(r+1)+'"'+(r === 0 ? ' ht="20" customHeight="1"' : '')+'>'+cs+'</row>';
+    const ht = r === 0 ? ' ht="20" customHeight="1"' : (r === 1 ? ' ht="34" customHeight="1"' : '');
+    return '<row r="'+(r+1)+'"'+ht+'>'+cs+'</row>';
   }).join('');
   const cols = (o.widths || []).map((w, i) =>
     '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"/>').join('');
@@ -1286,12 +1287,13 @@ function buildXlsx(sheetRows, opts){
       '<top style="thin"><color rgb="FFC9CFD8"/></top><bottom style="thin"><color rgb="FFC9CFD8"/></bottom></border>'+
     '</borders>'+
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'+
-    '<cellXfs count="5">'+
+    '<cellXfs count="6">'+
       '<xf xfId="0"/>'+
-      '<xf xfId="0" fontId="1" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'+
+      '<xf xfId="0" fontId="1" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'+
       '<xf xfId="0" borderId="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>'+
       '<xf xfId="0" fillId="3" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'+
       '<xf xfId="0" fontId="2" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>'+
+      '<xf xfId="0" borderId="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'+
     '</cellXfs>'+
     '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'+
     '<dxfs count="0"/>'+
@@ -1325,19 +1327,21 @@ function buildXlsx(sheetRows, opts){
 }
 
 const XLS_NOTE = '※小箱＋コンテナは、担当者が選ぶ例外運用です。';
-const XLS_HEAD = ['商品コード','商品名','現在の主保管','現在の予備保管','推奨主保管','推奨予備保管','判定結果','対応可否'];
+const XLS_HEAD = ['商品コード','商品名','現在の\n主保管','現在の\n予備保管','推奨\n主保管','推奨\n予備保管','判定結果','対応可否'];
 function exportXlsx(list){
   if(!list.length){ toast('書き出す商品がありません'); return; }
   const rows = [];
   rows.push([{v:XLS_NOTE, s:4}]);
   rows.push(XLS_HEAD.map(h => ({v:h, s:1})));
   list.forEach(({it,j}) => rows.push([
-    {v:it.code, s:2}, {v:it.name, s:2},
-    {v:it.curMain, s:2}, {v:it.curSub, s:2},
+    {v:it.code, s:2}, {v:String(it.name || '').slice(0, 10), s:2},
+    {v:it.curMain, s:5}, {v:it.curSub, s:5},
     {v:j.recMain || '―', s:3}, {v:j.recSub || '―', s:3},
-    {v:j.result, s:2}, {v:it.status, s:2}
+    {v:j.result, s:2}, {v:'', s:2}
   ]));
-  const bin = buildXlsx(rows, { widths:[22, 40, 15, 17, 14, 16, 20, 12] });
+  // 幅は中身に合わせて詰める（全角は約2文字分）
+  const codeW = Math.min(34, Math.max(12, ...list.map(x => String(x.it.code).length)) + 1);
+  const bin = buildXlsx(rows, { widths:[codeW, 21, 8.5, 9.5, 8.5, 9.5, 19, 9] });
   const p2 = n => String(n).padStart(2,'0');
   const d = new Date();
   const name = '保管形式判定_'+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'_'+p2(d.getHours())+p2(d.getMinutes())+'.xlsx';
