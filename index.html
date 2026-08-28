@@ -364,6 +364,23 @@ select.pillsel{
 .spill[data-v="―"]{background:transparent;color:var(--ink-3);border-color:transparent;min-width:0}
 select.pillsel:hover{filter:brightness(.97)}
 :root[data-theme="dark"] select.pillsel:hover{filter:brightness(1.15)}
+/* 並び替え */
+.rowbreak{flex-basis:100%;height:0}
+.sortbtn{
+  border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-3);
+  border-radius:4px;font-family:var(--f-num);font-size:11px;line-height:1;
+  padding:2px 5px;margin-left:6px;cursor:pointer;vertical-align:middle;
+}
+.sortbtn.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.sortbtn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.btn.floorbtn.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.chip .cnt{font-family:var(--f-num);opacity:.72;margin-left:3px}
+
+/* 対応状況の色分け */
+select.statsel[data-v="未対応"]{background-color:var(--up-bg);color:var(--up);border-color:var(--up-line)}
+select.statsel[data-v="対応済"]{background-color:var(--dn-bg);color:var(--dn);border-color:var(--dn-line)}
+select.statsel[data-v="例外運用"]{background-color:var(--c-cnt-bg);color:var(--c-cnt);border-color:var(--c-cnt-line)}
+
 /* 商品名：ダブルクリックで編集 */
 td.name{cursor:text}
 input.name-in{width:100%;font-size:14px;padding:3px 5px;border:1px solid var(--accent);border-radius:4px;background:var(--surface)}
@@ -558,7 +575,9 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
     <div class="toolbar">
       <div class="search"><input type="search" id="q" placeholder="商品コード・商品名で検索"></div>
       <div class="fgroup"><span class="glabel">判定結果</span><span id="resFilters"></span></div>
+      <div class="rowbreak"></div>
       <div class="fgroup"><span class="glabel">対応状況</span><span id="staFilters"></span></div>
+      <button class="btn btn-sm floorbtn" data-sort="floor">階数でソート</button>
       <label class="toggle"><input type="checkbox" id="manualMode"> 管理者：手動入力モード</label>
     </div>
     <div class="tablewrap"><table id="tblMain"></table></div>
@@ -568,7 +587,9 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
     <div class="toolbar">
       <div class="search"><input type="search" id="q2" placeholder="商品コード・商品名で検索"></div>
       <div class="fgroup"><span class="glabel">判定結果</span><span id="resFilters2"></span></div>
+      <div class="rowbreak"></div>
       <div class="fgroup"><span class="glabel">対応状況</span><span id="staFilters2"></span></div>
+      <button class="btn btn-sm floorbtn" data-sort="floor">階数でソート</button>
       <button class="btn btn-sm" id="copyBtn">一覧をテキストで表示</button>
     </div>
     <div class="tablewrap"><table id="tblChange"></table></div>
@@ -730,7 +751,7 @@ function seed(){
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.0012';
+const APP_VERSION = 'v1.0013';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
@@ -741,6 +762,7 @@ function blankState(){
     filters2:{ q:'', res:'すべて', sta:'すべて' },
     tab:'main',
     hideHead:false,
+    sort:null,
     sharedStamp:null,
     ne:null
   };
@@ -1110,12 +1132,50 @@ const esc = s => String(s === null || s === undefined ? '' : s).replace(/[&<>"']
 
 function rows(){ return state.items.map(it => ({ it, j: judge(it) })); }
 
-function matches(r, f){
+/* 商品名に含まれる階数（例：【PKT2-4F】→ 4）。無ければ null */
+function floorOf(name){
+  const m = String(name || '').match(/(\d+)\s*F/i);
+  return m ? Number(m[1]) : null;
+}
+const byCode = (a, b) => String(a.it.code).localeCompare(String(b.it.code), 'ja', {numeric:true});
+function sortRows(list){
+  const s = state.sort;
+  if(!s) return list;
+  const arr = list.slice();
+  if(s.key === 'code'){
+    arr.sort((a, b) => byCode(a, b) * (s.dir === 'asc' ? 1 : -1));
+  }else{
+    arr.sort((a, b) => {
+      const fa = floorOf(a.it.name), fb = floorOf(b.it.name);
+      if(fa === null && fb === null) return byCode(a, b);
+      if(fa === null) return 1;          // 階数が読み取れない商品は最後
+      if(fb === null) return -1;
+      if(fa !== fb) return (fb - fa) * (s.dir === 'desc' ? 1 : -1);
+      return byCode(a, b);
+    });
+  }
+  return arr;
+}
+function sortMark(key){
+  const s = state.sort;
+  if(!s || s.key !== key) return '⇅';
+  return s.dir === 'asc' ? '↑' : '↓';
+}
+
+function matches(r, f, skip){
   const q = f.q.trim().toLowerCase();
   if(q && !(r.it.code.toLowerCase().includes(q) || r.it.name.toLowerCase().includes(q))) return false;
-  if(f.res !== 'すべて' && r.j.result !== f.res) return false;
-  if(f.sta !== 'すべて' && r.it.status !== f.sta) return false;
+  if(skip !== 'res' && f.res !== 'すべて' && r.j.result !== f.res) return false;
+  if(skip !== 'sta' && f.sta !== 'すべて' && r.it.status !== f.sta) return false;
   return true;
+}
+/* 判定結果チップに出す件数（その判定を選んだら何件になるか） */
+function chipCounts(R, f){
+  const base = R.filter(r => matches(r, f, 'res'));
+  const c = { 'すべて': base.length };
+  RESULTS.forEach(x => c[x] = 0);
+  base.forEach(r => { c[r.j.result] = (c[r.j.result] || 0) + 1; });
+  return c;
 }
 
 function renderKpis(){
@@ -1170,14 +1230,15 @@ function renderMain(){
     if(ls) ls.onclick = () => { state.items = seed(); markDirty(); render(); toast('サンプル16件を読み込みました'); };
     return;
   }
-  const R = rows().filter(r => matches(r, state.filters));
+  const R = sortRows(rows().filter(r => matches(r, state.filters)));
   const head =
     '<thead>'+
     '<tr class="grouprow"><th colspan="3" class="lead">商品</th><th colspan="2">収納上限</th><th colspan="2" class="b-cur gstart">現在の保管</th>'+
     '<th colspan="3" class="b-qty gstart">在庫数量</th><th colspan="2" class="b-rec gstart">推奨の保管</th>'+
     '<th colspan="3" class="gstart">判定</th><th colspan="2">運用</th></tr>'+
     '<tr class="headrow">'+
-      '<th class="lead">商品コード</th><th class="lead">商品名</th><th>基礎区分</th>'+
+      '<th class="lead">商品コード<button class="sortbtn'+(state.sort && state.sort.key === 'code' ? ' on' : '')+'" data-sort="code" title="商品コードで並び替え">'+sortMark('code')+'</button></th>'+
+    '<th class="lead">商品名</th><th>基礎区分</th>'+
       '<th class="n">小箱上限</th><th class="n">箱上限</th>'+
       '<th class="b-cur gstart">現在の主保管</th><th class="b-cur">現在の予備保管</th>'+
       '<th class="b-qty n gstart">在庫定数</th><th class="b-qty n">フリー在庫</th><th class="b-qty n">判定用在庫数</th>'+
@@ -1207,7 +1268,7 @@ function renderMain(){
       '<td>'+pill(j.result, j.cat)+'</td>'+
       '<td class="reason">'+esc(j.reason)+'</td>'+
       '<td>'+(j.need ? '<span class="need '+(j.need === '要' ? 'yes' : 'no')+'">'+j.need+'</span>' : '<span class="ro">―</span>')+'</td>'+
-      '<td>'+selCell(it.status, STATUSES, 'data-f="status" data-code="'+esc(it.code)+'"')+'</td>'+
+      '<td>'+selCell(it.status, STATUSES, 'data-f="status" data-code="'+esc(it.code)+'"', 'pillsel statsel')+'</td>'+
       '<td><input class="cell-in note-in" value="'+esc(it.note)+'" data-f="note" data-code="'+esc(it.code)+'" placeholder="—"><button class="rowbtn" data-open="'+esc(it.code)+'">詳細</button></td>'+
     '</tr>';
   }).join('');
@@ -1221,12 +1282,14 @@ function renderChange(){
     .filter(r => r.j.need === '要' || r.j.result === '要確認')
     .filter(r => state.filters2.sta !== 'すべて' || r.it.status !== '例外運用')   // 例外運用は既定で伏せる
     .filter(r => matches(r, state.filters2));
+  const R2 = sortRows(R);
   const head = '<thead><tr class="headrow">'+
-    '<th class="lead">商品コード</th><th class="lead">商品名</th><th class="n">判定用在庫数</th>'+
+    '<th class="lead">商品コード<button class="sortbtn'+(state.sort && state.sort.key === 'code' ? ' on' : '')+'" data-sort="code" title="商品コードで並び替え">'+sortMark('code')+'</button></th>'+
+    '<th class="lead">商品名</th><th class="n">判定用在庫数</th>'+
     '<th class="b-cur gstart">現在の主保管</th><th class="b-cur">現在の予備保管</th>'+
     '<th class="b-rec gstart">推奨主保管</th><th class="b-rec">推奨予備保管</th>'+
     '<th>判定結果</th><th>判定理由</th><th>対応状況</th><th></th></tr></thead>';
-  const body = R.map(({it,j}) =>
+  const body = R2.map(({it,j}) =>
     '<tr data-cat="'+j.cat+'" data-code="'+esc(it.code)+'">'+
     '<td class="code stripe">'+esc(it.code)+'</td>'+
     '<td class="name" data-code="'+esc(it.code)+'" title="ダブルクリックで編集：'+esc(it.name)+'">'+esc(it.name)+'</td>'+
@@ -1235,19 +1298,27 @@ function renderChange(){
     '<td class="b-rec sto gstart">'+stoPill(j.recMain)+'</td><td class="b-rec sto">'+stoPill(j.recSub)+'</td>'+
     '<td>'+pill(j.result, j.cat)+'</td>'+
     '<td class="reason">'+esc(j.reason)+'</td>'+
-    '<td>'+selCell(it.status, STATUSES, 'data-f="status" data-code="'+esc(it.code)+'"')+'</td>'+
+    '<td>'+selCell(it.status, STATUSES, 'data-f="status" data-code="'+esc(it.code)+'"', 'pillsel statsel')+'</td>'+
     '<td><button class="rowbtn" data-open="'+esc(it.code)+'">詳細</button></td></tr>'
   ).join('');
   $('tblChange').innerHTML = head + '<tbody>' + (body || '<tr><td colspan="11" class="empty">変更が必要な商品はありません。今月の移動作業はゼロです。</td></tr>') + '</tbody>';
 }
 
 function renderFilters(){
-  const mk = (target, cur, list, key) => list.map(v =>
-    '<button class="chip" data-fk="'+key+'" data-t="'+target+'" data-v="'+esc(v)+'" aria-pressed="'+(cur === v)+'">'+esc(v)+'</button>').join('');
-  $('resFilters').innerHTML  = mk('filters',  state.filters.res,  ['すべて'].concat(RESULTS), 'res');
+  const mk = (target, cur, list, key, counts) => list.map(v =>
+    '<button class="chip" data-fk="'+key+'" data-t="'+target+'" data-v="'+esc(v)+'" aria-pressed="'+(cur === v)+'">'
+    + esc(v) + (counts ? '<span class="cnt">('+(counts[v] || 0)+')</span>' : '') + '</button>').join('');
+  const R = rows();
+  const R2 = R.filter(r => (r.j.need === '要' || r.j.result === '要確認') && r.it.status !== '例外運用');
+  $('resFilters').innerHTML  = mk('filters',  state.filters.res,  ['すべて'].concat(RESULTS), 'res', chipCounts(R, state.filters));
   $('staFilters').innerHTML  = mk('filters',  state.filters.sta,  ['すべて'].concat(STATUSES), 'sta');
-  $('resFilters2').innerHTML = mk('filters2', state.filters2.res, ['すべて'].concat(RESULTS), 'res');
+  $('resFilters2').innerHTML = mk('filters2', state.filters2.res, ['すべて'].concat(RESULTS), 'res', chipCounts(R2, state.filters2));
   $('staFilters2').innerHTML = mk('filters2', state.filters2.sta, ['すべて'].concat(STATUSES), 'sta');
+  document.querySelectorAll('.floorbtn').forEach(b => {
+    const on = !!(state.sort && state.sort.key === 'floor');
+    b.classList.toggle('on', on);
+    b.textContent = on ? (state.sort.dir === 'desc' ? '階数でソート ↓（4F→2F）' : '階数でソート ↑（2F→4F）') : '階数でソート';
+  });
 }
 
 function renderSync(){
@@ -1584,10 +1655,18 @@ document.addEventListener('change', e => {
   }
 });
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-open], .chip, .tab, .kpi');
+  const t = e.target.closest('[data-open], [data-sort], .chip, .tab, .kpi');
   if(!t) return;
   if(t.dataset.open){ openDrawer(t.dataset.open); return; }
   if(t.classList.contains('tab')){ switchTab(t.dataset.tab); return; }
+  if(t.dataset && t.dataset.sort){
+    const k = t.dataset.sort;
+    const cur = state.sort;
+    if(cur && cur.key === k) state.sort = { key:k, dir: cur.dir === 'asc' ? 'desc' : 'asc' };
+    else state.sort = { key:k, dir: k === 'floor' ? 'desc' : 'asc' };
+    render();
+    return;
+  }
   if(t.classList.contains('chip')){
     state[t.dataset.t][t.dataset.fk] = t.dataset.v;
     render(); return;
