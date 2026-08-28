@@ -143,7 +143,8 @@ button,input,select,textarea{font:inherit;color:inherit}
   display:flex;flex-wrap:wrap;gap:20px 24px;align-items:flex-start;justify-content:space-between;
   padding:10px 16px 6px;
 }
-.masthead .sync{margin-top:12px}
+.masthead .sync{margin-top:10px}
+.masthead .flow{background:var(--surface);border-color:var(--line-strong)}
 .brandline{display:flex;align-items:center;gap:11px}
 .logomark{width:58px;height:46px;flex:none;display:block}
 .brand h1{
@@ -568,6 +569,11 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
     </div>
   </div>
   <div class="sync">
+    <div class="flow" id="flow">
+      <button class="btn btn-sm btn-primary" id="syncBtn"><span class="stepno">1</span>NEから最新データ取得</button>
+      <span class="flow-arrow" aria-hidden="true">→</span>
+      <button class="btn btn-sm" id="reloadShared"><span class="stepno">2</span>共有データを再読み込み</button>
+    </div>
     <div class="sync-meta">
       <span class="lbl">NE 最終同期日時</span>
       <span class="val" id="lastSync">―</span>
@@ -589,14 +595,7 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
     </div>
     <div class="dbactions">
       <button class="btn btn-sm" id="csvBtn">CSVを取り込む</button>
-      <div class="flow" id="flow">
-        <button class="btn btn-sm btn-primary" id="syncBtn"><span class="stepno">1</span>NEから最新データ取得</button>
-        <span class="flow-arrow" aria-hidden="true">→</span>
-        <button class="btn btn-sm" id="reloadShared"><span class="stepno">2</span>共有データを再読み込み</button>
-      </div>
-      <button class="btn btn-sm btn-primary" id="pushShared" hidden>GitHubに保存して全員に反映</button>
-      <button class="btn btn-sm" id="csvOut">CSVを書き出す</button>
-      <button class="btn btn-sm" id="jsonOut">共有用JSONを書き出す</button>
+      <button class="btn btn-sm btn-primary" id="pushShared" hidden>GitHubに保存</button>
       <button class="btn btn-sm" id="ghSetup">保存設定</button>
       <button class="btn btn-sm ghost" id="clearAll">全消去</button>
     </div>
@@ -807,7 +806,7 @@ function seed(){
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.0016';
+const APP_VERSION = 'v1.0017';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
@@ -2087,14 +2086,14 @@ $('csvApply').addEventListener('click', () => {
   if(r.errors.length) showText('CSV取込の結果', '追加 '+r.added+'件 / 更新 '+r.updated+'件\n\n取り込めなかった行:\n'+r.errors.join('\n'), '');
   else toast('CSVを取り込みました（追加 '+r.added+'件 / 更新 '+r.updated+'件）');
 });
-$('csvOut').addEventListener('click', () => {
+function exportCsvFile(){
   if(!state.items.length){ toast('書き出す商品がありません'); return; }
   offerFile('保管形式判定くん.csv', exportCSV(), 'text/csv');
-});
-$('jsonOut').addEventListener('click', () => {
+}
+function exportJsonFile(){
   if(!state.items.length){ toast('書き出す商品がありません'); return; }
   offerFile('data.json', sharedJSON(), 'application/json');
-});
+}
 $('pushShared').addEventListener('click', async () => {
   if(!ghReady()){ openGhSetup(); return; }
   if(!state.items.length){ toast('保存する商品がありません'); return; }
@@ -2137,6 +2136,14 @@ function openGhSetup(){
       '<button class="btn btn-sm ghost" id="ghClear">トークンを削除</button>'+
     '</div>'+
     '<p id="ghMsg" class="reason-box" style="margin-top:12px;display:none"></p>'+
+  '</div>'+
+  '<div class="dsec"><h3>その他の書き出し</h3>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+      '<button class="btn btn-sm" id="csvOut">CSVを書き出す</button>'+
+      '<button class="btn btn-sm" id="jsonOut">共有用JSONを書き出す</button>'+
+    '</div>'+
+    '<p class="reason-box" style="margin-top:11px">共有用JSONは、トークンを使わずに GitHub の data.json を差し替えたいときに使います。'+
+    '商品一覧そのものを配りたいときはCSVを書き出してください（表の見た目のままExcelで見たい場合は、一覧側のExcel出力を使います）。</p>'+
   '</div>'+
   '<div class="dsec"><h3>トークンの作り方</h3>'+
     '<ol class="errlist" style="color:var(--ink-2)">'+
@@ -2183,6 +2190,8 @@ function openGhSetup(){
       msg(/fetch|abort|network|Failed/i.test(m) ? 'GitHubに接続できませんでした。通信環境とリポジトリ名を確認してください。' : m, false);
     }
   };
+  $('csvOut').onclick = exportCsvFile;
+  $('jsonOut').onclick = exportJsonFile;
   $('ghClear').onclick = () => {
     delete gh.token; ghSave(gh); renderGhButton();
     msg('このブラウザからトークンを削除しました。', true);
