@@ -304,7 +304,7 @@ section[hidden]{display:none}
 
 /* ---------- toolbar ---------- */
 .toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:12px 14px}
-.search{flex:1 1 220px;min-width:180px;position:relative}
+.search{flex:0 0 260px;min-width:180px;position:relative}
 .search input{width:100%;padding:8px 10px;border:1px solid var(--line-strong);background:var(--surface);border-radius:var(--radius)}
 .search input:focus-visible{outline:2px solid var(--accent);outline-offset:-1px}
 .fgroup{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
@@ -613,7 +613,6 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
   <section id="panel-main">
     <div class="panel filters">
       <div class="toolbar">
-        <div class="search"><input type="search" id="q" placeholder="商品コード・商品名で検索"></div>
         <div class="fgroup"><span class="glabel">判定結果</span><span id="resFilters"></span></div>
         <div class="rowbreak"></div>
         <div class="fgroup"><span class="glabel">対応状況</span><span id="staFilters"></span></div>
@@ -621,6 +620,7 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
     </div>
     <div class="tablecard">
       <div class="tablebar">
+        <div class="search"><input type="search" id="q" placeholder="商品コード・商品名で検索"></div>
         <button class="btn btn-sm" data-xls="filters">Excel出力</button>
         <button class="btn btn-sm floorbtn" data-sort="floor">階数でソート</button>
         <label class="toggle"><input type="checkbox" id="manualMode"> 管理者：手動入力モード</label>
@@ -632,7 +632,6 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
   <section id="panel-change" hidden>
     <div class="panel filters">
       <div class="toolbar">
-        <div class="search"><input type="search" id="q2" placeholder="商品コード・商品名で検索"></div>
         <div class="fgroup"><span class="glabel">判定結果</span><span id="resFilters2"></span></div>
         <div class="rowbreak"></div>
         <div class="fgroup"><span class="glabel">対応状況</span><span id="staFilters2"></span></div>
@@ -640,6 +639,7 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
     </div>
     <div class="tablecard">
       <div class="tablebar">
+        <div class="search"><input type="search" id="q2" placeholder="商品コード・商品名で検索"></div>
         <button class="btn btn-sm" data-xls="filters2">Excel出力</button>
         <button class="btn btn-sm floorbtn" data-sort="floor">階数でソート</button>
         <button class="btn btn-sm" id="copyBtn">一覧をテキストで表示</button>
@@ -806,7 +806,7 @@ function seed(){
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.0017';
+const APP_VERSION = 'v1.0018';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
