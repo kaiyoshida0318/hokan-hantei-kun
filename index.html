@@ -818,7 +818,7 @@ function seed(){
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.0023';
+const APP_VERSION = 'v1.0024';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
@@ -1392,7 +1392,11 @@ function matches(r, f, skip){
   const q = f.q.trim().toLowerCase();
   if(q && !(r.it.code.toLowerCase().includes(q) || r.it.name.toLowerCase().includes(q))) return false;
   if(skip !== 'res' && f.res !== 'すべて' && r.j.result !== f.res) return false;
-  if(skip !== 'sta' && f.sta !== 'すべて' && r.it.status !== f.sta) return false;
+  if(skip !== 'sta' && f.sta !== 'すべて'){
+    if(r.it.status !== f.sta) return false;
+    // 「維持」など変更の必要がない商品は、未対応の抽出には出さない
+    if(f.sta === '未対応' && !(r.j.need === '要' || r.j.result === '要確認')) return false;
+  }
   return true;
 }
 /* 判定結果チップに出す件数（その判定を選んだら何件になるか） */
@@ -1550,7 +1554,9 @@ const STA_CAT = { '未対応':'up', '対応済':'dn', '例外運用':'cnt' };
 function chipCat(v){ return v === 'すべて' ? 'all' : (CAT[v] || STA_CAT[v] || 'hold'); }
 function renderFilters(){
   const mk = (target, cur, list, key, counts) => list.map(v =>
-    '<button class="chip" data-cat="'+chipCat(v)+'" data-fk="'+key+'" data-t="'+target+'" data-v="'+esc(v)+'" aria-pressed="'+(cur === v)+'">'
+    '<button class="chip" data-cat="'+chipCat(v)+'" data-fk="'+key+'" data-t="'+target+'" data-v="'+esc(v)+'"'
+    + (v === '未対応' ? ' title="変更が必要な商品のうち、まだ対応していないものだけを表示します（維持は含みません）"' : '')
+    + ' aria-pressed="'+(cur === v)+'">'
     + esc(v) + (counts ? '<span class="cnt">('+(counts[v] || 0)+')</span>' : '') + '</button>').join('');
   const R = rows();
   const R2 = R.filter(r => (r.j.need === '要' || r.j.result === '要確認') && r.it.status !== '例外運用');
