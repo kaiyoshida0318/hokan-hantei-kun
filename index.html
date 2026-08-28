@@ -205,6 +205,34 @@ button,input,select,textarea{font:inherit;color:inherit}
 .btn.ghost{background:transparent;border-color:transparent;color:var(--ink-3)}
 .btn.ghost:hover{background:var(--alert-bg);border-color:var(--alert-line);color:var(--alert)}
 
+/* 月次の流れ：① NE取得 → ② 再読み込み */
+.flow{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:5px 10px;border:1px solid var(--line-strong);border-radius:100px;background:var(--surface-2);
+}
+.flow .btn{border-radius:100px}
+.stepno{
+  display:inline-grid;place-items:center;width:17px;height:17px;margin-right:7px;border-radius:50%;
+  font-family:var(--f-num);font-size:10.5px;font-weight:600;vertical-align:-2px;
+  background:rgba(255,255,255,.28);
+}
+#reloadShared .stepno{background:var(--surface-3);color:var(--ink-2)}
+.flow-arrow{color:var(--ink-3);font-size:14px;line-height:1}
+.flow.running{border-color:var(--accent);background:var(--accent-soft)}
+.flow.ready #reloadShared{
+  background:var(--dn);border-color:var(--dn);color:#fff;
+  animation:readypulse 1.4s ease-in-out infinite;
+}
+:root[data-theme="dark"] .flow.ready #reloadShared{color:#0E141A}
+.flow.ready #reloadShared .stepno{background:rgba(255,255,255,.3);color:inherit}
+@keyframes readypulse{50%{opacity:.72}}
+.flownote{
+  display:inline-flex;align-items:center;gap:6px;font-family:var(--f-body);font-size:13px;font-weight:500;
+  padding:3px 11px;border-radius:100px;background:var(--dn-bg);border:1px solid var(--dn-line);color:var(--dn);
+}
+.flownote[hidden]{display:none}
+.flownote.wait{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+
 /* ---------- empty state ---------- */
 .intro{padding:34px 26px;font-family:var(--f-body);max-width:760px}
 .intro h2{font-family:var(--f-ui);font-size:17px;margin:0 0 6px}
@@ -456,7 +484,6 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
       <span class="val" id="lastSync">―</span>
     </div>
     <span class="status-chip" id="syncChip" data-s="未同期"><span class="dot"></span><span id="syncText">未同期</span></span>
-    <button class="btn btn-primary" id="syncBtn">NEから最新データ取得</button>
   </div>
 </header>
 
@@ -469,11 +496,16 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
     <div class="dbinfo">
       <span class="lbl">共有データ（data.json）</span>
       <span class="dbstate" id="sharedState">読み込み中…</span>
+      <span class="flownote" id="flowNote" hidden></span>
     </div>
     <div class="dbactions">
-      <button class="btn btn-sm btn-primary" id="pushShared" hidden>GitHubに保存して全員に反映</button>
       <button class="btn btn-sm" id="csvBtn">CSVを取り込む</button>
-      <button class="btn btn-sm" id="reloadShared">共有データを再読み込み</button>
+      <div class="flow" id="flow">
+        <button class="btn btn-sm btn-primary" id="syncBtn"><span class="stepno">1</span>NEから最新データ取得</button>
+        <span class="flow-arrow" aria-hidden="true">→</span>
+        <button class="btn btn-sm" id="reloadShared"><span class="stepno">2</span>共有データを再読み込み</button>
+      </div>
+      <button class="btn btn-sm btn-primary" id="pushShared" hidden>GitHubに保存して全員に反映</button>
       <button class="btn btn-sm" id="csvOut">CSVを書き出す</button>
       <button class="btn btn-sm" id="jsonOut">共有用JSONを書き出す</button>
       <button class="btn btn-sm" id="ghSetup">保存設定</button>
@@ -666,7 +698,7 @@ function seed(){
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.0009';
+const APP_VERSION = 'v1.0011';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
@@ -786,7 +818,9 @@ async function fetchShared(){
   }
 }
 function adoptShared(sh){
+  const ui = { tab:state.tab, hideHead:state.hideHead, filters:state.filters, filters2:state.filters2 };
   state = blankState();
+  Object.assign(state, ui);
   state.items = sh.items;
   state.ne = sh.ne || null;
   if(sh.ne){
@@ -907,9 +941,10 @@ function offerFile(name, text, mime){
   }catch(e){}
   showText(name, text);
 }
-function showText(title, text){
+function showText(title, text, note){
   const d = $('drawer');
-  d.innerHTML = '<div class="dhead"><div><h2>'+esc(title)+'</h2><span class="code">ダウンロードされない場合は、下のテキストを選択してコピーしてください</span></div>'+
+  const sub = note === undefined ? 'ダウンロードされない場合は、下のテキストを選択してコピーしてください' : note;
+  d.innerHTML = '<div class="dhead"><div><h2>'+esc(title)+'</h2>'+(sub ? '<span class="code">'+esc(sub)+'</span>' : '')+'</div>'+
     '<button class="iconbtn" id="dclose" aria-label="閉じる">×</button></div>'+
     '<div class="dsec"><textarea style="width:100%;min-height:62vh;font-family:var(--f-num);font-size:11px;border:1px solid var(--line-strong);border-radius:6px;padding:10px;background:var(--surface-2)">'+esc(text)+'</textarea></div>';
   $('scrim').classList.add('show'); d.classList.add('show'); d.setAttribute('aria-hidden','false');
@@ -1325,16 +1360,75 @@ function jstStr(iso){
 }
 const actionsURL = () => 'https://github.com/'+gh.owner+'/'+gh.repo+'/actions/workflows/ne-sync.yml';
 
+/* idle / running（GitHubで実行中） / ready（取得完了・②待ち） / done（反映済み） */
+function setFlow(mode, note){
+  const f = $('flow'), n = $('flowNote'), b = $('syncBtn');
+  f.classList.toggle('running', mode === 'running');
+  f.classList.toggle('ready', mode === 'ready');
+  b.disabled = (mode === 'running');
+  b.innerHTML = mode === 'running'
+    ? '<span class="stepno">1</span>取得中…'
+    : '<span class="stepno">1</span>NEから最新データ取得';
+  if(note){
+    n.hidden = false;
+    n.textContent = note;
+    n.classList.toggle('wait', mode === 'running');
+  }else{
+    n.hidden = true;
+  }
+}
+
+let syncPoll = null;
+function stopSyncPoll(){ if(syncPoll){ clearInterval(syncPoll); syncPoll = null; } }
+
+/* 同期を投げたあと、GitHub側の完了を一定間隔で見に行く */
+function startSyncPoll(prevSyncedAt){
+  stopSyncPoll();
+  const started = Date.now();
+  const tick = async () => {
+    const sh = await fetchShared();
+    const done = sh.status === '読込済' && sh.ne && sh.ne.syncedAt && sh.ne.syncedAt !== prevSyncedAt;
+    if(done){
+      stopSyncPoll();
+      sharedInfo = { status:sh.status, updatedAt:sh.updatedAt || null, count:(sh.items||[]).length };
+      if(!state.dirty){
+        adoptShared(sh);
+        renderHeadToggle(); switchTab(state.tab || 'main'); render();
+        setFlow('done', '✓ 準備完了：' + jstStr(sh.ne.syncedAt) + ' 時点の在庫を反映しました（'
+                + sharedInfo.count.toLocaleString('ja-JP') + '件）');
+        toast('準備完了。最新の在庫で判定し直しました');
+      }else{
+        state.ne = sh.ne;
+        state.sync = { status: sh.ne.status || '同期成功', at: jstStr(sh.ne.syncedAt), message: sh.ne.message || '' };
+        render();
+        setFlow('ready', '✓ 取得完了：②「共有データを再読み込み」を押すと反映されます');
+        toast('NEの取得が完了しました。②を押してください');
+      }
+      return;
+    }
+    if(Date.now() - started > 6 * 60 * 1000){
+      stopSyncPoll();
+      state.sync.status = '未同期';
+      state.sync.message = '完了を確認できませんでした。GitHubのActions画面で実行結果を確認してください。';
+      setFlow('idle', null);
+      renderSync();
+    }
+  };
+  syncPoll = setInterval(tick, 15000);
+  setTimeout(tick, 8000);
+}
+
 async function sync(){
   const btn = $('syncBtn');
+  $('flowNote').hidden = true;
   if(!ghReady()){
-    showText('ネクストエンジン同期の実行',
+    showText('ネクストエンジン同期の実行', 
       '同期はGitHub Actions（サーバー側）で実行します。ブラウザから直接ネクストエンジンを呼ぶことはありません。\n\n'+
       '・毎朝7:00に自動実行されます。\n'+
       '・今すぐ実行したい場合は、次のページを開いて「Run workflow」を押してください。\n'+
       actionsURL()+'\n\n'+
       'このボタンから実行できるようにするには、「保存設定」でトークンを登録してください'+
-      '（トークンの権限に Actions: Read and write が必要です）。');
+      '（トークンの権限に Actions: Read and write が必要です）。', '');
     return;
   }
   state.sync.status = '同期中'; state.sync.message = ''; renderSync();
@@ -1347,29 +1441,34 @@ async function sync(){
     }, 20000);
     if(res.status === 204){
       state.sync.status = '同期中';
-      state.sync.message = 'GitHub Actionsで実行中です。1〜2分後に「共有データを再読み込み」を押してください。';
+      state.sync.message = 'GitHub Actionsで実行中です。完了すると自動で反映されます。';
       renderSync();
-      toast('同期を開始しました。1〜2分後に共有データを再読み込みしてください');
+      setFlow('running', 'ネクストエンジンから取得中です。完了すると自動で反映されます（1分ほど）');
+      startSyncPoll(state.ne && state.ne.syncedAt ? state.ne.syncedAt : null);
+      toast('取得を開始しました。完了すると自動で反映されます');
     }else if(res.status === 403 || res.status === 404){
       state.sync.status = '未同期';
+      setFlow('idle', null);
       renderSync();
       showText('このトークンでは同期を実行できません',
         'トークンの権限に Actions: Read and write がありません。\n\n'+
         '対処は2つです。\n'+
         '1) GitHubでトークンを作り直し、Permissions に Actions（Read and write）を追加する\n'+
         '2) 次のページを開いて「Run workflow」を手で押す\n'+
-        actionsURL());
+        actionsURL(), '');
     }else{
       state.sync.status = '同期失敗';
       state.sync.message = ghError(res.status);
+      setFlow('idle', null);
       renderSync();
     }
   }catch(e){
     state.sync.status = '同期失敗';
     state.sync.message = 'GitHubに接続できませんでした。';
+    setFlow('idle', null);
     renderSync();
   }finally{
-    btn.disabled = false;
+    if(!syncPoll) btn.disabled = false;
   }
 }
 
@@ -1490,6 +1589,7 @@ $('copyBtn').addEventListener('click', () => {
 
 /* ============ 共有データ・CSVのボタン ============ */
 $('reloadShared').addEventListener('click', async () => {
+  stopSyncPoll();
   if(state.dirty && state.items.length &&
      !confirm('この端末で編集した内容は、共有データの内容に置き換わります。続けますか？')) return;
   const sh = await fetchShared();
@@ -1497,8 +1597,8 @@ $('reloadShared').addEventListener('click', async () => {
   if(sh.status === '読込済'){
     adoptShared(sh);
     $('manualMode').checked = false;
-    switchTab(state.tab);
-    render();
+    renderHeadToggle(); switchTab(state.tab); render();
+    setFlow('done', '✓ 準備完了：共有データ（' + sh.items.length.toLocaleString('ja-JP') + '件）を反映しました');
     toast('共有データを読み込みました（'+sh.items.length+'件）');
   }else{ renderShared(); toast('共有データを読み込めませんでした：'+sh.status); }
 });
@@ -1585,7 +1685,7 @@ $('csvApply').addEventListener('click', () => {
   const r = importCSV(pendingCSV);
   closeCsvModal();
   render();
-  if(r.errors.length) showText('CSV取込の結果', '追加 '+r.added+'件 / 更新 '+r.updated+'件\n\n取り込めなかった行:\n'+r.errors.join('\n'));
+  if(r.errors.length) showText('CSV取込の結果', '追加 '+r.added+'件 / 更新 '+r.updated+'件\n\n取り込めなかった行:\n'+r.errors.join('\n'), '');
   else toast('CSVを取り込みました（追加 '+r.added+'件 / 更新 '+r.updated+'件）');
 });
 $('csvOut').addEventListener('click', () => {
@@ -1610,7 +1710,7 @@ $('pushShared').addEventListener('click', async () => {
     render();
     toast('GitHubに保存しました。ほかのPCは再読み込みで反映されます');
   }catch(e){
-    showText('GitHubに保存できませんでした', String(e.message || e));
+    showText('GitHubに保存できませんでした', String(e.message || e), '');
   }finally{
     btn.disabled = false; btn.textContent = 'GitHubに保存して全員に反映';
   }
