@@ -818,7 +818,7 @@ function seed(){
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.0026';
+const APP_VERSION = 'v1.0027';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
@@ -1334,14 +1334,17 @@ function exportXlsx(list){
   rows.push([{v:XLS_NOTE, s:4}]);
   rows.push(XLS_HEAD.map(h => ({v:h, s:1})));
   list.forEach(({it,j}) => rows.push([
-    {v:it.code, s:2}, {v:String(it.name || '').slice(0, 10), s:2},
+    {v:it.code, s:2}, {v:String(it.name || ''), s:2},
     {v:it.curMain, s:5}, {v:it.curSub, s:5},
     {v:j.recMain || '―', s:3}, {v:j.recSub || '―', s:3},
     {v:j.result, s:2}, {v:'', s:2}
   ]));
   // 幅は中身に合わせて詰める（全角は約2文字分）
   const codeW = Math.min(34, Math.max(12, ...list.map(x => String(x.it.code).length)) + 1);
-  const bin = buildXlsx(rows, { widths:[codeW, 21, 8.5, 9.5, 8.5, 9.5, 19, 9] });
+  // 商品名は全文を入れるので、いちばん長い名前に合わせて幅を広げる（全角は約2文字分）
+  const wide = s => [...String(s)].reduce((n, c) => n + (/[\x20-\x7E｡-ﾟ]/.test(c) ? 1 : 2), 0);
+  const nameW = Math.min(60, Math.max(21, ...list.map(x => wide(x.it.name || ''))) + 2);
+  const bin = buildXlsx(rows, { widths:[codeW, nameW, 8.5, 9.5, 8.5, 9.5, 19, 9] });
   const p2 = n => String(n).padStart(2,'0');
   const d = new Date();
   const name = '保管形式判定_'+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'_'+p2(d.getHours())+p2(d.getMinutes())+'.xlsx';
