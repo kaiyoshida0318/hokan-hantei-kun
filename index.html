@@ -386,6 +386,31 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
 .rtable thead th{position:static;background:var(--surface-2)}
 .ok{color:var(--dn);font-weight:600} .ng{color:var(--alert);font-weight:600}
 
+/* ---------- CSV取り込みモーダル ---------- */
+.modal{position:fixed;inset:0;z-index:55;display:grid;place-items:center;padding:20px}
+.modal[hidden]{display:none}
+.modal-card{
+  width:min(520px,100%);background:var(--surface);border:1px solid var(--line);
+  border-radius:calc(var(--radius) * 2);box-shadow:var(--shadow);padding:22px 24px 20px;
+}
+.modal-card h2{margin:0 0 6px;font-size:18px;font-weight:700}
+.modal-lead{margin:0 0 16px;font-family:var(--f-body);font-size:13px;color:var(--ink-2);line-height:1.7}
+.dropzone{
+  border:2px dashed var(--line-strong);border-radius:var(--radius);background:var(--surface-2);
+  padding:30px 18px;text-align:center;cursor:pointer;transition:border-color .12s,background .12s;
+}
+.dropzone:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.dropzone.over{border-color:var(--accent);background:var(--accent-soft)}
+.dz-mark{font-family:var(--f-num);font-size:26px;color:var(--ink-3);line-height:1}
+.dz-main{margin-top:10px;font-size:14.5px;font-weight:500}
+.dz-sub{margin-top:4px;font-size:12.5px;color:var(--ink-3)}
+.dz-info{
+  margin-top:14px;min-height:22px;font-family:var(--f-body);font-size:13px;color:var(--ink-2);line-height:1.7;
+}
+.dz-info b{font-family:var(--f-num);font-weight:600;color:var(--ink)}
+.dz-info.err{color:var(--alert)}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+
 /* toast */
 .toast{
   position:fixed;left:50%;bottom:26px;transform:translate(-50%,14px);opacity:0;pointer-events:none;
@@ -438,7 +463,7 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
     </div>
     <div class="dbactions">
       <button class="btn btn-sm btn-primary" id="pushShared" hidden>GitHubに保存して全員に反映</button>
-      <label class="btn btn-sm filebtn">CSVを取り込む<input type="file" id="csvIn" accept=".csv,text/csv" hidden></label>
+      <button class="btn btn-sm" id="csvBtn">CSVを取り込む</button>
       <button class="btn btn-sm" id="reloadShared">共有データを再読み込み</button>
       <button class="btn btn-sm" id="csvOut">CSVを書き出す</button>
       <button class="btn btn-sm" id="jsonOut">共有用JSONを書き出す</button>
@@ -489,6 +514,24 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
 </div>
 
 <div class="scrim" id="scrim"></div>
+
+<div class="modal" id="csvModal" hidden>
+  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="csvTitle">
+    <h2 id="csvTitle">CSVを取り込む</h2>
+    <p class="modal-lead">商品リストのCSVを読み込みます。すでにある商品コードは上書き、無いものは追加されます。</p>
+    <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="CSVファイルを選択">
+      <div class="dz-mark">＋</div>
+      <div class="dz-main">ここにCSVファイルをドロップ</div>
+      <div class="dz-sub">またはクリックしてファイルを選ぶ</div>
+    </div>
+    <div class="dz-info" id="csvInfo"></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="csvApply" disabled>反映する</button>
+      <button class="btn" id="csvCancel">キャンセル</button>
+    </div>
+    <input type="file" id="csvIn" accept=".csv,text/csv" hidden>
+  </div>
+</div>
 <aside class="drawer" id="drawer" aria-hidden="true"></aside>
 <div class="toast" id="toast"></div>
 
@@ -614,7 +657,7 @@ function seed(){
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.0006';
+const APP_VERSION = 'v1.0007';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
@@ -1410,8 +1453,8 @@ $('manualMode').addEventListener('change', e => {
   render();
 });
 $('syncBtn').addEventListener('click', sync);
-$('scrim').addEventListener('click', closeDrawer);
-document.addEventListener('keydown', e => { if(e.key === 'Escape') closeDrawer(); });
+$('scrim').addEventListener('click', () => { closeDrawer(); closeCsvModal(); });
+document.addEventListener('keydown', e => { if(e.key === 'Escape'){ closeDrawer(); closeCsvModal(); } });
 $('copyBtn').addEventListener('click', () => {
   const R = rows().filter(r => (r.j.need === '要' || r.j.result === '要確認') && r.it.status !== '例外運用');
   const head = ['商品コード','商品名','判定用在庫数','現在の主保管','現在の予備保管','推奨主保管','推奨予備保管','判定結果','判定理由','対応状況'].join('\t');
@@ -1438,12 +1481,88 @@ $('reloadShared').addEventListener('click', async () => {
     toast('共有データを読み込みました（'+sh.items.length+'件）');
   }else{ renderShared(); toast('共有データを読み込めませんでした：'+sh.status); }
 });
+/* ---- CSV取り込みモーダル ---- */
+let pendingCSV = null;
+
+function openCsvModal(){
+  pendingCSV = null;
+  $('csvInfo').textContent = '';
+  $('csvInfo').classList.remove('err');
+  $('csvApply').disabled = true;
+  $('dropzone').classList.remove('over');
+  $('csvModal').hidden = false;
+  $('scrim').classList.add('show');
+  $('dropzone').focus();
+}
+function closeCsvModal(){
+  $('csvModal').hidden = true;
+  if(!$('drawer').classList.contains('show')) $('scrim').classList.remove('show');
+  pendingCSV = null;
+}
+function csvInfo(html, isErr){
+  const el = $('csvInfo');
+  el.innerHTML = html;
+  el.classList.toggle('err', !!isErr);
+}
+async function acceptCsvFile(file){
+  if(!file) return;
+  if(!/\.csv$/i.test(file.name) && file.type && !/csv|text/.test(file.type)){
+    pendingCSV = null; $('csvApply').disabled = true;
+    csvInfo('CSVファイルを選んでください（選ばれたファイル：' + esc(file.name) + '）', true);
+    return;
+  }
+  const text = await readTextFile(file);
+  const rows = parseCSV(text);
+  if(rows.length < 2){
+    pendingCSV = null; $('csvApply').disabled = true;
+    csvInfo('データ行がありません。1行目に見出し、2行目以降に商品を入れてください。', true);
+    return;
+  }
+  const head = rows[0].map(h => h.replace(/\s/g,''));
+  if(head.indexOf('商品コード') < 0){
+    pendingCSV = null; $('csvApply').disabled = true;
+    csvInfo('1行目に「商品コード」の見出しが見つかりません。', true);
+    return;
+  }
+  const ci = head.indexOf('商品コード');
+  const codes = rows.slice(1).map(r => String(r[ci] || '').trim()).filter(Boolean);
+  const have = new Set(state.items.map(x => x.code));
+  const upd = codes.filter(c => have.has(c)).length;
+  pendingCSV = text;
+  $('csvApply').disabled = false;
+  csvInfo(esc(file.name) + '<br>データ <b>' + codes.length.toLocaleString('ja-JP') + '</b> 件'
+        + '（新しく追加 <b>' + (codes.length - upd).toLocaleString('ja-JP') + '</b> 件 / '
+        + '上書き <b>' + upd.toLocaleString('ja-JP') + '</b> 件）');
+}
+
+$('csvBtn').addEventListener('click', openCsvModal);
+$('csvCancel').addEventListener('click', closeCsvModal);
+$('dropzone').addEventListener('click', () => $('csvIn').click());
+$('dropzone').addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); $('csvIn').click(); } });
 $('csvIn').addEventListener('change', async e => {
   const f = e.target.files && e.target.files[0];
   e.target.value = '';
-  if(!f) return;
-  const text = await readTextFile(f);
-  const r = importCSV(text);
+  await acceptCsvFile(f);
+});
+['dragenter','dragover'].forEach(ev => $('dropzone').addEventListener(ev, e => {
+  e.preventDefault(); e.stopPropagation(); $('dropzone').classList.add('over');
+}));
+['dragleave','dragend'].forEach(ev => $('dropzone').addEventListener(ev, e => {
+  e.preventDefault(); e.stopPropagation(); $('dropzone').classList.remove('over');
+}));
+$('dropzone').addEventListener('drop', async e => {
+  e.preventDefault(); e.stopPropagation();
+  $('dropzone').classList.remove('over');
+  await acceptCsvFile(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]);
+});
+// ページ外へのドロップでブラウザがファイルを開いてしまうのを防ぐ
+['dragover','drop'].forEach(ev => document.addEventListener(ev, e => {
+  if(!e.target.closest || !e.target.closest('#dropzone')) e.preventDefault();
+}));
+$('csvApply').addEventListener('click', () => {
+  if(!pendingCSV) return;
+  const r = importCSV(pendingCSV);
+  closeCsvModal();
   render();
   if(r.errors.length) showText('CSV取込の結果', '追加 '+r.added+'件 / 更新 '+r.updated+'件\n\n取り込めなかった行:\n'+r.errors.join('\n'));
   else toast('CSVを取り込みました（追加 '+r.added+'件 / 更新 '+r.updated+'件）');
