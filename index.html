@@ -275,12 +275,14 @@ button,input,select,textarea{font:inherit;color:inherit}
 
 /* ---------- tabs ---------- */
 .tabs{display:flex;gap:2px;margin:14px 0 0;border-bottom:1px solid var(--line);align-items:flex-end}
-.headtoggle{margin:0 0 6px auto}
+.headtoggle{margin-left:auto}
 body.head-hidden .masthead,
 body.head-hidden .databar,
 body.head-hidden .kpis,
+body.head-hidden .tabs,
+body.head-hidden .panel.filters,
 body.head-hidden #banner{display:none}
-body.head-hidden .tabs{margin-top:8px}
+body.head-hidden .tablecard{margin-top:10px}
 
 .tab{
   border:1px solid transparent;border-bottom:none;background:none;padding:9px 16px;cursor:pointer;
@@ -616,7 +618,6 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
     <button class="tab" role="tab" aria-selected="true" data-tab="main">メイン一覧</button>
     <button class="tab" role="tab" aria-selected="false" data-tab="change">変更対象一覧 <span id="changeCount" class="num"></span></button>
     <button class="tab" role="tab" aria-selected="false" data-tab="rules">判定ルール</button>
-    <button class="btn btn-sm headtoggle" id="headToggle" aria-pressed="false">ヘッダーを隠す</button>
   </div>
 
   <section id="panel-main">
@@ -630,9 +631,10 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
     <div class="tablecard">
       <div class="tablebar">
         <div class="search"><input type="search" id="q" placeholder="商品コード・商品名で検索"></div>
-        <button class="btn btn-sm" data-xls="filters">Excel出力</button>
         <button class="btn btn-sm floorbtn" data-sort="floor">階数でソート</button>
+        <button class="btn btn-sm" data-xls="filters">Excel出力</button>
         <label class="toggle"><input type="checkbox" id="manualMode"> 管理者：手動入力モード</label>
+        <button class="btn btn-sm headtoggle" aria-pressed="false">ヘッダーを隠す</button>
       </div>
       <div class="tablewrap"><table id="tblMain"></table></div>
     </div>
@@ -649,9 +651,10 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
     <div class="tablecard">
       <div class="tablebar">
         <div class="search"><input type="search" id="q2" placeholder="商品コード・商品名で検索"></div>
-        <button class="btn btn-sm" data-xls="filters2">Excel出力</button>
         <button class="btn btn-sm floorbtn" data-sort="floor">階数でソート</button>
+        <button class="btn btn-sm" data-xls="filters2">Excel出力</button>
         <button class="btn btn-sm" id="copyBtn">一覧をテキストで表示</button>
+        <button class="btn btn-sm headtoggle" aria-pressed="false">ヘッダーを隠す</button>
       </div>
       <div class="tablewrap"><table id="tblChange"></table></div>
     </div>
@@ -815,7 +818,7 @@ function seed(){
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.0019';
+const APP_VERSION = 'v1.0021';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
@@ -2232,11 +2235,17 @@ $('ghSetup').addEventListener('click', openGhSetup);
 function renderHeadToggle(){
   const on = !!state.hideHead;
   document.body.classList.toggle('head-hidden', on);
-  const b = $('headToggle');
-  b.textContent = on ? 'ヘッダーを表示' : 'ヘッダーを隠す';
-  b.setAttribute('aria-pressed', String(on));
+  document.querySelectorAll('.headtoggle').forEach(b => {
+    b.textContent = on ? 'ヘッダーを表示' : 'ヘッダーを隠す';
+    b.setAttribute('aria-pressed', String(on));
+  });
 }
-$('headToggle').addEventListener('click', () => { state.hideHead = !state.hideHead; renderHeadToggle(); fitTable(); save(); });
+document.addEventListener('click', e => {
+  if(e.target.closest && e.target.closest('.headtoggle')){
+    state.hideHead = !state.hideHead;
+    renderHeadToggle(); fitTable(); save();
+  }
+});
 
 $('clearAll').addEventListener('click', () => {
   if(!state.items.length){ toast('データはすでに空です'); return; }
