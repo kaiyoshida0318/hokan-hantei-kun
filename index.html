@@ -22,10 +22,10 @@ img,svg,video{max-width:100%;height:auto}
   --surface-2:#EDF0F4;
   --surface-3:#E4E9EF;
   --ink:#131820;
-  --ink-2:#495566;
-  --ink-3:#7B8798;
-  --line:#DCE1E8;
-  --line-strong:#C3CAD4;
+  --ink-2:#39434F;
+  --ink-3:#5C6877;
+  --line:#D5DBE3;
+  --line-strong:#B6BFCB;
   --accent:#1B4B73;
   --accent-soft:#E6EEF5;
   --on-accent:#FFFFFF;
@@ -39,7 +39,7 @@ img,svg,video{max-width:100%;height:auto}
   --alert:#A3231F;     /* 要確認 */
   --alert-bg:#FAE7E5;
   --alert-line:#E6B5B1;
-  --hold:#6B7686;      /* 維持 */
+  --hold:#525D6C;      /* 維持 */
   --hold-bg:#EDF0F4;
   --band-cur:#F0F2F5;
   --band-qty:#F5F1EA;
@@ -57,8 +57,8 @@ img,svg,video{max-width:100%;height:auto}
     --surface-2:#1E242C;
     --surface-3:#262D36;
     --ink:#E9EDF2;
-    --ink-2:#A7B2C0;
-    --ink-3:#7A8592;
+    --ink-2:#BCC6D2;
+    --ink-3:#98A3B1;
     --line:#2B323B;
     --line-strong:#3C4550;
     --accent:#7FB3D9;
@@ -89,8 +89,8 @@ img,svg,video{max-width:100%;height:auto}
   --surface-2:#1E242C;
   --surface-3:#262D36;
   --ink:#E9EDF2;
-  --ink-2:#A7B2C0;
-  --ink-3:#7A8592;
+  --ink-2:#BCC6D2;
+  --ink-3:#98A3B1;
   --line:#2B323B;
   --line-strong:#3C4550;
   --accent:#7FB3D9;
@@ -141,16 +141,16 @@ button,input,select,textarea{font:inherit;color:inherit}
   margin:0;font-size:27px;font-weight:700;letter-spacing:.02em;line-height:1.15;white-space:nowrap;
 }
 .brand h1 .hl{color:var(--brand)}
-.ver{font-family:var(--f-num);font-size:11px;color:var(--ink-3);letter-spacing:.02em;align-self:flex-end;padding-bottom:4px}
+.ver{font-family:var(--f-num);font-size:11.5px;color:var(--ink-3);letter-spacing:.02em;align-self:flex-end;padding-bottom:4px}
 
 /* sync panel */
 .sync{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .sync-meta{text-align:right;line-height:1.45}
-.sync-meta .lbl{display:block;font-size:10.5px;letter-spacing:.14em;color:var(--ink-3)}
-.sync-meta .val{font-family:var(--f-num);font-size:12.5px;color:var(--ink-2)}
+.sync-meta .lbl{display:block;font-size:11.5px;letter-spacing:.1em;color:var(--ink-3)}
+.sync-meta .val{font-family:var(--f-num);font-size:13px;color:var(--ink-2)}
 .status-chip{
   display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:100px;
-  font-size:12px;font-weight:500;border:1px solid var(--line-strong);background:var(--surface-2);color:var(--ink-2);
+  font-size:13px;font-weight:500;border:1px solid var(--line-strong);background:var(--surface-2);color:var(--ink-2);
 }
 .status-chip .dot{width:7px;height:7px;border-radius:50%;background:var(--ink-3)}
 .status-chip[data-s="同期成功"]{background:var(--dn-bg);border-color:var(--dn-line);color:var(--dn)}
@@ -196,8 +196,8 @@ button,input,select,textarea{font:inherit;color:inherit}
   padding:10px 14px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
 }
 .dbinfo{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
-.dbinfo .lbl{font-size:10.5px;letter-spacing:.12em;color:var(--ink-3)}
-.dbstate{font-size:12.5px;color:var(--ink-2);font-family:var(--f-body)}
+.dbinfo .lbl{font-size:11.5px;letter-spacing:.08em;color:var(--ink-3)}
+.dbstate{font-size:13px;color:var(--ink-2);font-family:var(--f-body)}
 .dbstate b{font-family:var(--f-num);font-weight:500;color:var(--ink)}
 .dbstate.warn{color:var(--up)}
 .dbactions{display:flex;gap:8px;flex-wrap:wrap}
@@ -208,11 +208,11 @@ button,input,select,textarea{font:inherit;color:inherit}
 /* ---------- empty state ---------- */
 .intro{padding:34px 26px;font-family:var(--f-body);max-width:760px}
 .intro h2{font-family:var(--f-ui);font-size:17px;margin:0 0 6px}
-.intro p{font-size:13px;color:var(--ink-2);line-height:1.8;margin:0 0 14px}
+.intro p{font-size:13.5px;color:var(--ink-2);line-height:1.85;margin:0 0 14px}
 .steps{display:grid;gap:10px;margin:0 0 18px;padding:0;list-style:none;counter-reset:s}
 .steps li{
   counter-increment:s;display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:start;
-  background:var(--surface-2);border-radius:var(--radius);padding:11px 14px;font-size:13px;color:var(--ink-2);
+  background:var(--surface-2);border-radius:var(--radius);padding:11px 14px;font-size:13.5px;color:var(--ink-2);
 }
 .steps li::before{
   content:counter(s);font-family:var(--f-num);font-size:11px;color:var(--on-accent);background:var(--accent);
@@ -220,7 +220,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 }
 .csvspec{
   font-family:var(--f-num);font-size:11.5px;background:var(--surface-2);border:1px solid var(--line);
-  border-radius:var(--radius);padding:11px 13px;overflow-x:auto;white-space:pre;line-height:1.7;
+  border-radius:var(--radius);padding:12px 14px;overflow-x:auto;white-space:pre;line-height:1.75;font-size:12.5px;
 }
 
 /* ---------- KPI ---------- */
@@ -231,8 +231,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 }
 .kpi:hover{border-color:var(--line-strong)}
 .kpi[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
-.kpi .k{display:block;font-size:10.5px;letter-spacing:.1em;color:var(--ink-3)}
-.kpi .v{display:block;font-family:var(--f-num);font-size:24px;font-weight:600;line-height:1.25}
+.kpi .k{display:block;font-size:11.5px;letter-spacing:.06em;color:var(--ink-3)}
+.kpi .v{display:block;font-family:var(--f-num);font-size:27px;font-weight:600;line-height:1.25}
 .kpi.up .v{color:var(--up)} .kpi.dn .v{color:var(--dn)} .kpi.al .v{color:var(--alert)}
 
 /* ---------- tabs ---------- */
@@ -260,30 +260,30 @@ body.head-hidden .tablewrap{max-height:min(88vh,1400px)}
 .search input{width:100%;padding:8px 10px;border:1px solid var(--line-strong);background:var(--surface);border-radius:var(--radius)}
 .search input:focus-visible{outline:2px solid var(--accent);outline-offset:-1px}
 .fgroup{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.fgroup > .glabel{font-size:10.5px;letter-spacing:.12em;color:var(--ink-3);margin-right:2px}
+.fgroup > .glabel{font-size:11.5px;letter-spacing:.08em;color:var(--ink-3);margin-right:2px}
 .chip{
   border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-2);
-  padding:4px 11px;border-radius:100px;font-size:12.5px;cursor:pointer;
+  padding:5px 12px;border-radius:100px;font-size:13px;cursor:pointer;
 }
 .chip[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
 .chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
-.toggle{display:inline-flex;align-items:center;gap:7px;font-size:12.5px;color:var(--ink-2);cursor:pointer}
+.toggle{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-2);cursor:pointer}
 .toggle input{accent-color:var(--accent);width:15px;height:15px}
 
 /* ---------- table ---------- */
 .tablewrap{overflow:auto;max-height:min(72vh,780px)}
 table{border-collapse:separate;border-spacing:0;width:100%;font-size:14px}
-#tblMain{min-width:2140px}
+#tblMain{min-width:2190px}
 #tblChange{min-width:1340px}
 thead th{
   position:sticky;background:var(--surface-2);text-align:left;font-weight:500;
   border-bottom:1px solid var(--line);white-space:nowrap;color:var(--ink-2);
 }
 tr.grouprow th{
-  top:0;z-index:6;font-size:10.5px;letter-spacing:.14em;color:var(--ink-3);
+  top:0;z-index:6;font-size:11px;letter-spacing:.1em;color:var(--ink-3);
   padding:6px 10px;border-bottom:1px solid var(--line);
 }
-tr.headrow th{top:28px;z-index:6;padding:8px 10px;font-size:12.5px}
+tr.headrow th{top:30px;z-index:6;padding:8px 10px;font-size:13px}
 tbody td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
 
 .b-cur{background:var(--band-cur)} .b-qty{background:var(--band-qty)} .b-rec{background:var(--band-rec)}
@@ -295,7 +295,7 @@ tr[data-cat="dn"] td.stripe{border-left-color:var(--dn)}
 tr[data-cat="al"] td.stripe{border-left-color:var(--alert)}
 tr[data-cat="hold"] td.stripe{border-left-color:transparent}
 .name{width:214px;max-width:214px;overflow:hidden;text-overflow:ellipsis}
-.reason{width:390px;min-width:390px;white-space:normal;font-family:var(--f-body);font-size:12.5px;line-height:1.6;color:var(--ink-2);padding-top:9px;padding-bottom:9px}
+.reason{width:390px;min-width:390px;white-space:normal;font-family:var(--f-body);font-size:13px;line-height:1.65;color:var(--ink-2);padding-top:9px;padding-bottom:9px}
 .n{font-family:var(--f-num);font-variant-numeric:tabular-nums;text-align:right}
 th.n{text-align:right}
 .qty-key{font-weight:600;color:var(--ink)}
@@ -320,7 +320,7 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
 .ro{color:var(--ink-3)}
 
 /* pills */
-.pill{display:inline-block;padding:2px 9px;border-radius:100px;font-size:12.5px;font-weight:500;border:1px solid transparent;white-space:nowrap}
+.pill{display:inline-block;padding:3px 10px;border-radius:100px;font-size:13px;font-weight:500;border:1px solid transparent;white-space:nowrap}
 .pill.hold{background:var(--hold-bg);color:var(--hold);border-color:var(--line-strong)}
 .pill.up{background:var(--up-bg);color:var(--up);border-color:var(--up-line)}
 .pill.dn{background:var(--dn-bg);color:var(--dn);border-color:var(--dn-line)}
@@ -328,13 +328,13 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
 .need{font-weight:600}
 .need.yes{color:var(--up)} .need.no{color:var(--ink-3);font-weight:400}
 .tag{
-  display:inline-block;margin-left:5px;padding:0 5px;border-radius:3px;font-size:10px;letter-spacing:.06em;
+  display:inline-block;margin-left:5px;padding:1px 6px;border-radius:3px;font-size:10.5px;letter-spacing:.04em;
   border:1px solid var(--line-strong);color:var(--ink-3);vertical-align:middle;
 }
 .tag.warn{border-color:var(--up-line);color:var(--up);background:var(--up-bg)}
 .arrow{color:var(--ink-3);padding:0 2px}
-.empty{padding:44px 20px;text-align:center;color:var(--ink-3);font-family:var(--f-body)}
-.rowbtn{border:none;background:none;color:var(--accent);cursor:pointer;font-size:12.5px;text-decoration:underline;padding:2px 4px;border-radius:4px}
+.empty{padding:44px 20px;text-align:center;color:var(--ink-2);font-size:14px;font-family:var(--f-body)}
+.rowbtn{border:none;background:none;color:var(--accent);cursor:pointer;font-size:13px;text-decoration:underline;padding:2px 4px;border-radius:4px}
 .rowbtn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 
 /* ---------- drawer ---------- */
@@ -347,41 +347,41 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
 }
 .drawer.show{transform:none}
 .dhead{padding:18px 20px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
-.dhead .code{font-family:var(--f-num);font-size:12.5px;color:var(--ink-3)}
+.dhead .code{font-family:var(--f-num);font-size:13px;color:var(--ink-3)}
 .dhead h2{margin:2px 0 0;font-size:18px;font-weight:700}
 .dsec{padding:16px 20px;border-bottom:1px solid var(--line)}
-.dsec h3{margin:0 0 10px;font-size:10.5px;letter-spacing:.14em;color:var(--ink-3);font-weight:500}
-.kv{display:grid;grid-template-columns:1fr auto;gap:5px 12px;font-size:13px}
+.dsec h3{margin:0 0 10px;font-size:11.5px;letter-spacing:.1em;color:var(--ink-3);font-weight:500}
+.kv{display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-size:13.5px}
 .kv dt{color:var(--ink-2)} .kv dd{margin:0;text-align:right;font-family:var(--f-num);font-variant-numeric:tabular-nums}
 .transit{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px}
 .state{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius);padding:9px 12px;min-width:120px}
-.state .lbl{display:block;font-size:10px;letter-spacing:.12em;color:var(--ink-3)}
+.state .lbl{display:block;font-size:11px;letter-spacing:.08em;color:var(--ink-3)}
 .state .v{font-weight:500}
 .state.rec{background:var(--band-rec);border-color:var(--accent)}
 .bigarrow{font-size:18px;color:var(--ink-3)}
-.reason-box{font-family:var(--f-body);font-size:13px;line-height:1.7;color:var(--ink-2);background:var(--surface-2);border-radius:var(--radius);padding:11px 13px}
+.reason-box{font-family:var(--f-body);font-size:13.5px;line-height:1.75;color:var(--ink-2);background:var(--surface-2);border-radius:var(--radius);padding:11px 13px}
 .field{display:grid;gap:5px;margin-bottom:11px}
-.field label{font-size:11.5px;color:var(--ink-3);letter-spacing:.04em}
+.field label{font-size:12px;color:var(--ink-2);letter-spacing:.04em}
 .field select,.field input,.field textarea{
   border:1px solid var(--line-strong);background:var(--surface);border-radius:var(--radius);padding:7px 9px;font-size:13px;width:100%;
 }
 .field textarea{min-height:66px;resize:vertical;font-family:var(--f-body)}
 .field select:focus-visible,.field input:focus-visible,.field textarea:focus-visible{outline:2px solid var(--accent);outline-offset:-1px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
-.errlist{margin:0;padding-left:18px;font-family:var(--f-body);font-size:12.5px;color:var(--alert);line-height:1.7}
+.errlist{margin:0;padding-left:18px;font-family:var(--f-body);font-size:13px;color:var(--alert);line-height:1.7}
 .iconbtn{border:1px solid var(--line-strong);background:var(--surface-2);border-radius:var(--radius);width:30px;height:30px;cursor:pointer;line-height:1;font-size:16px}
 
 /* ---------- rules tab ---------- */
 .rules{padding:22px 24px;font-family:var(--f-body);max-width:900px}
 .rules h2{font-family:var(--f-ui);font-size:15px;margin:26px 0 8px;letter-spacing:.02em}
 .rules h2:first-child{margin-top:0}
-.rules p{margin:0 0 8px;font-size:13px;color:var(--ink-2);line-height:1.8}
-.rules code{font-family:var(--f-num);background:var(--surface-2);padding:1px 5px;border-radius:3px;font-size:12px}
+.rules p{margin:0 0 9px;font-size:13.5px;color:var(--ink-2);line-height:1.8}
+.rules code{font-family:var(--f-num);background:var(--surface-2);padding:1px 5px;border-radius:3px;font-size:12.5px}
 .routes{display:grid;gap:8px;margin:6px 0 4px}
 .route{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--surface-2);border-radius:var(--radius);padding:9px 12px}
-.route .rk{font-family:var(--f-ui);font-weight:500;min-width:105px;font-size:12.5px}
-.step{background:var(--surface);border:1px solid var(--line-strong);border-radius:100px;padding:2px 11px;font-size:12px;font-family:var(--f-ui)}
-.rtable{width:auto;font-size:12.5px;margin:6px 0;font-family:var(--f-ui)}
+.route .rk{font-family:var(--f-ui);font-weight:500;min-width:112px;font-size:13px}
+.step{background:var(--surface);border:1px solid var(--line-strong);border-radius:100px;padding:3px 12px;font-size:13px;font-family:var(--f-ui)}
+.rtable{width:auto;font-size:13px;margin:6px 0;font-family:var(--f-ui)}
 .rtable th,.rtable td{border:1px solid var(--line);padding:5px 12px;white-space:nowrap}
 .rtable thead th{position:static;background:var(--surface-2)}
 .ok{color:var(--dn);font-weight:600} .ng{color:var(--alert);font-weight:600}
@@ -393,7 +393,7 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
   transition:opacity .18s,transform .18s;box-shadow:var(--shadow);
 }
 .toast.show{opacity:1;transform:translate(-50%,0)}
-.foot{margin-top:16px;font-family:var(--f-body);font-size:11.5px;color:var(--ink-3);line-height:1.7}
+.foot{margin-top:16px;font-family:var(--f-body);font-size:12.5px;color:var(--ink-2);line-height:1.75}
 </style>
 
   <header class="masthead">
@@ -438,8 +438,8 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
     </div>
     <div class="dbactions">
       <button class="btn btn-sm btn-primary" id="pushShared" hidden>GitHubに保存して全員に反映</button>
-      <button class="btn btn-sm" id="reloadShared">共有データを再読み込み</button>
       <label class="btn btn-sm filebtn">CSVを取り込む<input type="file" id="csvIn" accept=".csv,text/csv" hidden></label>
+      <button class="btn btn-sm" id="reloadShared">共有データを再読み込み</button>
       <button class="btn btn-sm" id="csvOut">CSVを書き出す</button>
       <button class="btn btn-sm" id="jsonOut">共有用JSONを書き出す</button>
       <button class="btn btn-sm" id="ghSetup">保存設定</button>
@@ -614,7 +614,7 @@ function seed(){
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.0004';
+const APP_VERSION = 'v1.0006';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
@@ -757,8 +757,11 @@ function renderShared(){
     '読み込み中':'読み込み中…'
   }[s.status] || s.status;
   el.className = 'dbstate' + (['取得失敗','形式エラー'].includes(s.status) ? ' warn' : '');
-  el.innerHTML = msg + (state.dirty
-    ? ' <span class="tag warn">この端末だけの変更あり</span>' : '');
+  const newer = s.status === '読込済' && state.items.length
+             && state.sharedStamp && s.updatedAt && state.sharedStamp !== s.updatedAt;
+  el.innerHTML = msg
+    + (state.dirty ? ' <span class="tag warn">この端末だけの変更あり</span>' : '')
+    + (newer ? ' <span class="tag warn">共有データが更新されています（反映するには再読み込み）</span>' : '');
 }
 
 /* ---- CSV ---- */
@@ -1423,6 +1426,8 @@ $('copyBtn').addEventListener('click', () => {
 
 /* ============ 共有データ・CSVのボタン ============ */
 $('reloadShared').addEventListener('click', async () => {
+  if(state.dirty && state.items.length &&
+     !confirm('この端末で編集した内容は、共有データの内容に置き換わります。続けますか？')) return;
   const sh = await fetchShared();
   sharedInfo = { status:sh.status, updatedAt:sh.updatedAt || null, count:(sh.items||[]).length };
   if(sh.status === '読込済'){
@@ -1581,10 +1586,11 @@ $('clearAll').addEventListener('click', () => {
   switchTab(state.tab || 'main');
   render();                                  // まず手元の状態で表示
 
-  const sh = await fetchShared();            // 共有データは取れ次第反映
+  const sh = await fetchShared();
   sharedInfo = { status:sh.status, updatedAt:sh.updatedAt || null, count:(sh.items||[]).length };
-  const stamp = sh.updatedAt || String((sh.items||[]).length);
-  if(sh.status === '読込済' && (!saved || saved.sharedStamp !== stamp)){
+  // 自動で取り込むのは、この端末にデータが一度も無いときだけ。
+  // すでにデータがある場合は勝手に置き換えず、「共有データを再読み込み」を押したときだけ反映する。
+  if(!saved && sh.status === '読込済'){
     adoptShared(sh);
     switchTab(state.tab || 'main');
   }
