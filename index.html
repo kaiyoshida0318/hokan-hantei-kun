@@ -243,7 +243,7 @@ body.head-hidden .databar,
 body.head-hidden .kpis,
 body.head-hidden #banner{display:none}
 body.head-hidden .tabs{margin-top:8px}
-body.head-hidden .tablewrap{max-height:min(88vh,1400px)}
+
 .tab{
   border:1px solid transparent;border-bottom:none;background:none;padding:9px 16px;cursor:pointer;
   font-weight:500;color:var(--ink-3);border-radius:var(--radius) var(--radius) 0 0;
@@ -272,6 +272,13 @@ body.head-hidden .tablewrap{max-height:min(88vh,1400px)}
 
 /* ---------- table ---------- */
 .tablewrap{overflow:auto;max-height:min(72vh,780px)}
+/* 横スクロールバーを掴みやすく */
+.tablewrap::-webkit-scrollbar{height:13px;width:13px}
+.tablewrap::-webkit-scrollbar-track{background:var(--surface-2)}
+.tablewrap::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:8px;border:3px solid var(--surface-2)}
+.tablewrap::-webkit-scrollbar-thumb:hover{background:var(--ink-3)}
+.tablewrap::-webkit-scrollbar-corner{background:var(--surface-2)}
+.tablewrap{scrollbar-color:var(--line-strong) var(--surface-2)}
 table{border-collapse:separate;border-spacing:0;width:100%;font-size:14px}
 #tblMain{min-width:2190px}
 #tblChange{min-width:1340px}
@@ -657,7 +664,7 @@ function seed(){
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.0007';
+const APP_VERSION = 'v1.0008';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
@@ -1183,8 +1190,19 @@ function renderSync(){
   if(bad) b.innerHTML = '<b>最新データ取得失敗</b><span>'+esc(s.message)+'　表示中の在庫定数・フリー在庫は前回正常取得した値です（最新値ではありません）。</span>';
 }
 
+/* 表の高さを画面の残りに合わせる（横スクロールバーが常に画面内に出るように） */
+function fitTable(){
+  document.querySelectorAll('.tablewrap').forEach(el => {
+    const top = el.getBoundingClientRect().top + window.scrollY;
+    const h = window.innerHeight - top - 10;
+    el.style.maxHeight = Math.max(260, h) + 'px';
+  });
+}
+window.addEventListener('resize', fitTable);
+
 function render(){
   renderKpis(); renderFilters(); renderMain(); renderChange(); renderSync(); renderShared(); save();
+  requestAnimationFrame(fitTable);
 }
 
 /* ============ 詳細ドロワー ============ */
@@ -1363,6 +1381,7 @@ function switchTab(name){
   state.tab = name;
   document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
   ['main','change','rules'].forEach(n => { $('panel-'+n).hidden = (n !== name); });
+  requestAnimationFrame(fitTable);
   save();
 }
 
@@ -1678,15 +1697,26 @@ function renderHeadToggle(){
   b.textContent = on ? 'ヘッダーを表示' : 'ヘッダーを隠す';
   b.setAttribute('aria-pressed', String(on));
 }
-$('headToggle').addEventListener('click', () => { state.hideHead = !state.hideHead; renderHeadToggle(); save(); });
+$('headToggle').addEventListener('click', () => { state.hideHead = !state.hideHead; renderHeadToggle(); fitTable(); save(); });
 
 $('clearAll').addEventListener('click', () => {
   if(!state.items.length){ toast('データはすでに空です'); return; }
   const keep = state.items.length;
+  const canRestore = sharedInfo.status === '読込済' && sharedInfo.count > 0;
+  const msg = 'この端末の商品データ ' + keep.toLocaleString('ja-JP') + ' 件をすべて消去します。よろしいですか？\n\n'
+    + (canRestore
+        ? '共有データ（data.json）に ' + sharedInfo.count.toLocaleString('ja-JP') + ' 件あるので、'
+          + '「共有データを再読み込み」で元に戻せます。'
+        : '⚠ 共有データ（data.json）にデータがないため、元に戻せません。\n'
+          + '消したあとはCSVを取り込み直すことになります。');
+  if(!confirm(msg)) return;
   state = blankState();
   $('manualMode').checked = false;
+  renderHeadToggle();
   render();
-  toast(keep + '件を消去しました。「共有データを再読み込み」で元に戻せます');
+  toast(canRestore
+    ? keep + '件を消去しました。「共有データを再読み込み」で元に戻せます'
+    : keep + '件を消去しました');
 });
 
 /* ============ 起動 ============ */
