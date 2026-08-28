@@ -341,8 +341,8 @@ section[hidden]{display:none}
 .tablewrap::-webkit-scrollbar-corner{background:var(--surface-2)}
 .tablewrap{scrollbar-color:var(--line-strong) var(--surface-2)}
 table{border-collapse:separate;border-spacing:0;width:100%;font-size:14px}
-#tblMain{min-width:2190px}
-#tblChange{min-width:1340px}
+#tblMain{min-width:2250px}
+#tblChange{min-width:1400px}
 thead th{
   position:sticky;background:var(--surface-2);text-align:center;font-weight:500;
   border-bottom:1px solid var(--line);white-space:nowrap;color:var(--ink-2);
@@ -407,6 +407,15 @@ select.pillsel:hover{filter:brightness(.97)}
 select.statsel[data-v="未対応"]{background-color:var(--up-bg);color:var(--up);border-color:var(--up-line)}
 select.statsel[data-v="対応済"]{background-color:var(--dn-bg);color:var(--dn);border-color:var(--dn-line)}
 select.statsel[data-v="例外運用"]{background-color:var(--c-cnt-bg);color:var(--c-cnt);border-color:var(--c-cnt-line)}
+
+/* 商品画像 */
+td.thumb,th.thumb{width:54px;min-width:54px;max-width:54px;text-align:center;padding:4px 5px}
+td.thumb img{
+  width:42px;height:42px;object-fit:contain;border-radius:4px;background:var(--surface-2);
+  border:1px solid var(--line);display:block;margin:0 auto;cursor:zoom-in;
+}
+.noimg{color:var(--ink-3);font-size:12px}
+.zoomimg{max-width:100%;border-radius:var(--radius);border:1px solid var(--line);background:var(--surface-2)}
 
 /* 列幅のドラッグ調整 */
 td.code,th.col-code{width:var(--w-code);min-width:var(--w-code);max-width:var(--w-code)}
@@ -806,7 +815,7 @@ function seed(){
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.0018';
+const APP_VERSION = 'v1.0019';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
@@ -845,6 +854,7 @@ function normalize(raw){
     apiTeisu:num(raw.apiTeisu !== undefined ? raw.apiTeisu : raw.teisu),
     apiFree :num(raw.apiFree  !== undefined ? raw.apiFree  : raw.free),
     manTeisu:num(raw.manTeisu), manFree:num(raw.manFree),
+    imageUrl: String(raw.imageUrl || raw['画像URL'] || '').trim(),
     stale:!!raw.stale, matchError:!!raw.matchError,
     neStockFound: raw.neStockFound, neGoodsFound: raw.neGoodsFound,
     lastFetch: raw.lastFetch || null,
@@ -961,7 +971,7 @@ function renderShared(){
 }
 
 /* ---- CSV ---- */
-const CSV_COLS = ['商品コード','商品名','基礎区分','小箱上限','箱上限','現在の主保管','現在の予備保管','在庫定数','フリー在庫','対応状況','備考'];
+const CSV_COLS = ['商品コード','商品名','画像URL','基礎区分','小箱上限','箱上限','現在の主保管','現在の予備保管','在庫定数','フリー在庫','対応状況','備考'];
 function parseCSV(text){
   const rows = []; let row = [], cur = '', q = false;
   text = text.replace(/^﻿/, '');
@@ -999,7 +1009,7 @@ function importCSV(text){
     const kubunRaw = get(r,'基礎区分');
     if(kubunRaw && !KUBUN.includes(kubunRaw)){ errors.push((i+2)+'行目：基礎区分「'+kubunRaw+'」は使用できません'); return; }
     const raw = {
-      code, name:get(r,'商品名') || '', kubun:kubunRaw || undefined,
+      code, name:get(r,'商品名') || '', imageUrl:get(r,'画像URL') || undefined, kubun:kubunRaw || undefined,
       smallCap:get(r,'小箱上限'), boxCap:get(r,'箱上限'),
       curMain:get(r,'現在の主保管'), curSub:get(r,'現在の予備保管'),
       teisu:get(r,'在庫定数'), free:get(r,'フリー在庫'),
@@ -1012,7 +1022,8 @@ function importCSV(text){
       const prev = state.items[ex];
       state.items[ex] = Object.assign({}, prev, item, {
         note: raw.note !== undefined ? item.note : prev.note,
-        status: raw.status !== undefined ? item.status : prev.status
+        status: raw.status !== undefined ? item.status : prev.status,
+        imageUrl: raw.imageUrl !== undefined ? item.imageUrl : prev.imageUrl
       });
       updated++;
     }else{ state.items.push(item); added++; }
@@ -1023,7 +1034,7 @@ function importCSV(text){
 function exportCSV(){
   const lines = [CSV_COLS.join(',')];
   const q = v => { const s = v === null || v === undefined ? '' : String(v); return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
-  state.items.forEach(it => lines.push([it.code,it.name,it.kubun,it.smallCap,it.boxCap,it.curMain,it.curSub,
+  state.items.forEach(it => lines.push([it.code,it.name,it.imageUrl,it.kubun,it.smallCap,it.boxCap,it.curMain,it.curSub,
     usedTeisu(it),usedFree(it),it.status,it.note].map(q).join(',')));
   return '﻿' + lines.join('\r\n') + '\r\n';
 }
@@ -1035,6 +1046,7 @@ function sharedJSON(){
     updatedAt: d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()),
     items: state.items.map(it => ({
       code:it.code, name:it.name, kubun:it.kubun, smallCap:it.smallCap, boxCap:it.boxCap,
+      imageUrl:it.imageUrl || undefined,
       curMain:it.curMain, curSub:it.curSub, apiTeisu:it.apiTeisu, apiFree:it.apiFree,
       lastFetch:it.lastFetch, stale:it.stale, matchError:it.matchError,
       neStockFound:it.neStockFound, neGoodsFound:it.neGoodsFound,
@@ -1418,6 +1430,18 @@ function numCell(v, attrs, disabled){
 }
 
 function pill(text, cat){ return '<span class="pill '+cat+'">'+esc(text)+'</span>'; }
+/* 楽天の画像はサイズ指定パラメータが使えるので、小さい画像で読み込む */
+function thumbURL(u, px){
+  if(!u) return '';
+  if(/(r10s\.jp|image\.rakuten\.co\.jp)/.test(u) && !/[?&]_ex=/.test(u))
+    return u + (u.includes('?') ? '&' : '?') + '_ex=' + px + 'x' + px;
+  return u;
+}
+function imgCell(it){
+  if(!it.imageUrl) return '<td class="thumb"><span class="noimg">—</span></td>';
+  return '<td class="thumb"><img src="'+esc(thumbURL(it.imageUrl, 96))+'" alt="" loading="lazy" '+
+         'onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{className:\'noimg\',textContent:\'×\'}))"></td>';
+}
 function stoPill(v){ const t = v || '―'; return '<span class="spill" data-v="'+esc(t)+'">'+esc(t)+'</span>'; }
 
 function renderMain(){
@@ -1444,11 +1468,12 @@ function renderMain(){
   const R = sortRows(rows().filter(r => matches(r, state.filters)));
   const head =
     '<thead>'+
-    '<tr class="grouprow"><th colspan="3" class="lead">商品</th><th colspan="2">収納上限</th><th colspan="2" class="b-cur gstart">現在の保管</th>'+
+    '<tr class="grouprow"><th colspan="4" class="lead">商品</th><th colspan="2">収納上限</th><th colspan="2" class="b-cur gstart">現在の保管</th>'+
     '<th colspan="3" class="b-qty gstart">在庫数量</th><th colspan="2" class="b-rec gstart">推奨の保管</th>'+
     '<th colspan="3" class="gstart">判定</th><th colspan="2">運用</th></tr>'+
     '<tr class="headrow">'+
-      '<th class="lead col-code">商品コード<button class="sortbtn'+(state.sort && state.sort.key === 'code' ? ' on' : '')+'" data-sort="code" title="商品コードで並び替え">'+sortMark('code')+'</button><span class="colgrip"></span></th>'+
+      '<th class="thumb">画像</th>'+
+    '<th class="lead col-code">商品コード<button class="sortbtn'+(state.sort && state.sort.key === 'code' ? ' on' : '')+'" data-sort="code" title="商品コードで並び替え">'+sortMark('code')+'</button><span class="colgrip"></span></th>'+
     '<th class="lead col-name">商品名<span class="colgrip"></span></th><th>基礎区分</th>'+
       '<th class="n">小箱上限</th><th class="n">箱上限</th>'+
       '<th class="b-cur gstart">現在の主保管</th><th class="b-cur">現在の予備保管</th>'+
@@ -1464,7 +1489,8 @@ function renderMain(){
     const manT = mm && it.manTeisu !== null && it.manTeisu !== undefined;
     const manF = mm && it.manFree !== null && it.manFree !== undefined;
     return '<tr data-cat="'+j.cat+'" data-code="'+esc(it.code)+'">'+
-      '<td class="code stripe">'+esc(it.code)+'<span class="colgrip"></span></td>'+
+      imgCell(it)+
+    '<td class="code stripe">'+esc(it.code)+'<span class="colgrip"></span></td>'+
       '<td class="name" data-code="'+esc(it.code)+'" title="ダブルクリックで編集：'+esc(it.name)+'">'+esc(it.name)+'<span class="colgrip"></span></td>'+
       '<td class="kubuncell">'+selCell(it.kubun, KUBUN, 'data-f="kubun" data-code="'+esc(it.code)+'"', 'pillsel kubunsel')+'</td>'+
       '<td class="n">'+(usesSmall(it.kubun) ? '<span class="capcell">'+numCell(it.smallCap,'data-f="smallCap" data-code="'+esc(it.code)+'"')+(it.smallCapEdited?'<span class="tag">個別</span>':'')+'</span>' : '<span class="ro">―</span>')+'</td>'+
@@ -1495,6 +1521,7 @@ function renderChange(){
     .filter(r => matches(r, state.filters2));
   const R2 = sortRows(R);
   const head = '<thead><tr class="headrow">'+
+    '<th class="thumb">画像</th>'+
     '<th class="lead col-code">商品コード<button class="sortbtn'+(state.sort && state.sort.key === 'code' ? ' on' : '')+'" data-sort="code" title="商品コードで並び替え">'+sortMark('code')+'</button><span class="colgrip"></span></th>'+
     '<th class="lead col-name">商品名<span class="colgrip"></span></th><th class="n">判定用在庫数</th>'+
     '<th class="b-cur gstart">現在の主保管</th><th class="b-cur">現在の予備保管</th>'+
@@ -1502,6 +1529,7 @@ function renderChange(){
     '<th>判定結果</th><th>判定理由</th><th>対応状況</th><th></th></tr></thead>';
   const body = R2.map(({it,j}) =>
     '<tr data-cat="'+j.cat+'" data-code="'+esc(it.code)+'">'+
+    imgCell(it)+
     '<td class="code stripe">'+esc(it.code)+'<span class="colgrip"></span></td>'+
     '<td class="name" data-code="'+esc(it.code)+'" title="ダブルクリックで編集：'+esc(it.name)+'">'+esc(it.name)+'<span class="colgrip"></span></td>'+
     '<td class="n qty-key">'+fmt(j.qty)+'</td>'+
@@ -1512,7 +1540,7 @@ function renderChange(){
     '<td>'+selCell(it.status, STATUSES, 'data-f="status" data-code="'+esc(it.code)+'"', 'pillsel statsel')+'</td>'+
     '<td><button class="rowbtn" data-open="'+esc(it.code)+'">詳細</button></td></tr>'
   ).join('');
-  $('tblChange').innerHTML = head + '<tbody>' + (body || '<tr><td colspan="11" class="empty">変更が必要な商品はありません。今月の移動作業はゼロです。</td></tr>') + '</tbody>';
+  $('tblChange').innerHTML = head + '<tbody>' + (body || '<tr><td colspan="12" class="empty">変更が必要な商品はありません。今月の移動作業はゼロです。</td></tr>') + '</tbody>';
 }
 
 const STA_CAT = { '未対応':'up', '対応済':'dn', '例外運用':'cnt' };
@@ -1614,6 +1642,7 @@ function openDrawer(code){
     '<div style="margin-top:8px">'+pill(j.result, j.cat)+(j.need ? ' <span class="need '+(j.need==='要'?'yes':'no')+'" style="font-size:12px">変更要否：'+j.need+'</span>' : '')+'</div></div>'+
     '<button class="iconbtn" id="dclose" aria-label="閉じる">×</button></div>'+
 
+  (it.imageUrl ? '<div class="dsec"><h3>商品画像</h3><img class="zoomimg" src="'+esc(thumbURL(it.imageUrl, 400))+'" alt=""></div>' : '')+
   '<div class="dsec"><h3>現在 → 推奨</h3><div class="transit">'+
     '<div class="state"><span class="lbl">現在</span><span class="v">主：'+esc(it.curMain)+'</span><br><span class="v">予備：'+esc(it.curSub)+'</span></div>'+
     '<span class="bigarrow">→</span>'+
