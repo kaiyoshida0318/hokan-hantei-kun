@@ -41,12 +41,12 @@ img,svg,video{max-width:100%;height:auto}
   --alert-line:#E6B5B1;
   --hold:#525D6C;      /* 維持 */
   --hold-bg:#EDF0F4;
-  --band-cur:#EDEFF2;
-  --band-qty:#FCF7EE;
-  --band-rec:#DFEAF7;
-  --c-sml:#3C4A5C; --c-sml-bg:#E6EBF1; --c-sml-line:#C3CDDA;
-  --c-box:#1B4F86; --c-box-bg:#DDEAF9; --c-box-line:#B2CFEC;
-  --c-cnt:#5A3593; --c-cnt-bg:#EBE3F8; --c-cnt-line:#D2C2EB;
+  --band-cur:transparent;
+  --band-qty:transparent;
+  --band-rec:transparent;
+  --c-sml:#0E6C74; --c-sml-bg:#D5EEF0; --c-sml-bg2:#EBF7F8; --c-sml-line:#A8D6DA;
+  --c-box:#1B4F86; --c-box-bg:#D8E7F8; --c-box-bg2:#EDF4FC; --c-box-line:#AECBEB;
+  --c-cnt:#5A3593; --c-cnt-bg:#E9DFF8; --c-cnt-line:#CFBDEB;
   --shadow:0 1px 2px rgba(19,24,32,.06), 0 8px 24px rgba(19,24,32,.07);
   --radius:6px;
   --f-ui:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif;
@@ -80,11 +80,11 @@ img,svg,video{max-width:100%;height:auto}
     --alert-line:#4A2A28;
     --hold:#94A0B0;
     --hold-bg:#212831;
-    --band-cur:#1C222B;
-    --band-qty:#282116;
-    --band-rec:#152B42;
-    --c-sml:#B7C3D2; --c-sml-bg:#272F3A; --c-sml-line:#3A4553;
-    --c-box:#8FC0EF; --c-box-bg:#1B2C40; --c-box-line:#2C4560;
+    --band-cur:transparent;
+    --band-qty:transparent;
+    --band-rec:transparent;
+    --c-sml:#7FCED5; --c-sml-bg:#123034; --c-sml-bg2:#18262A; --c-sml-line:#20474D;
+    --c-box:#8FC0EF; --c-box-bg:#152B41; --c-box-bg2:#182430; --c-box-line:#274462;
     --c-cnt:#C4A9EE; --c-cnt-bg:#2A2340; --c-cnt-line:#3E3358;
     --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
   }
@@ -114,11 +114,11 @@ img,svg,video{max-width:100%;height:auto}
   --alert-line:#4A2A28;
   --hold:#94A0B0;
   --hold-bg:#212831;
-  --band-cur:#1C222B;
-  --band-qty:#282116;
-  --band-rec:#152B42;
-  --c-sml:#B7C3D2; --c-sml-bg:#272F3A; --c-sml-line:#3A4553;
-  --c-box:#8FC0EF; --c-box-bg:#1B2C40; --c-box-line:#2C4560;
+  --band-cur:transparent;
+  --band-qty:transparent;
+  --band-rec:transparent;
+  --c-sml:#7FCED5; --c-sml-bg:#123034; --c-sml-bg2:#18262A; --c-sml-line:#20474D;
+  --c-box:#8FC0EF; --c-box-bg:#152B41; --c-box-bg2:#182430; --c-box-line:#274462;
   --c-cnt:#C4A9EE; --c-cnt-bg:#2A2340; --c-cnt-line:#3E3358;
   --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
 }
@@ -290,9 +290,19 @@ body.head-hidden .tabs{margin-top:8px}
 
 .panel{background:var(--surface);border:1px solid var(--line);border-top:none;border-radius:0 0 var(--radius) var(--radius);box-shadow:var(--shadow)}
 .panel[hidden]{display:none}
+section[hidden]{display:none}
+/* 表のまとまり（フィルタ枠とは別の枠にする） */
+.tablecard{
+  margin-top:12px;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;
+}
+.tablebar{
+  display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+  padding:9px 14px;border-bottom:1px solid var(--line);
+}
 
 /* ---------- toolbar ---------- */
-.toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:12px 14px;border-bottom:1px solid var(--line)}
+.toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:12px 14px}
 .search{flex:1 1 220px;min-width:180px;position:relative}
 .search input{width:100%;padding:8px 10px;border:1px solid var(--line-strong);background:var(--surface);border-radius:var(--radius)}
 .search input:focus-visible{outline:2px solid var(--accent);outline-offset:-1px}
@@ -315,7 +325,7 @@ body.head-hidden .tabs{margin-top:8px}
 .chip[data-cat="dn"][aria-pressed="true"]  {background:var(--dn);     border-color:var(--dn)}
 .chip[data-cat="al"][aria-pressed="true"]  {background:var(--alert);  border-color:var(--alert)}
 .chip[data-cat="cnt"][aria-pressed="true"] {background:var(--c-cnt);  border-color:var(--c-cnt)}
-.xlsbtn{margin-left:8px}
+
 .chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .toggle{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-2);cursor:pointer}
 .toggle input{accent-color:var(--accent);width:15px;height:15px}
@@ -345,7 +355,10 @@ tr.headrow th{top:30px;z-index:6;padding:8px 10px;font-size:13px}
 #tblChange tr.headrow th{top:0}
 tbody td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
 
-.b-cur{background:var(--band-cur)} .b-qty{background:var(--band-qty)} .b-rec{background:var(--band-rec)}
+/* 帯の色は本文セルだけに適用する（見出しは不透明のままにして、スクロール時に行が透けないようにする） */
+tbody td.b-cur{background:var(--band-cur)}
+tbody td.b-qty{background:var(--band-qty)}
+tbody td.b-rec{background:var(--band-rec)}
 
 td.code{font-family:var(--f-num);font-weight:500}
 td.stripe{border-left:3px solid transparent;padding-left:9px}
@@ -353,7 +366,7 @@ tr[data-cat="up"] td.stripe{border-left-color:var(--up)}
 tr[data-cat="dn"] td.stripe{border-left-color:var(--dn)}
 tr[data-cat="al"] td.stripe{border-left-color:var(--alert)}
 tr[data-cat="hold"] td.stripe{border-left-color:transparent}
-.name{width:214px;max-width:214px;overflow:hidden;text-overflow:ellipsis}
+
 .reason{width:390px;min-width:390px;white-space:normal;font-family:var(--f-body);font-size:13px;line-height:1.65;color:var(--ink-2);padding-top:9px;padding-bottom:9px}
 .n{font-family:var(--f-num);font-variant-numeric:tabular-nums;text-align:right}
 th.n{text-align:center}
@@ -394,6 +407,15 @@ select.statsel[data-v="未対応"]{background-color:var(--up-bg);color:var(--up)
 select.statsel[data-v="対応済"]{background-color:var(--dn-bg);color:var(--dn);border-color:var(--dn-line)}
 select.statsel[data-v="例外運用"]{background-color:var(--c-cnt-bg);color:var(--c-cnt);border-color:var(--c-cnt-line)}
 
+/* 列幅のドラッグ調整 */
+td.code,th.col-code{width:var(--w-code);min-width:var(--w-code);max-width:var(--w-code)}
+td.name,th.col-name{width:var(--w-name);min-width:var(--w-name);max-width:var(--w-name)}
+td.code,td.name{overflow:hidden;text-overflow:ellipsis;position:relative}
+th.col-code,th.col-name{overflow:hidden}
+.colgrip{position:absolute;top:0;right:0;width:7px;height:100%;cursor:col-resize;z-index:4}
+.colgrip:hover{background:var(--accent);opacity:.4}
+body.colresizing{user-select:none;cursor:col-resize}
+
 /* 商品名：ダブルクリックで編集 */
 td.name{cursor:text}
 input.name-in{width:100%;font-size:14px;padding:3px 5px;border:1px solid var(--accent);border-radius:4px;background:var(--surface)}
@@ -412,7 +434,12 @@ select.cell-in{
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0h8L4 5z' fill='%238A94A3'/%3E%3C/svg%3E");
   background-repeat:no-repeat;background-position:right 5px center;
 }
-select.cell-in[data-f="kubun"]{width:128px}
+select.cell-in[data-f="kubun"]{width:136px}
+select.kubunsel[data-v="小箱-少収納"]{background-color:var(--c-sml-bg2);color:var(--c-sml);border-color:var(--c-sml-line)}
+select.kubunsel[data-v="小箱-多収納"]{background-color:var(--c-sml-bg); color:var(--c-sml);border-color:var(--c-sml-line)}
+select.kubunsel[data-v="箱-少収納"]  {background-color:var(--c-box-bg2);color:var(--c-box);border-color:var(--c-box-line)}
+select.kubunsel[data-v="箱-多収納"]  {background-color:var(--c-box-bg); color:var(--c-box);border-color:var(--c-box-line)}
+select.kubunsel[data-v="コンテナ"]   {background-color:var(--c-cnt-bg); color:var(--c-cnt);border-color:var(--c-cnt-line)}
 select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[data-f="status"]{width:96px}
 .note-in{width:165px}
 .capcell{display:inline-flex;align-items:center;gap:4px;justify-content:flex-end}
@@ -584,28 +611,42 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
     <button class="btn btn-sm headtoggle" id="headToggle" aria-pressed="false">ヘッダーを隠す</button>
   </div>
 
-  <section class="panel" id="panel-main">
-    <div class="toolbar">
-      <div class="search"><input type="search" id="q" placeholder="商品コード・商品名で検索"></div>
-      <div class="fgroup"><span class="glabel">判定結果</span><span id="resFilters"></span></div>
-      <div class="rowbreak"></div>
-      <div class="fgroup"><span class="glabel">対応状況</span><span id="staFilters"></span></div>
-      <button class="btn btn-sm floorbtn" data-sort="floor">階数でソート</button>
-      <label class="toggle"><input type="checkbox" id="manualMode"> 管理者：手動入力モード</label>
+  <section id="panel-main">
+    <div class="panel filters">
+      <div class="toolbar">
+        <div class="search"><input type="search" id="q" placeholder="商品コード・商品名で検索"></div>
+        <div class="fgroup"><span class="glabel">判定結果</span><span id="resFilters"></span></div>
+        <div class="rowbreak"></div>
+        <div class="fgroup"><span class="glabel">対応状況</span><span id="staFilters"></span></div>
+      </div>
     </div>
-    <div class="tablewrap"><table id="tblMain"></table></div>
+    <div class="tablecard">
+      <div class="tablebar">
+        <button class="btn btn-sm" data-xls="filters">Excel出力</button>
+        <button class="btn btn-sm floorbtn" data-sort="floor">階数でソート</button>
+        <label class="toggle"><input type="checkbox" id="manualMode"> 管理者：手動入力モード</label>
+      </div>
+      <div class="tablewrap"><table id="tblMain"></table></div>
+    </div>
   </section>
 
-  <section class="panel" id="panel-change" hidden>
-    <div class="toolbar">
-      <div class="search"><input type="search" id="q2" placeholder="商品コード・商品名で検索"></div>
-      <div class="fgroup"><span class="glabel">判定結果</span><span id="resFilters2"></span></div>
-      <div class="rowbreak"></div>
-      <div class="fgroup"><span class="glabel">対応状況</span><span id="staFilters2"></span></div>
-      <button class="btn btn-sm floorbtn" data-sort="floor">階数でソート</button>
-      <button class="btn btn-sm" id="copyBtn">一覧をテキストで表示</button>
+  <section id="panel-change" hidden>
+    <div class="panel filters">
+      <div class="toolbar">
+        <div class="search"><input type="search" id="q2" placeholder="商品コード・商品名で検索"></div>
+        <div class="fgroup"><span class="glabel">判定結果</span><span id="resFilters2"></span></div>
+        <div class="rowbreak"></div>
+        <div class="fgroup"><span class="glabel">対応状況</span><span id="staFilters2"></span></div>
+      </div>
     </div>
-    <div class="tablewrap"><table id="tblChange"></table></div>
+    <div class="tablecard">
+      <div class="tablebar">
+        <button class="btn btn-sm" data-xls="filters2">Excel出力</button>
+        <button class="btn btn-sm floorbtn" data-sort="floor">階数でソート</button>
+        <button class="btn btn-sm" id="copyBtn">一覧をテキストで表示</button>
+      </div>
+      <div class="tablewrap"><table id="tblChange"></table></div>
+    </div>
   </section>
 
   <section class="panel" id="panel-rules" hidden>
@@ -661,12 +702,14 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
  * 判定・昇格・降格・予備保管のコードは変更不要です。
  */
 const KUBUN_DEFS = [
-  { name:'小箱-多収納', route:'小箱',     smallCap:150,  boxCap:750  },
   { name:'小箱-少収納', route:'小箱',     smallCap:30,   boxCap:150  },
-  { name:'箱-多収納',   route:'箱',       smallCap:null, boxCap:190  },
+  { name:'小箱-多収納', route:'小箱',     smallCap:150,  boxCap:750  },
   { name:'箱-少収納',   route:'箱',       smallCap:null, boxCap:40   },
+  { name:'箱-多収納',   route:'箱',       smallCap:null, boxCap:190  },
   { name:'コンテナ',    route:'コンテナ', smallCap:null, boxCap:null }
 ];
+/* 基礎区分が空欄のときに使う既定値 */
+const DEFAULT_KUBUN = '小箱-多収納';
 
 /* 旧名称 → 現行名称の読み替え表。区分を統合したときに、
    既存の data.json / CSV をそのまま読み込めるようにするためのもの。
@@ -764,7 +807,7 @@ function seed(){
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.0014';
+const APP_VERSION = 'v1.0016';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
@@ -776,6 +819,7 @@ function blankState(){
     tab:'main',
     hideHead:false,
     sort:null,
+    colw:{ code:160, name:214 },
     sharedStamp:null,
     ne:null
   };
@@ -1405,8 +1449,8 @@ function renderMain(){
     '<th colspan="3" class="b-qty gstart">在庫数量</th><th colspan="2" class="b-rec gstart">推奨の保管</th>'+
     '<th colspan="3" class="gstart">判定</th><th colspan="2">運用</th></tr>'+
     '<tr class="headrow">'+
-      '<th class="lead">商品コード<button class="sortbtn'+(state.sort && state.sort.key === 'code' ? ' on' : '')+'" data-sort="code" title="商品コードで並び替え">'+sortMark('code')+'</button></th>'+
-    '<th class="lead">商品名</th><th>基礎区分</th>'+
+      '<th class="lead col-code">商品コード<button class="sortbtn'+(state.sort && state.sort.key === 'code' ? ' on' : '')+'" data-sort="code" title="商品コードで並び替え">'+sortMark('code')+'</button><span class="colgrip"></span></th>'+
+    '<th class="lead col-name">商品名<span class="colgrip"></span></th><th>基礎区分</th>'+
       '<th class="n">小箱上限</th><th class="n">箱上限</th>'+
       '<th class="b-cur gstart">現在の主保管</th><th class="b-cur">現在の予備保管</th>'+
       '<th class="b-qty n gstart">在庫定数</th><th class="b-qty n">フリー在庫</th><th class="b-qty n">判定用在庫数</th>'+
@@ -1421,9 +1465,9 @@ function renderMain(){
     const manT = mm && it.manTeisu !== null && it.manTeisu !== undefined;
     const manF = mm && it.manFree !== null && it.manFree !== undefined;
     return '<tr data-cat="'+j.cat+'" data-code="'+esc(it.code)+'">'+
-      '<td class="code stripe">'+esc(it.code)+'</td>'+
-      '<td class="name" data-code="'+esc(it.code)+'" title="ダブルクリックで編集：'+esc(it.name)+'">'+esc(it.name)+'</td>'+
-      '<td>'+selCell(it.kubun, KUBUN, 'data-f="kubun" data-code="'+esc(it.code)+'"')+'</td>'+
+      '<td class="code stripe">'+esc(it.code)+'<span class="colgrip"></span></td>'+
+      '<td class="name" data-code="'+esc(it.code)+'" title="ダブルクリックで編集：'+esc(it.name)+'">'+esc(it.name)+'<span class="colgrip"></span></td>'+
+      '<td class="kubuncell">'+selCell(it.kubun, KUBUN, 'data-f="kubun" data-code="'+esc(it.code)+'"', 'pillsel kubunsel')+'</td>'+
       '<td class="n">'+(usesSmall(it.kubun) ? '<span class="capcell">'+numCell(it.smallCap,'data-f="smallCap" data-code="'+esc(it.code)+'"')+(it.smallCapEdited?'<span class="tag">個別</span>':'')+'</span>' : '<span class="ro">―</span>')+'</td>'+
       '<td class="n">'+(usesBox(it.kubun) ? '<span class="capcell">'+numCell(it.boxCap,'data-f="boxCap" data-code="'+esc(it.code)+'"')+(it.boxCapEdited?'<span class="tag">個別</span>':'')+'</span>' : '<span class="ro">―</span>')+'</td>'+
       '<td class="b-cur sto gstart">'+selCell(it.curMain, allowedMains(it.kubun).includes(it.curMain) ? allowedMains(it.kubun) : [it.curMain].concat(allowedMains(it.kubun)), 'data-f="curMain" data-code="'+esc(it.code)+'"', 'pillsel')+'</td>'+
@@ -1452,15 +1496,15 @@ function renderChange(){
     .filter(r => matches(r, state.filters2));
   const R2 = sortRows(R);
   const head = '<thead><tr class="headrow">'+
-    '<th class="lead">商品コード<button class="sortbtn'+(state.sort && state.sort.key === 'code' ? ' on' : '')+'" data-sort="code" title="商品コードで並び替え">'+sortMark('code')+'</button></th>'+
-    '<th class="lead">商品名</th><th class="n">判定用在庫数</th>'+
+    '<th class="lead col-code">商品コード<button class="sortbtn'+(state.sort && state.sort.key === 'code' ? ' on' : '')+'" data-sort="code" title="商品コードで並び替え">'+sortMark('code')+'</button><span class="colgrip"></span></th>'+
+    '<th class="lead col-name">商品名<span class="colgrip"></span></th><th class="n">判定用在庫数</th>'+
     '<th class="b-cur gstart">現在の主保管</th><th class="b-cur">現在の予備保管</th>'+
     '<th class="b-rec gstart">推奨主保管</th><th class="b-rec">推奨予備保管</th>'+
     '<th>判定結果</th><th>判定理由</th><th>対応状況</th><th></th></tr></thead>';
   const body = R2.map(({it,j}) =>
     '<tr data-cat="'+j.cat+'" data-code="'+esc(it.code)+'">'+
-    '<td class="code stripe">'+esc(it.code)+'</td>'+
-    '<td class="name" data-code="'+esc(it.code)+'" title="ダブルクリックで編集：'+esc(it.name)+'">'+esc(it.name)+'</td>'+
+    '<td class="code stripe">'+esc(it.code)+'<span class="colgrip"></span></td>'+
+    '<td class="name" data-code="'+esc(it.code)+'" title="ダブルクリックで編集：'+esc(it.name)+'">'+esc(it.name)+'<span class="colgrip"></span></td>'+
     '<td class="n qty-key">'+fmt(j.qty)+'</td>'+
     '<td class="b-cur sto gstart">'+stoPill(it.curMain)+'</td><td class="b-cur sto">'+stoPill(it.curSub)+'</td>'+
     '<td class="b-rec sto gstart">'+stoPill(j.recMain)+'</td><td class="b-rec sto">'+stoPill(j.recSub)+'</td>'+
@@ -1475,10 +1519,9 @@ function renderChange(){
 const STA_CAT = { '未対応':'up', '対応済':'dn', '例外運用':'cnt' };
 function chipCat(v){ return v === 'すべて' ? 'all' : (CAT[v] || STA_CAT[v] || 'hold'); }
 function renderFilters(){
-  const xls = t => '<button class="btn btn-sm xlsbtn" data-xls="'+t+'">Excel出力</button>';
   const mk = (target, cur, list, key, counts) => list.map(v =>
     '<button class="chip" data-cat="'+chipCat(v)+'" data-fk="'+key+'" data-t="'+target+'" data-v="'+esc(v)+'" aria-pressed="'+(cur === v)+'">'
-    + esc(v) + (counts ? '<span class="cnt">('+(counts[v] || 0)+')</span>' : '') + '</button>').join('') + xls(target);
+    + esc(v) + (counts ? '<span class="cnt">('+(counts[v] || 0)+')</span>' : '') + '</button>').join('');
   const R = rows();
   const R2 = R.filter(r => (r.j.need === '要' || r.j.result === '要確認') && r.it.status !== '例外運用');
   $('resFilters').innerHTML  = mk('filters',  state.filters.res,  ['すべて'].concat(RESULTS), 'res', chipCounts(R, state.filters));
@@ -1513,7 +1556,45 @@ function fitTable(){
 }
 window.addEventListener('resize', fitTable);
 
+function applyColWidths(){
+  const w = (state.colw && state.colw.code) || 160;
+  const n = (state.colw && state.colw.name) || 214;
+  document.documentElement.style.setProperty('--w-code', w + 'px');
+  document.documentElement.style.setProperty('--w-name', n + 'px');
+}
+
+/* 商品コード・商品名の右端をドラッグして列幅を変える（見出しでも各行でも可） */
+(function colResize(){
+  let key = null, startX = 0, startW = 0;
+  document.addEventListener('mousedown', e => {
+    const g = e.target.closest && e.target.closest('.colgrip');
+    if(!g) return;
+    const cell = g.closest('td, th');
+    key = (cell.classList.contains('code') || cell.classList.contains('col-code')) ? 'code' : 'name';
+    startX = e.clientX;
+    startW = cell.getBoundingClientRect().width;
+    document.body.classList.add('colresizing');
+    e.preventDefault(); e.stopPropagation();
+  });
+  document.addEventListener('mousemove', e => {
+    if(!key) return;
+    if(!state.colw) state.colw = { code:160, name:214 };
+    state.colw[key] = Math.max(80, Math.min(600, Math.round(startW + (e.clientX - startX))));
+    applyColWidths();
+  });
+  document.addEventListener('mouseup', () => {
+    if(!key) return;
+    key = null;
+    document.body.classList.remove('colresizing');
+    save();
+  });
+  document.addEventListener('dblclick', e => {
+    if(e.target.closest && e.target.closest('.colgrip')) e.stopPropagation();
+  }, true);
+})();
+
 function render(){
+  applyColWidths();
   renderKpis(); renderFilters(); renderMain(); renderChange(); renderSync(); renderShared(); save();
   requestAnimationFrame(fitTable);
 }
