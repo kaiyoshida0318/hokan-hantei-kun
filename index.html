@@ -41,9 +41,12 @@ img,svg,video{max-width:100%;height:auto}
   --alert-line:#E6B5B1;
   --hold:#525D6C;      /* 維持 */
   --hold-bg:#EDF0F4;
-  --band-cur:#F0F2F5;
-  --band-qty:#F5F1EA;
-  --band-rec:#E9F0F6;
+  --band-cur:#EDEFF2;
+  --band-qty:#FCF7EE;
+  --band-rec:#DFEAF7;
+  --c-sml:#3C4A5C; --c-sml-bg:#E6EBF1; --c-sml-line:#C3CDDA;
+  --c-box:#1B4F86; --c-box-bg:#DDEAF9; --c-box-line:#B2CFEC;
+  --c-cnt:#5A3593; --c-cnt-bg:#EBE3F8; --c-cnt-line:#D2C2EB;
   --shadow:0 1px 2px rgba(19,24,32,.06), 0 8px 24px rgba(19,24,32,.07);
   --radius:6px;
   --f-ui:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif;
@@ -77,9 +80,12 @@ img,svg,video{max-width:100%;height:auto}
     --alert-line:#4A2A28;
     --hold:#94A0B0;
     --hold-bg:#212831;
-    --band-cur:#1B212A;
-    --band-qty:#231F1A;
-    --band-rec:#182430;
+    --band-cur:#1C222B;
+    --band-qty:#282116;
+    --band-rec:#152B42;
+    --c-sml:#B7C3D2; --c-sml-bg:#272F3A; --c-sml-line:#3A4553;
+    --c-box:#8FC0EF; --c-box-bg:#1B2C40; --c-box-line:#2C4560;
+    --c-cnt:#C4A9EE; --c-cnt-bg:#2A2340; --c-cnt-line:#3E3358;
     --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
   }
 }
@@ -108,9 +114,12 @@ img,svg,video{max-width:100%;height:auto}
   --alert-line:#4A2A28;
   --hold:#94A0B0;
   --hold-bg:#212831;
-  --band-cur:#1B212A;
-  --band-qty:#231F1A;
-  --band-rec:#182430;
+  --band-cur:#1C222B;
+  --band-qty:#282116;
+  --band-rec:#152B42;
+  --c-sml:#B7C3D2; --c-sml-bg:#272F3A; --c-sml-line:#3A4553;
+  --c-box:#8FC0EF; --c-box-bg:#1B2C40; --c-box-line:#2C4560;
+  --c-cnt:#C4A9EE; --c-cnt-bg:#2A2340; --c-cnt-line:#3E3358;
   --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
 }
 
@@ -311,7 +320,7 @@ table{border-collapse:separate;border-spacing:0;width:100%;font-size:14px}
 #tblMain{min-width:2190px}
 #tblChange{min-width:1340px}
 thead th{
-  position:sticky;background:var(--surface-2);text-align:left;font-weight:500;
+  position:sticky;background:var(--surface-2);text-align:center;font-weight:500;
   border-bottom:1px solid var(--line);white-space:nowrap;color:var(--ink-2);
 }
 tr.grouprow th{
@@ -334,7 +343,30 @@ tr[data-cat="hold"] td.stripe{border-left-color:transparent}
 .name{width:214px;max-width:214px;overflow:hidden;text-overflow:ellipsis}
 .reason{width:390px;min-width:390px;white-space:normal;font-family:var(--f-body);font-size:13px;line-height:1.65;color:var(--ink-2);padding-top:9px;padding-bottom:9px}
 .n{font-family:var(--f-num);font-variant-numeric:tabular-nums;text-align:right}
-th.n{text-align:right}
+th.n{text-align:center}
+thead th:first-child,thead th.lead{text-align:left}
+/* 列グループの境目をはっきりさせる */
+.gstart{border-left:2px solid var(--line-strong)}
+/* 保管形式のセル：判定結果と同じ角丸で色分け */
+td.sto{text-align:center;padding-left:6px;padding-right:6px}
+.spill{
+  display:inline-block;min-width:66px;padding:3px 10px;border-radius:100px;
+  font-size:13px;font-weight:500;border:1px solid transparent;
+}
+select.pillsel{
+  min-width:78px;border-radius:100px;padding:3px 18px 3px 10px;font-weight:500;
+  text-align:center;text-align-last:center;border:1px solid transparent;
+}
+.spill[data-v="小箱"],select.pillsel[data-v="小箱"]{background-color:var(--c-sml-bg);color:var(--c-sml);border-color:var(--c-sml-line)}
+.spill[data-v="箱"],select.pillsel[data-v="箱"]{background-color:var(--c-box-bg);color:var(--c-box);border-color:var(--c-box-line)}
+.spill[data-v="コンテナ"],select.pillsel[data-v="コンテナ"]{background-color:var(--c-cnt-bg);color:var(--c-cnt);border-color:var(--c-cnt-line)}
+.spill[data-v="なし"],select.pillsel[data-v="なし"]{background-color:transparent;color:var(--ink-3);border-color:var(--line-strong)}
+.spill[data-v="―"]{background:transparent;color:var(--ink-3);border-color:transparent;min-width:0}
+select.pillsel:hover{filter:brightness(.97)}
+:root[data-theme="dark"] select.pillsel:hover{filter:brightness(1.15)}
+/* 商品名：ダブルクリックで編集 */
+td.name{cursor:text}
+input.name-in{width:100%;font-size:14px;padding:3px 5px;border:1px solid var(--accent);border-radius:4px;background:var(--surface)}
 .qty-key{font-weight:600;color:var(--ink)}
 
 /* inline inputs */
@@ -698,7 +730,7 @@ function seed(){
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.0011';
+const APP_VERSION = 'v1.0012';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
@@ -1105,8 +1137,8 @@ function renderKpis(){
   $('changeCount').textContent = '(' + R.filter(x => x.j.need === '要').length + ')';
 }
 
-function selCell(value, options, attrs){
-  return '<select class="cell-in" '+attrs+'>'+options.map(o =>
+function selCell(value, options, attrs, cls){
+  return '<select class="cell-in '+(cls || '')+'" '+(cls ? 'data-v="'+esc(value)+'" ' : '')+attrs+'>'+options.map(o =>
     '<option'+(o === value ? ' selected' : '')+'>'+esc(o)+'</option>').join('')+'</select>';
 }
 
@@ -1115,6 +1147,7 @@ function numCell(v, attrs, disabled){
 }
 
 function pill(text, cat){ return '<span class="pill '+cat+'">'+esc(text)+'</span>'; }
+function stoPill(v){ const t = v || '―'; return '<span class="spill" data-v="'+esc(t)+'">'+esc(t)+'</span>'; }
 
 function renderMain(){
   $('tblMain').style.minWidth = state.items.length ? '' : '0';
@@ -1140,14 +1173,15 @@ function renderMain(){
   const R = rows().filter(r => matches(r, state.filters));
   const head =
     '<thead>'+
-    '<tr class="grouprow"><th colspan="3">商品</th><th colspan="2">収納上限</th><th colspan="2">現在の保管</th>'+
-    '<th colspan="3">在庫数量</th><th colspan="2">推奨の保管</th><th colspan="3">判定</th><th colspan="2">運用</th></tr>'+
+    '<tr class="grouprow"><th colspan="3" class="lead">商品</th><th colspan="2">収納上限</th><th colspan="2" class="b-cur gstart">現在の保管</th>'+
+    '<th colspan="3" class="b-qty gstart">在庫数量</th><th colspan="2" class="b-rec gstart">推奨の保管</th>'+
+    '<th colspan="3" class="gstart">判定</th><th colspan="2">運用</th></tr>'+
     '<tr class="headrow">'+
-      '<th>商品コード</th><th>商品名</th><th>基礎区分</th>'+
+      '<th class="lead">商品コード</th><th class="lead">商品名</th><th>基礎区分</th>'+
       '<th class="n">小箱上限</th><th class="n">箱上限</th>'+
-      '<th class="b-cur">現在の主保管</th><th class="b-cur">現在の予備保管</th>'+
-      '<th class="b-qty n">在庫定数</th><th class="b-qty n">フリー在庫</th><th class="b-qty n">判定用在庫数</th>'+
-      '<th class="b-rec">推奨主保管</th><th class="b-rec">推奨予備保管</th>'+
+      '<th class="b-cur gstart">現在の主保管</th><th class="b-cur">現在の予備保管</th>'+
+      '<th class="b-qty n gstart">在庫定数</th><th class="b-qty n">フリー在庫</th><th class="b-qty n">判定用在庫数</th>'+
+      '<th class="b-rec gstart">推奨主保管</th><th class="b-rec">推奨予備保管</th>'+
       '<th>判定結果</th><th>判定理由</th><th>変更要否</th>'+
       '<th>対応状況</th><th>備考・例外対応</th>'+
     '</tr></thead>';
@@ -1159,17 +1193,17 @@ function renderMain(){
     const manF = mm && it.manFree !== null && it.manFree !== undefined;
     return '<tr data-cat="'+j.cat+'" data-code="'+esc(it.code)+'">'+
       '<td class="code stripe">'+esc(it.code)+'</td>'+
-      '<td class="name" title="'+esc(it.name)+'">'+esc(it.name)+'</td>'+
+      '<td class="name" data-code="'+esc(it.code)+'" title="ダブルクリックで編集：'+esc(it.name)+'">'+esc(it.name)+'</td>'+
       '<td>'+selCell(it.kubun, KUBUN, 'data-f="kubun" data-code="'+esc(it.code)+'"')+'</td>'+
       '<td class="n">'+(usesSmall(it.kubun) ? '<span class="capcell">'+numCell(it.smallCap,'data-f="smallCap" data-code="'+esc(it.code)+'"')+(it.smallCapEdited?'<span class="tag">個別</span>':'')+'</span>' : '<span class="ro">―</span>')+'</td>'+
       '<td class="n">'+(usesBox(it.kubun) ? '<span class="capcell">'+numCell(it.boxCap,'data-f="boxCap" data-code="'+esc(it.code)+'"')+(it.boxCapEdited?'<span class="tag">個別</span>':'')+'</span>' : '<span class="ro">―</span>')+'</td>'+
-      '<td class="b-cur">'+selCell(it.curMain, allowedMains(it.kubun).includes(it.curMain) ? allowedMains(it.kubun) : [it.curMain].concat(allowedMains(it.kubun)), 'data-f="curMain" data-code="'+esc(it.code)+'"')+'</td>'+
-      '<td class="b-cur">'+selCell(it.curSub, allowedSubs(it.kubun, it.curMain).includes(it.curSub) ? allowedSubs(it.kubun, it.curMain) : [it.curSub].concat(allowedSubs(it.kubun, it.curMain)), 'data-f="curSub" data-code="'+esc(it.code)+'"')+'</td>'+
-      '<td class="b-qty n"><span class="capcell">'+(mm ? numCell(t,'data-f="manTeisu" data-code="'+esc(it.code)+'"') : '<span class="num">'+fmt(t)+'</span>')+(manT?'<span class="tag warn">手入力</span>':(it.stale?'<span class="tag warn">前回値</span>':''))+'</span></td>'+
+      '<td class="b-cur sto gstart">'+selCell(it.curMain, allowedMains(it.kubun).includes(it.curMain) ? allowedMains(it.kubun) : [it.curMain].concat(allowedMains(it.kubun)), 'data-f="curMain" data-code="'+esc(it.code)+'"', 'pillsel')+'</td>'+
+      '<td class="b-cur sto">'+selCell(it.curSub, allowedSubs(it.kubun, it.curMain).includes(it.curSub) ? allowedSubs(it.kubun, it.curMain) : [it.curSub].concat(allowedSubs(it.kubun, it.curMain)), 'data-f="curSub" data-code="'+esc(it.code)+'"', 'pillsel')+'</td>'+
+      '<td class="b-qty n gstart"><span class="capcell">'+(mm ? numCell(t,'data-f="manTeisu" data-code="'+esc(it.code)+'"') : '<span class="num">'+fmt(t)+'</span>')+(manT?'<span class="tag warn">手入力</span>':(it.stale?'<span class="tag warn">前回値</span>':''))+'</span></td>'+
       '<td class="b-qty n"><span class="capcell">'+(mm ? numCell(f,'data-f="manFree" data-code="'+esc(it.code)+'"') : '<span class="num">'+fmt(f)+'</span>')+(manF?'<span class="tag warn">手入力</span>':'')+'</span></td>'+
       '<td class="b-qty n qty-key">'+fmt(j.qty)+'</td>'+
-      '<td class="b-rec">'+(j.recMain ? esc(j.recMain) : '<span class="ro">―</span>')+'</td>'+
-      '<td class="b-rec">'+(j.recSub ? esc(j.recSub) : '<span class="ro">―</span>')+'</td>'+
+      '<td class="b-rec sto gstart">'+stoPill(j.recMain)+'</td>'+
+      '<td class="b-rec sto">'+stoPill(j.recSub)+'</td>'+
       '<td>'+pill(j.result, j.cat)+'</td>'+
       '<td class="reason">'+esc(j.reason)+'</td>'+
       '<td>'+(j.need ? '<span class="need '+(j.need === '要' ? 'yes' : 'no')+'">'+j.need+'</span>' : '<span class="ro">―</span>')+'</td>'+
@@ -1188,17 +1222,17 @@ function renderChange(){
     .filter(r => state.filters2.sta !== 'すべて' || r.it.status !== '例外運用')   // 例外運用は既定で伏せる
     .filter(r => matches(r, state.filters2));
   const head = '<thead><tr class="headrow">'+
-    '<th>商品コード</th><th>商品名</th><th class="n">判定用在庫数</th>'+
-    '<th class="b-cur">現在の主保管</th><th class="b-cur">現在の予備保管</th>'+
-    '<th class="b-rec">推奨主保管</th><th class="b-rec">推奨予備保管</th>'+
+    '<th class="lead">商品コード</th><th class="lead">商品名</th><th class="n">判定用在庫数</th>'+
+    '<th class="b-cur gstart">現在の主保管</th><th class="b-cur">現在の予備保管</th>'+
+    '<th class="b-rec gstart">推奨主保管</th><th class="b-rec">推奨予備保管</th>'+
     '<th>判定結果</th><th>判定理由</th><th>対応状況</th><th></th></tr></thead>';
   const body = R.map(({it,j}) =>
     '<tr data-cat="'+j.cat+'" data-code="'+esc(it.code)+'">'+
     '<td class="code stripe">'+esc(it.code)+'</td>'+
-    '<td class="name" title="'+esc(it.name)+'">'+esc(it.name)+'</td>'+
+    '<td class="name" data-code="'+esc(it.code)+'" title="ダブルクリックで編集：'+esc(it.name)+'">'+esc(it.name)+'</td>'+
     '<td class="n qty-key">'+fmt(j.qty)+'</td>'+
-    '<td class="b-cur">'+esc(it.curMain)+'</td><td class="b-cur">'+esc(it.curSub)+'</td>'+
-    '<td class="b-rec">'+(j.recMain ? esc(j.recMain) : '―')+'</td><td class="b-rec">'+(j.recSub ? esc(j.recSub) : '―')+'</td>'+
+    '<td class="b-cur sto gstart">'+stoPill(it.curMain)+'</td><td class="b-cur sto">'+stoPill(it.curSub)+'</td>'+
+    '<td class="b-rec sto gstart">'+stoPill(j.recMain)+'</td><td class="b-rec sto">'+stoPill(j.recSub)+'</td>'+
     '<td>'+pill(j.result, j.cat)+'</td>'+
     '<td class="reason">'+esc(j.reason)+'</td>'+
     '<td>'+selCell(it.status, STATUSES, 'data-f="status" data-code="'+esc(it.code)+'"')+'</td>'+
@@ -1324,6 +1358,7 @@ function closeDrawer(){
 /* ============ 編集 ============ */
 function applyField(it, field, value){
   markDirty();
+  if(field === 'name'){ it.name = String(value); return; }
   const numify = v => (v === '' || v === null) ? null : Number(v);
   if(field === 'kubun'){
     it.kubun = value;
@@ -1655,6 +1690,29 @@ async function acceptCsvFile(file){
         + '（新しく追加 <b>' + (codes.length - upd).toLocaleString('ja-JP') + '</b> 件 / '
         + '上書き <b>' + upd.toLocaleString('ja-JP') + '</b> 件）');
 }
+
+/* 商品名はダブルクリックで編集 */
+document.addEventListener('dblclick', e => {
+  const td = e.target.closest && e.target.closest('td.name[data-code]');
+  if(!td || td.querySelector('input')) return;
+  const it = state.items.find(x => x.code === td.dataset.code);
+  if(!it) return;
+  const before = it.name;
+  td.innerHTML = '<input class="name-in" value="'+esc(it.name)+'">';
+  const inp = td.querySelector('input');
+  inp.focus(); inp.select();
+  let closed = false;
+  const finish = keep => {
+    if(closed) return; closed = true;
+    if(keep && inp.value !== before){ applyField(it, 'name', inp.value.trim()); render(); }
+    else render();
+  };
+  inp.addEventListener('blur', () => finish(true));
+  inp.addEventListener('keydown', ev => {
+    if(ev.key === 'Enter'){ ev.preventDefault(); finish(true); }
+    if(ev.key === 'Escape'){ ev.preventDefault(); finish(false); }
+  });
+});
 
 $('csvBtn').addEventListener('click', openCsvModal);
 $('csvCancel').addEventListener('click', closeCsvModal);
