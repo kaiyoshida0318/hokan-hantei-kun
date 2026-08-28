@@ -302,7 +302,20 @@ body.head-hidden .tabs{margin-top:8px}
   border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-2);
   padding:5px 12px;border-radius:100px;font-size:13px;cursor:pointer;
 }
-.chip[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
+.chip[data-cat="all"]  {color:var(--accent);border-color:var(--accent)}
+.chip[data-cat="hold"] {color:var(--hold);  border-color:var(--line-strong)}
+.chip[data-cat="up"]   {color:var(--up);    border-color:var(--up-line)}
+.chip[data-cat="dn"]   {color:var(--dn);    border-color:var(--dn-line)}
+.chip[data-cat="al"]   {color:var(--alert); border-color:var(--alert-line)}
+.chip[data-cat="cnt"]  {color:var(--c-cnt); border-color:var(--c-cnt-line)}
+.chip[aria-pressed="true"]{color:var(--on-accent);font-weight:500}
+.chip[data-cat="all"][aria-pressed="true"] {background:var(--accent); border-color:var(--accent)}
+.chip[data-cat="hold"][aria-pressed="true"]{background:var(--hold);   border-color:var(--hold)}
+.chip[data-cat="up"][aria-pressed="true"]  {background:var(--up);     border-color:var(--up)}
+.chip[data-cat="dn"][aria-pressed="true"]  {background:var(--dn);     border-color:var(--dn)}
+.chip[data-cat="al"][aria-pressed="true"]  {background:var(--alert);  border-color:var(--alert)}
+.chip[data-cat="cnt"][aria-pressed="true"] {background:var(--c-cnt);  border-color:var(--c-cnt)}
+.xlsbtn{margin-left:8px}
 .chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .toggle{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-2);cursor:pointer}
 .toggle input{accent-color:var(--accent);width:15px;height:15px}
@@ -751,7 +764,7 @@ function seed(){
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.0013';
+const APP_VERSION = 'v1.0014';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
@@ -1126,6 +1139,161 @@ function judge(it){
            reason:(staleNote + src + mainNote + subNote) };
 }
 
+
+/* ===== Excel（.xlsx）書き出し：外部ライブラリを使わず、ZIPを自前で組み立てる ===== */
+const CRC_TBL = (() => {
+  const t = new Uint32Array(256);
+  for(let i = 0; i < 256; i++){
+    let c = i;
+    for(let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[i] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(buf){
+  let c = 0xFFFFFFFF;
+  for(let i = 0; i < buf.length; i++) c = CRC_TBL[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+const enc = str => new TextEncoder().encode(str);
+function zipStore(files){
+  const chunks = [], central = [];
+  let offset = 0;
+  const u16 = n => [n & 255, (n >>> 8) & 255];
+  const u32 = n => [n & 255, (n >>> 8) & 255, (n >>> 16) & 255, (n >>> 24) & 255];
+  files.forEach(f => {
+    const name = enc(f.name), data = f.data, crc = crc32(data);
+    const local = [].concat([0x50,0x4b,0x03,0x04], u16(20), u16(0), u16(0), u16(0), u16(0),
+      u32(crc), u32(data.length), u32(data.length), u16(name.length), u16(0));
+    chunks.push(new Uint8Array(local), name, data);
+    central.push([].concat([0x50,0x4b,0x01,0x02], u16(20), u16(20), u16(0), u16(0), u16(0), u16(0),
+      u32(crc), u32(data.length), u32(data.length), u16(name.length), u16(0), u16(0), u16(0), u16(0),
+      u32(0), u32(offset), Array.from(name)));
+    offset += local.length + name.length + data.length;
+  });
+  const cd = central.flat();
+  const end = [].concat([0x50,0x4b,0x05,0x06], u16(0), u16(0), u16(files.length), u16(files.length),
+    u32(cd.length), u32(offset), u16(0));
+  const parts = chunks.concat([new Uint8Array(cd), new Uint8Array(end)]);
+  const total = parts.reduce((n, p) => n + p.length, 0);
+  const out = new Uint8Array(total);
+  let at = 0;
+  parts.forEach(p => { out.set(p, at); at += p.length; });
+  return out;
+}
+const xe = v => String(v === null || v === undefined ? '' : v)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const colLetter = i => String.fromCharCode(65 + i);
+
+/* rows: [[{v, s}, ...], ...]  s = セル書式番号 */
+function buildXlsx(sheetRows, opts){
+  const o = opts || {};
+  const body = sheetRows.map((cells, r) => {
+    const cs = cells.map((c, i) => c === null || c === undefined ? '' :
+      '<c r="'+colLetter(i)+(r+1)+'"'+(c.s ? ' s="'+c.s+'"' : '')+' t="inlineStr"><is><t xml:space="preserve">'
+      + xe(c.v) + '</t></is></c>').join('');
+    return '<row r="'+(r+1)+'"'+(r === 0 ? ' ht="20" customHeight="1"' : '')+'>'+cs+'</row>';
+  }).join('');
+  const cols = (o.widths || []).map((w, i) =>
+    '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"/>').join('');
+  const last = colLetter((o.widths || []).length - 1);
+  const sheet =
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+    '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+
+    '<sheetViews><sheetView workbookViewId="0">'+
+    '<pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/>'+
+    '</sheetView></sheetViews>'+
+    '<sheetFormatPr defaultRowHeight="18"/>'+
+    (cols ? '<cols>'+cols+'</cols>' : '')+
+    '<sheetData>'+body+'</sheetData>'+
+    '<autoFilter ref="A2:'+last+sheetRows.length+'"/>'+
+    '<mergeCells count="1"><mergeCell ref="A1:'+last+'1"/></mergeCells>'+
+    '</worksheet>';
+  const styles =
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+    '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+
+    '<fonts count="3">'+
+      '<font><sz val="11"/><name val="Yu Gothic"/></font>'+
+      '<font><b/><sz val="11"/><name val="Yu Gothic"/></font>'+
+      '<font><sz val="10"/><color rgb="FF5C6877"/><name val="Yu Gothic"/></font>'+
+    '</fonts>'+
+    '<fills count="4">'+
+      '<fill><patternFill patternType="none"/></fill>'+
+      '<fill><patternFill patternType="gray125"/></fill>'+
+      '<fill><patternFill patternType="solid"><fgColor rgb="FFEDEFF2"/><bgColor indexed="64"/></patternFill></fill>'+
+      '<fill><patternFill patternType="solid"><fgColor rgb="FFE4EEFA"/><bgColor indexed="64"/></patternFill></fill>'+
+    '</fills>'+
+    '<borders count="2"><border/>'+
+      '<border><left style="thin"><color rgb="FFC9CFD8"/></left><right style="thin"><color rgb="FFC9CFD8"/></right>'+
+      '<top style="thin"><color rgb="FFC9CFD8"/></top><bottom style="thin"><color rgb="FFC9CFD8"/></bottom></border>'+
+    '</borders>'+
+    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'+
+    '<cellXfs count="5">'+
+      '<xf xfId="0"/>'+
+      '<xf xfId="0" fontId="1" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'+
+      '<xf xfId="0" borderId="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>'+
+      '<xf xfId="0" fillId="3" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'+
+      '<xf xfId="0" fontId="2" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>'+
+    '</cellXfs>'+
+    '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'+
+    '<dxfs count="0"/>'+
+    '</styleSheet>';
+  const files = [
+    { name:'[Content_Types].xml', data: enc('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+      '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'+
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'+
+      '<Default Extension="xml" ContentType="application/xml"/>'+
+      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'+
+      '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'+
+      '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+
+      '</Types>') },
+    { name:'_rels/.rels', data: enc('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'+
+      '</Relationships>') },
+    { name:'xl/workbook.xml', data: enc('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+      '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '+
+      'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'+
+      '<sheets><sheet name="保管形式判定" sheetId="1" r:id="rId1"/></sheets></workbook>') },
+    { name:'xl/_rels/workbook.xml.rels', data: enc('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'+
+      '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'+
+      '</Relationships>') },
+    { name:'xl/styles.xml', data: enc(styles) },
+    { name:'xl/worksheets/sheet1.xml', data: enc(sheet) }
+  ];
+  return zipStore(files);
+}
+
+const XLS_NOTE = '※小箱＋コンテナは、担当者が選ぶ例外運用です。';
+const XLS_HEAD = ['商品コード','商品名','現在の主保管','現在の予備保管','推奨主保管','推奨予備保管','判定結果','対応可否'];
+function exportXlsx(list){
+  if(!list.length){ toast('書き出す商品がありません'); return; }
+  const rows = [];
+  rows.push([{v:XLS_NOTE, s:4}]);
+  rows.push(XLS_HEAD.map(h => ({v:h, s:1})));
+  list.forEach(({it,j}) => rows.push([
+    {v:it.code, s:2}, {v:it.name, s:2},
+    {v:it.curMain, s:2}, {v:it.curSub, s:2},
+    {v:j.recMain || '―', s:3}, {v:j.recSub || '―', s:3},
+    {v:j.result, s:2}, {v:it.status, s:2}
+  ]));
+  const bin = buildXlsx(rows, { widths:[22, 40, 15, 17, 14, 16, 20, 12] });
+  const p2 = n => String(n).padStart(2,'0');
+  const d = new Date();
+  const name = '保管形式判定_'+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'_'+p2(d.getHours())+p2(d.getMinutes())+'.xlsx';
+  try{
+    const url = URL.createObjectURL(new Blob([bin], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+    const a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+    toast('Excelを書き出しました（'+list.length.toLocaleString('ja-JP')+'件）');
+  }catch(e){
+    toast('Excelの書き出しに失敗しました');
+  }
+}
+
 /* ============ 描画 ============ */
 const $ = id => document.getElementById(id);
 const esc = s => String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -1304,10 +1472,13 @@ function renderChange(){
   $('tblChange').innerHTML = head + '<tbody>' + (body || '<tr><td colspan="11" class="empty">変更が必要な商品はありません。今月の移動作業はゼロです。</td></tr>') + '</tbody>';
 }
 
+const STA_CAT = { '未対応':'up', '対応済':'dn', '例外運用':'cnt' };
+function chipCat(v){ return v === 'すべて' ? 'all' : (CAT[v] || STA_CAT[v] || 'hold'); }
 function renderFilters(){
+  const xls = t => '<button class="btn btn-sm xlsbtn" data-xls="'+t+'">Excel出力</button>';
   const mk = (target, cur, list, key, counts) => list.map(v =>
-    '<button class="chip" data-fk="'+key+'" data-t="'+target+'" data-v="'+esc(v)+'" aria-pressed="'+(cur === v)+'">'
-    + esc(v) + (counts ? '<span class="cnt">('+(counts[v] || 0)+')</span>' : '') + '</button>').join('');
+    '<button class="chip" data-cat="'+chipCat(v)+'" data-fk="'+key+'" data-t="'+target+'" data-v="'+esc(v)+'" aria-pressed="'+(cur === v)+'">'
+    + esc(v) + (counts ? '<span class="cnt">('+(counts[v] || 0)+')</span>' : '') + '</button>').join('') + xls(target);
   const R = rows();
   const R2 = R.filter(r => (r.j.need === '要' || r.j.result === '要確認') && r.it.status !== '例外運用');
   $('resFilters').innerHTML  = mk('filters',  state.filters.res,  ['すべて'].concat(RESULTS), 'res', chipCounts(R, state.filters));
@@ -1655,10 +1826,20 @@ document.addEventListener('change', e => {
   }
 });
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-open], [data-sort], .chip, .tab, .kpi');
+  const t = e.target.closest('[data-open], [data-sort], [data-xls], .chip, .tab, .kpi');
   if(!t) return;
   if(t.dataset.open){ openDrawer(t.dataset.open); return; }
   if(t.classList.contains('tab')){ switchTab(t.dataset.tab); return; }
+  if(t.dataset && t.dataset.xls){
+    const R = rows();
+    const list = t.dataset.xls === 'filters2'
+      ? sortRows(R.filter(r => (r.j.need === '要' || r.j.result === '要確認'))
+                  .filter(r => state.filters2.sta !== 'すべて' || r.it.status !== '例外運用')
+                  .filter(r => matches(r, state.filters2)))
+      : sortRows(R.filter(r => matches(r, state.filters)));
+    exportXlsx(list);
+    return;
+  }
   if(t.dataset && t.dataset.sort){
     const k = t.dataset.sort;
     const cur = state.sort;
