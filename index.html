@@ -818,7 +818,7 @@ function seed(){
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.0021';
+const APP_VERSION = 'v1.0022';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
@@ -1482,7 +1482,7 @@ function renderMain(){
       '<th class="b-cur gstart">現在の主保管</th><th class="b-cur">現在の予備保管</th>'+
       '<th class="b-qty n gstart">在庫定数</th><th class="b-qty n">フリー在庫</th><th class="b-qty n">判定用在庫数</th>'+
       '<th class="b-rec gstart">推奨主保管</th><th class="b-rec">推奨予備保管</th>'+
-      '<th>判定結果</th><th>判定理由</th><th>変更要否</th>'+
+      '<th class="gstart">判定結果</th><th>判定理由</th><th>変更要否</th>'+
       '<th>対応状況</th><th>備考・例外対応</th>'+
     '</tr></thead>';
 
@@ -1505,7 +1505,7 @@ function renderMain(){
       '<td class="b-qty n qty-key">'+fmt(j.qty)+'</td>'+
       '<td class="b-rec sto gstart">'+stoPill(j.recMain)+'</td>'+
       '<td class="b-rec sto">'+stoPill(j.recSub)+'</td>'+
-      '<td>'+pill(j.result, j.cat)+'</td>'+
+      '<td class="gstart">'+pill(j.result, j.cat)+'</td>'+
       '<td class="reason">'+esc(j.reason)+'</td>'+
       '<td>'+(j.need ? '<span class="need '+(j.need === '要' ? 'yes' : 'no')+'">'+j.need+'</span>' : '<span class="ro">―</span>')+'</td>'+
       '<td>'+selCell(it.status, STATUSES, 'data-f="status" data-code="'+esc(it.code)+'"', 'pillsel statsel')+'</td>'+
@@ -1526,19 +1526,19 @@ function renderChange(){
   const head = '<thead><tr class="headrow">'+
     '<th class="thumb">画像</th>'+
     '<th class="lead col-code">商品コード<button class="sortbtn'+(state.sort && state.sort.key === 'code' ? ' on' : '')+'" data-sort="code" title="商品コードで並び替え">'+sortMark('code')+'</button><span class="colgrip"></span></th>'+
-    '<th class="lead col-name">商品名<span class="colgrip"></span></th><th class="n">判定用在庫数</th>'+
+    '<th class="lead col-name">商品名<span class="colgrip"></span></th><th class="n gstart">判定用在庫数</th>'+
     '<th class="b-cur gstart">現在の主保管</th><th class="b-cur">現在の予備保管</th>'+
     '<th class="b-rec gstart">推奨主保管</th><th class="b-rec">推奨予備保管</th>'+
-    '<th>判定結果</th><th>判定理由</th><th>対応状況</th><th></th></tr></thead>';
+    '<th class="gstart">判定結果</th><th>判定理由</th><th>対応状況</th><th></th></tr></thead>';
   const body = R2.map(({it,j}) =>
     '<tr data-cat="'+j.cat+'" data-code="'+esc(it.code)+'">'+
     imgCell(it)+
     '<td class="code stripe">'+esc(it.code)+'<span class="colgrip"></span></td>'+
     '<td class="name" data-code="'+esc(it.code)+'" title="ダブルクリックで編集：'+esc(it.name)+'">'+esc(it.name)+'<span class="colgrip"></span></td>'+
-    '<td class="n qty-key">'+fmt(j.qty)+'</td>'+
+    '<td class="n qty-key gstart">'+fmt(j.qty)+'</td>'+
     '<td class="b-cur sto gstart">'+stoPill(it.curMain)+'</td><td class="b-cur sto">'+stoPill(it.curSub)+'</td>'+
     '<td class="b-rec sto gstart">'+stoPill(j.recMain)+'</td><td class="b-rec sto">'+stoPill(j.recSub)+'</td>'+
-    '<td>'+pill(j.result, j.cat)+'</td>'+
+    '<td class="gstart">'+pill(j.result, j.cat)+'</td>'+
     '<td class="reason">'+esc(j.reason)+'</td>'+
     '<td>'+selCell(it.status, STATUSES, 'data-f="status" data-code="'+esc(it.code)+'"', 'pillsel statsel')+'</td>'+
     '<td><button class="rowbtn" data-open="'+esc(it.code)+'">詳細</button></td></tr>'
