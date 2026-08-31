@@ -312,18 +312,19 @@ section[hidden]{display:none}
 .search input{width:100%;padding:8px 10px;border:1px solid var(--line-strong);background:var(--surface);border-radius:var(--radius)}
 .search input:focus-visible{outline:2px solid var(--accent);outline-offset:-1px}
 .fgroup{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.fgroup > .glabel{font-size:11.5px;letter-spacing:.08em;color:var(--ink-3);margin-right:2px}
+.fgroup > .glabel{font-size:13.5px;font-weight:700;letter-spacing:.04em;color:var(--ink);margin-right:5px}
 .chip{
-  border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-2);
-  padding:5px 12px;border-radius:100px;font-size:13px;cursor:pointer;
+  border:1.5px solid var(--line-strong);background:var(--surface);color:var(--ink);
+  padding:7px 15px;border-radius:100px;font-size:14px;font-weight:600;cursor:pointer;
+  line-height:1.35;
 }
 .chip[data-cat="all"]  {color:var(--accent);border-color:var(--accent)}
-.chip[data-cat="hold"] {color:var(--hold);  border-color:var(--line-strong)}
+.chip[data-cat="hold"] {color:var(--ink);   border-color:var(--line-strong)}
 .chip[data-cat="up"]   {color:var(--up);    border-color:var(--up-line)}
 .chip[data-cat="dn"]   {color:var(--dn);    border-color:var(--dn-line)}
 .chip[data-cat="al"]   {color:var(--alert); border-color:var(--alert-line)}
 .chip[data-cat="cnt"]  {color:var(--c-cnt); border-color:var(--c-cnt-line)}
-.chip[aria-pressed="true"]{color:var(--on-accent);font-weight:500}
+.chip[aria-pressed="true"]{color:var(--on-accent);font-weight:700}
 .chip[data-cat="all"][aria-pressed="true"] {background:var(--accent); border-color:var(--accent)}
 .chip[data-cat="hold"][aria-pressed="true"]{background:var(--hold);   border-color:var(--hold)}
 .chip[data-cat="up"][aria-pressed="true"]  {background:var(--up);     border-color:var(--up)}
@@ -331,6 +332,17 @@ section[hidden]{display:none}
 .chip[data-cat="al"][aria-pressed="true"]  {background:var(--alert);  border-color:var(--alert)}
 .chip[data-cat="cnt"][aria-pressed="true"] {background:var(--c-cnt);  border-color:var(--c-cnt)}
 
+/* 未選択のチップは白地＋淡い枠線でぼやけて見えたので、
+   枠線を濃くし、地にもうっすら色を敷いて1つずつの輪郭をはっきりさせる。
+   （color-mix 非対応の古いブラウザでは、上の *-line と白地のまま表示される） */
+.chip:not([aria-pressed="true"]){
+  border-color:color-mix(in srgb, currentColor 55%, var(--surface));
+  background:color-mix(in srgb, currentColor 8%, var(--surface));
+}
+.chip:not([aria-pressed="true"]):hover{
+  border-color:currentColor;
+  background:color-mix(in srgb, currentColor 16%, var(--surface));
+}
 .chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .toggle{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-2);cursor:pointer}
 .toggle input{accent-color:var(--accent);width:15px;height:15px}
@@ -405,7 +417,7 @@ select.pillsel:hover{filter:brightness(.97)}
 .sortbtn.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
 .sortbtn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 .btn.floorbtn.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
-.chip .cnt{font-family:var(--f-num);opacity:.72;margin-left:3px}
+.chip .cnt{font-family:var(--f-num);opacity:.9;margin-left:4px;font-weight:600}
 
 /* 対応状況の色分け */
 select.statsel[data-v="未対応"]{background-color:var(--up-bg);color:var(--up);border-color:var(--up-line)}
@@ -559,6 +571,27 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
 }
 .toast.show{opacity:1;transform:translate(-50%,0)}
 
+/* ===== 商品コード選択 ===== */
+.codebtn.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600}
+.codepop{
+  position:fixed;z-index:60;width:min(560px,92vw);overflow:auto;
+  background:var(--surface);border:1px solid var(--line-strong);border-radius:10px;
+  box-shadow:0 14px 40px rgba(15,23,42,.18);padding:12px 14px 14px
+}
+.cp-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:9px}
+.cp-head b{font-size:13.5px}
+.cp-sub{display:block;margin-top:3px;font-size:11.5px;color:var(--ink-3);line-height:1.5}
+.cp-list{display:flex;flex-wrap:wrap;gap:7px;margin-top:2px}
+.cp-chip{
+  font:inherit;font-size:13px;font-weight:600;font-family:var(--f-num);cursor:pointer;
+  padding:6px 12px;border:1.5px solid var(--line-strong);border-radius:999px;
+  background:var(--surface);color:var(--ink)
+}
+.cp-chip:hover{border-color:var(--accent);color:var(--accent)}
+.cp-chip.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.cp-chip .cnt{margin-left:5px;font-size:11.5px;opacity:.9}
+.cp-empty{margin:12px 2px 2px;font-size:12.5px;color:var(--ink-3)}
+
 /* ===== 新仕様で追加した見た目 ===== */
 .opsbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px;padding:12px 14px;
   border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
@@ -658,6 +691,7 @@ select.cell-in.capsel{width:104px}
     <div class="tablecard">
       <div class="tablebar">
         <div class="search"><input type="search" id="q" placeholder="商品コード・商品名で検索"></div>
+        <button class="btn btn-sm codebtn" data-codepick="filters">商品コード選択</button>
         <button class="btn btn-sm floorbtn" data-sort="floor">階数でソート</button>
         <button class="btn btn-sm" id="opsCsvOut" title="SKUごとの小箱上限・箱上限・上限設定状態をまとめて確認・変更するためのCSVを書き出します">CSVダウンロード</button>
         <button class="btn btn-sm" id="opsCsvIn" title="商品コードをキーに、小箱上限・箱上限・上限設定状態を更新します">CSV取込</button>
@@ -681,6 +715,7 @@ select.cell-in.capsel{width:104px}
     <div class="tablecard">
       <div class="tablebar">
         <div class="search"><input type="search" id="q2" placeholder="商品コード・商品名で検索"></div>
+        <button class="btn btn-sm codebtn" data-codepick="filters2">商品コード選択</button>
         <button class="btn btn-sm floorbtn" data-sort="floor">階数でソート</button>
         <button class="btn btn-sm" data-xls="filters2">Excel出力</button>
         <button class="btn btn-sm" id="copyBtn">一覧をテキストで表示</button>
@@ -700,6 +735,7 @@ select.cell-in.capsel{width:104px}
     <div class="tablecard">
       <div class="tablebar">
         <div class="search"><input type="search" id="q3" placeholder="商品コード・商品名で検索"></div>
+        <button class="btn btn-sm codebtn" data-codepick="filters3">商品コード選択</button>
         <button class="btn btn-sm floorbtn" data-sort="floor">階数でソート</button>
         <button class="btn btn-sm headtoggle" aria-pressed="false">ヘッダーを隠す</button>
       </div>
@@ -739,6 +775,7 @@ select.cell-in.capsel{width:104px}
     <input type="file" id="csvIn" accept=".csv,text/csv" hidden>
   </div>
 </div>
+<div class="codepop" id="codePop" hidden role="dialog" aria-label="商品コードで絞り込む"></div>
 <aside class="drawer" id="drawer" aria-hidden="true"></aside>
 <div class="toast" id="toast"></div>
 
@@ -875,16 +912,16 @@ function seed(){
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.1007';
+const APP_VERSION = 'v1.1011';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
     items: [],
     sync:{ status:'未同期', at:null, message:'' },
     manualMode:false,
-    filters:{ q:'', res:'すべて', sta:'すべて', cap:'すべて', buf:'すべて' },
-    filters2:{ q:'', res:'すべて', sta:'すべて', cap:'すべて', buf:'すべて' },
-    filters3:{ q:'', res:'すべて', sta:'すべて', cap:'すべて', buf:'すべて' },
+    filters:{ q:'', res:'すべて', sta:'すべて', cap:'すべて', buf:'すべて', pre:'すべて' },
+    filters2:{ q:'', res:'すべて', sta:'すべて', cap:'すべて', buf:'すべて', pre:'すべて' },
+    filters3:{ q:'', res:'すべて', sta:'すべて', cap:'すべて', buf:'すべて', pre:'すべて' },
     csvHistory:[],
     tab:'main',
     hideHead:false,
@@ -1509,6 +1546,14 @@ const esc = s => String(s === null || s === undefined ? '' : s).replace(/[&<>"']
 
 function rows(){ return state.items.map(it => ({ it, j: judge(it) })); }
 
+/* 商品コードの頭（最初の「-」より前）。例：baby-24-01-sox-1s-1wh → baby
+   「-」が無いコードは、そのコード全体を頭として扱う。大小文字は区別しない。 */
+function prefixOf(code){
+  const t = String(code === null || code === undefined ? '' : code).trim();
+  const i = t.indexOf('-');
+  return (i > 0 ? t.slice(0, i) : t).toLowerCase();
+}
+
 /* 商品名に含まれる階数（例：【PKT2-4F】→ 4）。無ければ null */
 function floorOf(name){
   const m = String(name || '').match(/(\d+)\s*F/i);
@@ -1545,6 +1590,7 @@ function matches(r, f, skip){
   if(skip !== 'res' && f.res !== 'すべて' && r.j.result !== f.res) return false;
   if(skip !== 'cap' && f.cap && f.cap !== 'すべて' && r.it.capState !== f.cap) return false;
   if(skip !== 'buf' && f.buf && f.buf !== 'すべて' && r.j.buffer !== f.buf) return false;
+  if(skip !== 'pre' && f.pre && f.pre !== 'すべて' && prefixOf(r.it.code) !== f.pre) return false;
   if(skip !== 'sta' && f.sta !== 'すべて'){
     if(r.it.status !== f.sta) return false;
     // 「維持」など変更の必要がない商品は、未対応の抽出には出さない
@@ -1729,6 +1775,68 @@ const STA_CAT = { '未対応':'up', '対応済':'dn', '例外運用':'cnt' };
 const CAP_CAT = { '仮設定':'al', 'SKU確認済':'dn' };
 const BUF_CAT = { '不要':'hold', '使用候補':'cnt' };
 function chipCat(v){ return v === 'すべて' ? 'all' : (CAT[v] || STA_CAT[v] || CAP_CAT[v] || BUF_CAT[v] || 'hold'); }
+/* そのタブが対象にしている商品の集合（絞り込みを掛ける前の母集団） */
+function baseRowsFor(target, R){
+  const all = R || rows();
+  if(target === 'filters2') return all.filter(r => needsChange(r.j) && r.it.status !== '例外運用');
+  if(target === 'filters3') return all.filter(r => r.j.buffer === '使用候補');
+  return all;
+}
+
+/* ===== 商品コード選択（最初の「-」より前でまとめて絞り込む） ===== */
+let codePopTarget = null;
+function closeCodePop(){
+  $('codePop').hidden = true;
+  codePopTarget = null;
+}
+function openCodePop(btn, target){
+  const f = state[target];
+  const base = baseRowsFor(target);
+  /* 商品コードの頭以外の絞り込みだけ効かせた状態で数える（＝押したら何件になるか） */
+  const pass = base.filter(r => matches(r, Object.assign({}, f, { pre:'すべて' })));
+  const map = new Map();
+  pass.forEach(r => {
+    const k = prefixOf(r.it.code);
+    if(!map.has(k)) map.set(k, { key:k, label:String(r.it.code).trim().split('-')[0] || k, n:0 });
+    map.get(k).n++;
+  });
+  const list = [...map.values()].sort((a, b) => a.key.localeCompare(b.key, 'ja', { numeric:true }));
+
+  const pop = $('codePop');
+  pop.innerHTML =
+    '<div class="cp-head">'+
+      '<div><b>商品コードで絞り込む</b><span class="cp-sub">最初の「-」より前でまとめています（例：baby-24-01-sox-1s-1wh → baby）</span></div>'+
+      '<button class="iconbtn" id="cpClose" aria-label="閉じる">×</button>'+
+    '</div>'+
+    '<div class="cp-list" id="cpList">'+
+      '<button class="cp-chip'+(f.pre === 'すべて' ? ' on' : '')+'" data-pre="すべて">すべて<span class="cnt">('+pass.length+')</span></button>'+
+      list.map(x => '<button class="cp-chip'+(f.pre === x.key ? ' on' : '')+'" data-pre="'+esc(x.key)+'">'+
+        esc(x.label)+'<span class="cnt">('+x.n+')</span></button>').join('')+
+    '</div>'+
+    (list.length ? '' : '<p class="cp-empty">対象の商品がありません。</p>');
+
+  pop.hidden = false;
+  codePopTarget = target;
+
+  /* ボタンの真下に出す。画面からはみ出す場合は左へ寄せる。 */
+  const r = btn.getBoundingClientRect();
+  pop.style.top = Math.round(r.bottom + 6) + 'px';
+  const w = pop.offsetWidth;
+  pop.style.left = Math.round(Math.max(8, Math.min(r.left, window.innerWidth - w - 8))) + 'px';
+  const maxH = window.innerHeight - r.bottom - 18;
+  pop.style.maxHeight = Math.max(200, maxH) + 'px';
+
+  $('cpClose').onclick = closeCodePop;
+}
+function renderCodeButtons(){
+  document.querySelectorAll('[data-codepick]').forEach(b => {
+    const f = state[b.dataset.codepick];
+    const on = f && f.pre && f.pre !== 'すべて';
+    b.classList.toggle('on', !!on);
+    b.textContent = on ? '商品コード：' + f.pre : '商品コード選択';
+  });
+}
+
 function renderFilters(){
   const mk = (target, cur, list, key, counts) => list.map(v =>
     '<button class="chip" data-cat="'+chipCat(v)+'" data-fk="'+key+'" data-t="'+target+'" data-v="'+esc(v)+'"'
@@ -1738,8 +1846,8 @@ function renderFilters(){
     + esc(v) + (counts ? '<span class="cnt">('+(counts[v] || 0)+')</span>' : '') + '</button>').join('');
   const all = list => ['すべて'].concat(list);
   const R  = rows();
-  const R2 = R.filter(r => needsChange(r.j) && r.it.status !== '例外運用');
-  const R3 = R.filter(r => r.j.buffer === '使用候補');
+  const R2 = baseRowsFor('filters2', R);
+  const R3 = baseRowsFor('filters3', R);
 
   const f1 = state.filters, f2 = state.filters2, f3 = state.filters3;
   $('resFilters').innerHTML  = mk('filters',  f1.res, all(RESULTS),    'res', chipCounts(R, f1, 'res', all(RESULTS)));
@@ -1823,7 +1931,7 @@ function applyColWidths(){
 
 function render(){
   applyColWidths();
-  renderTabCounts(); renderFilters(); renderMain(); renderChange(); renderBuffer(); renderSync(); renderShared(); save();
+  renderTabCounts(); renderFilters(); renderCodeButtons(); renderMain(); renderChange(); renderBuffer(); renderSync(); renderShared(); save();
   requestAnimationFrame(fitTable);
 }
 
@@ -2147,6 +2255,26 @@ document.addEventListener('change', e => {
     if(it){ applyField(it, el.dataset.f, el.value); render(); if(openCode === it.code) openDrawer(it.code); }
   }
 });
+/* 商品コード選択：ボタンで開く、チップで絞り込む、外側クリックで閉じる */
+document.addEventListener('click', e => {
+  const btn = e.target.closest('[data-codepick]');
+  if(btn){
+    const target = btn.dataset.codepick;
+    if(codePopTarget === target) closeCodePop();
+    else openCodePop(btn, target);
+    return;
+  }
+  const chip = e.target.closest('#codePop .cp-chip');
+  if(chip){
+    state[codePopTarget].pre = chip.dataset.pre;
+    closeCodePop();
+    render();
+    return;
+  }
+  if(codePopTarget && !e.target.closest('#codePop')) closeCodePop();
+});
+window.addEventListener('resize', () => { if(codePopTarget) closeCodePop(); });
+
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-open], [data-sort], [data-xls], .chip, .tab');
   if(!t) return;
@@ -2185,7 +2313,7 @@ $('manualMode').addEventListener('change', e => {
 });
 $('syncBtn').addEventListener('click', sync);
 $('scrim').addEventListener('click', () => { closeDrawer(); closeCsvModal(); });
-document.addEventListener('keydown', e => { if(e.key === 'Escape'){ closeDrawer(); closeCsvModal(); } });
+document.addEventListener('keydown', e => { if(e.key === 'Escape'){ closeDrawer(); closeCsvModal(); closeCodePop(); } });
 $('copyBtn').addEventListener('click', () => {
   const R = rows().filter(r => needsChange(r.j) && r.it.status !== '例外運用');
   const head = ['商品コード','商品名','現在の固定保管','在庫定数','小箱上限','箱上限','推奨固定保管','判定結果','判定理由','対応状況'].join('\t');
@@ -2543,7 +2671,8 @@ $('clearAll').addEventListener('click', () => {
     state.items = (saved.items || []).map(normalize);
   }
   $('manualMode').checked = !!state.manualMode;
-  if(!state.filters3) state.filters3 = { q:'', res:'すべて', sta:'すべて', cap:'すべて', buf:'すべて' };
+  if(!state.filters3) state.filters3 = { q:'', res:'すべて', sta:'すべて', cap:'すべて', buf:'すべて', pre:'すべて' };
+  ['filters','filters2','filters3'].forEach(k => { if(!state[k].pre) state[k].pre = 'すべて'; });
   if(!Array.isArray(state.csvHistory)) state.csvHistory = [];
   $('q').value = state.filters.q; $('q2').value = state.filters2.q; $('q3').value = state.filters3.q;
   renderGhButton();
