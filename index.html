@@ -722,6 +722,8 @@ select.cell-in.capsel{width:104px}
       商品名・在庫定数・フリー在庫はネクストエンジンから取得する情報なので上書きしません。
       現在の固定保管も、実際の倉庫移動を伴うため一括更新の対象外です。
       <b>空欄は「今の値を維持」</b>です。値を消したいときだけ半角の <code>-</code> を入れてください。</p>
+    <p class="modal-lead">書き出したCSVの収納上限欄は、<b><code>対象外</code></b>＝その基礎区分ではその保管形式を使わないので入力不要、
+      <b>空欄</b>＝入力が必要なのにまだ値が入っていない、という意味です。<code>対象外</code> はそのまま取り込んでも何も変わりません。</p>
     <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="CSVファイルを選択">
       <div class="dz-mark">＋</div>
       <div class="dz-main">ここにCSVファイルをドロップ</div>
@@ -873,7 +875,7 @@ function seed(){
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.1005';
+const APP_VERSION = 'v1.1007';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
@@ -1063,6 +1065,10 @@ async function readTextFile(file){
 const CSV_EDITABLE = ['小箱上限','箱上限','上限設定状態'];
 /* §28 空欄は「既存値を維持」。意図して値を消すときだけ、この記号を書く。 */
 const CSV_CLEAR = '-';
+/* 収納上限の空欄が「まだ入れていない」のか「その区分では使わない」のか区別できるよう、
+   後者は書き出し時にこの語を入れる。取込では空欄と同じ（現状維持）として扱う。 */
+const CSV_NA = '対象外';
+const CSV_NA_ALIASES = ['対象外','―','—','–','n/a','N/A'];
 
 function planCSV(text, opts){
   const allowAdd = !!(opts && opts.allowAdd);
@@ -1104,6 +1110,7 @@ function planCSV(text, opts){
     const readCap = (label, cur) => {
       const v = get(r, label);
       if(v === undefined || v === '') return { keep:true, value:cur };
+      if(CSV_NA_ALIASES.includes(v)) return { keep:true, value:cur };   // 「対象外」＝空欄と同じ扱い
       if(v === CSV_CLEAR) return { keep:false, value:null };
       if(!/^-?\d+(\.\d+)?$/.test(v)){ out.errors.push({ line, code, msg:label+'「'+v+'」は数値ではありません' }); bad = true; return { keep:true, value:cur }; }
       const n = Number(v);
@@ -1179,7 +1186,17 @@ function pushCsvHistory(fileName, plan, updated, added){
 function exportCSV(){
   const lines = [CSV_COLS.join(',')];
   const q = v => { const s = v === null || v === undefined ? '' : String(v); return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
-  state.items.forEach(it => lines.push([it.code,it.name,it.imageUrl,it.kubun,it.smallCap,it.boxCap,it.capState,it.curMain,
+  /* 空欄の意味をはっきりさせる：
+       「対象外」… その基礎区分ではその保管形式を使わないので、入力しなくてよい
+       空欄      … 入力が必要なのに、まだ値が入っていない（これから実測して入れる） */
+  const capOut = (it, kind) => {
+    const uses = kind === 'small' ? usesSmall(it.kubun) : usesBox(it.kubun);
+    if(!uses) return CSV_NA;
+    const v = kind === 'small' ? it.smallCap : it.boxCap;
+    return (v === null || v === undefined || v === '') ? '' : v;
+  };
+  state.items.forEach(it => lines.push([it.code,it.name,it.imageUrl,it.kubun,
+    capOut(it,'small'),capOut(it,'box'),it.capState,it.curMain,
     usedTeisu(it),usedFree(it),it.status,it.note].map(q).join(',')));
   return '﻿' + lines.join('\r\n') + '\r\n';
 }
@@ -1565,7 +1582,9 @@ function numCell(v, attrs, disabled){
 }
 
 function pill(text, cat){ return '<span class="pill '+cat+'">'+esc(text)+'</span>'; }
-/* 楽天の画像はサイズ指定パラメータが使えるので、小さい画像で読み込む */
+/* 商品画像の列は v1.1006 でいったん廃止した（楽天の画像URLが商品管理番号から機械的に
+   導けず、RMSのitem.csv待ちのため）。データ側の imageUrl・CSVの「画像URL」列・data.json は
+   そのまま残してあるので、復活させるときは表の先頭に imgCell() の列を戻すだけでよい。
 function thumbURL(u, px){
   if(!u) return '';
   if(/(r10s\.jp|image\.rakuten\.co\.jp)/.test(u) && !/[?&]_ex=/.test(u))
@@ -1577,6 +1596,7 @@ function imgCell(it){
   return '<td class="thumb"><img src="'+esc(thumbURL(it.imageUrl, 96))+'" alt="" loading="lazy" '+
          'onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{className:\'noimg\',textContent:\'×\'}))"></td>';
 }
+*/
 function stoPill(v){ const t = v || '―'; return '<span class="spill" data-v="'+esc(t)+'">'+esc(t)+'</span>'; }
 /* 共用コンテナバッファの使用判定。固定保管の変更ではないので、判定結果とは別の色にする。 */
 function bufPill(j){
@@ -1599,7 +1619,7 @@ function renderMain(){
       '</ol>'+
       '<div class="csvspec">商品コード,商品名,基礎区分,小箱上限,箱上限,上限設定状態,現在の固定保管,在庫定数,フリー在庫,対応状況,備考\n'+
       'ABC-001,USB-C ケーブル 1m,小箱-多収納,100,500,SKU確認済,小箱,200,150,未対応,\n'+
-      'BOX-021,ペットフード 5kg,箱-少収納,,40,仮設定,箱,60,55,未対応,</div>'+
+      'BOX-021,ペットフード 5kg,箱-少収納,対象外,40,仮設定,箱,60,55,未対応,</div>'+
       '<p style="margin-top:14px">基礎区分は <b>小箱-多収納 / 小箱-少収納 / 箱-多収納 / 箱-少収納 / コンテナ</b>、現在の固定保管は <b>小箱 / 箱 / コンテナ</b>、上限設定状態は <b>仮設定 / SKU確認済</b> のいずれかで入力してください。</p>'+
       '<p><button class="btn btn-sm" id="loadSample">サンプルデータを入れて試す</button></p>'+
       '</div></td></tr></tbody>';
@@ -1610,11 +1630,10 @@ function renderMain(){
   const R = sortRows(rows().filter(r => matches(r, state.filters)));
   const head =
     '<thead>'+
-    '<tr class="grouprow"><th colspan="4" class="lead">商品</th><th colspan="3">収納上限</th><th class="b-cur gstart">現在</th>'+
+    '<tr class="grouprow"><th colspan="3" class="lead">商品</th><th colspan="3">収納上限</th><th class="b-cur gstart">現在</th>'+
     '<th colspan="2" class="b-qty gstart">在庫数量</th><th class="b-rec gstart">推奨</th>'+
     '<th colspan="4" class="gstart">判定</th><th colspan="2">運用</th></tr>'+
     '<tr class="headrow">'+
-      '<th class="thumb">画像</th>'+
     '<th class="lead col-code">商品コード<button class="sortbtn'+(state.sort && state.sort.key === 'code' ? ' on' : '')+'" data-sort="code" title="商品コードで並び替え">'+sortMark('code')+'</button><span class="colgrip"></span></th>'+
     '<th class="lead col-name">商品名<span class="colgrip"></span></th><th>基礎区分</th>'+
       '<th class="n">小箱上限</th><th class="n">箱上限</th><th>上限設定状態</th>'+
@@ -1631,7 +1650,6 @@ function renderMain(){
     const manT = mm && it.manTeisu !== null && it.manTeisu !== undefined;
     const manF = mm && it.manFree !== null && it.manFree !== undefined;
     return '<tr data-cat="'+j.cat+'" data-code="'+esc(it.code)+'">'+
-      imgCell(it)+
     '<td class="code stripe">'+esc(it.code)+'<span class="colgrip"></span></td>'+
       '<td class="name" data-code="'+esc(it.code)+'" title="ダブルクリックで編集：'+esc(it.name)+'">'+esc(it.name)+'<span class="colgrip"></span></td>'+
       '<td class="kubuncell">'+selCell(it.kubun, KUBUN, 'data-f="kubun" data-code="'+esc(it.code)+'"', 'pillsel kubunsel')+'</td>'+
@@ -1652,7 +1670,7 @@ function renderMain(){
   }).join('');
 
   $('tblMain').innerHTML = head + '<tbody>' + body + '</tbody>';
-  if(!R.length) $('tblMain').innerHTML = head + '<tbody><tr><td colspan="16" class="empty">条件に一致する商品はありません。</td></tr></tbody>';
+  if(!R.length) $('tblMain').innerHTML = head + '<tbody><tr><td colspan="15" class="empty">条件に一致する商品はありません。</td></tr></tbody>';
 }
 
 function renderChange(){
@@ -1662,7 +1680,6 @@ function renderChange(){
     .filter(r => matches(r, state.filters2));
   const R2 = sortRows(R);
   const head = '<thead><tr class="headrow">'+
-    '<th class="thumb">画像</th>'+
     '<th class="lead col-code">商品コード<button class="sortbtn'+(state.sort && state.sort.key === 'code' ? ' on' : '')+'" data-sort="code" title="商品コードで並び替え">'+sortMark('code')+'</button><span class="colgrip"></span></th>'+
     '<th class="lead col-name">商品名<span class="colgrip"></span></th>'+
     '<th class="b-cur gstart">現在の固定保管</th>'+
@@ -1671,7 +1688,6 @@ function renderChange(){
     '<th class="gstart">判定結果</th><th>判定理由</th><th>対応状況</th><th></th></tr></thead>';
   const body = R2.map(({it,j}) =>
     '<tr data-cat="'+j.cat+'" data-code="'+esc(it.code)+'">'+
-    imgCell(it)+
     '<td class="code stripe">'+esc(it.code)+'<span class="colgrip"></span></td>'+
     '<td class="name" data-code="'+esc(it.code)+'" title="ダブルクリックで編集：'+esc(it.name)+'">'+esc(it.name)+'<span class="colgrip"></span></td>'+
     '<td class="b-cur sto gstart">'+stoPill(it.curMain)+'</td>'+
@@ -1683,14 +1699,13 @@ function renderChange(){
     '<td>'+selCell(it.status, STATUSES, 'data-f="status" data-code="'+esc(it.code)+'"', 'pillsel statsel')+'</td>'+
     '<td><button class="rowbtn" data-open="'+esc(it.code)+'">詳細</button></td></tr>'
   ).join('');
-  $('tblChange').innerHTML = head + '<tbody>' + (body || '<tr><td colspan="12" class="empty">変更が必要な商品はありません。今月の移動作業はゼロです。</td></tr>') + '</tbody>';
+  $('tblChange').innerHTML = head + '<tbody>' + (body || '<tr><td colspan="11" class="empty">変更が必要な商品はありません。今月の移動作業はゼロです。</td></tr>') + '</tbody>';
 }
 
 /* §33 バッファ使用候補一覧。固定保管の変更ではなく、いま入りきらない可能性のあるSKU。 */
 function renderBuffer(){
   const R = sortRows(rows().filter(r => r.j.buffer === '使用候補').filter(r => matches(r, state.filters3)));
   const head = '<thead><tr class="headrow">'+
-    '<th class="thumb">画像</th>'+
     '<th class="lead col-code">商品コード<button class="sortbtn'+(state.sort && state.sort.key === 'code' ? ' on' : '')+'" data-sort="code" title="商品コードで並び替え">'+sortMark('code')+'</button><span class="colgrip"></span></th>'+
     '<th class="lead col-name">商品名<span class="colgrip"></span></th>'+
     '<th class="b-cur gstart">固定保管</th><th class="b-cur n">収納上限</th>'+
@@ -1698,7 +1713,6 @@ function renderBuffer(){
     '<th class="n gstart">超過数量</th><th>対応状況</th><th></th></tr></thead>';
   const body = R.map(({it,j}) =>
     '<tr data-code="'+esc(it.code)+'">'+
-    imgCell(it)+
     '<td class="code stripe">'+esc(it.code)+'<span class="colgrip"></span></td>'+
     '<td class="name" data-code="'+esc(it.code)+'" title="ダブルクリックで編集：'+esc(it.name)+'">'+esc(it.name)+'<span class="colgrip"></span></td>'+
     '<td class="b-cur sto gstart">'+stoPill(it.curMain)+'</td>'+
@@ -1708,7 +1722,7 @@ function renderBuffer(){
     '<td>'+selCell(it.status, STATUSES, 'data-f="status" data-code="'+esc(it.code)+'"', 'pillsel statsel')+'</td>'+
     '<td><button class="rowbtn" data-open="'+esc(it.code)+'">詳細</button></td></tr>'
   ).join('');
-  $('tblBuffer').innerHTML = head + '<tbody>' + (body || '<tr><td colspan="10" class="empty">固定保管に入りきらない可能性のある商品はありません。</td></tr>') + '</tbody>';
+  $('tblBuffer').innerHTML = head + '<tbody>' + (body || '<tr><td colspan="9" class="empty">固定保管に入りきらない可能性のある商品はありません。</td></tr>') + '</tbody>';
 }
 
 const STA_CAT = { '未対応':'up', '対応済':'dn', '例外運用':'cnt' };
@@ -1827,7 +1841,6 @@ function openDrawer(code){
     '<div style="margin-top:8px">'+pill(j.result, j.cat)+(j.need ? ' <span class="need '+(j.need==='要'?'yes':'no')+'" style="font-size:12px">変更要否：'+j.need+'</span>' : '')+'</div></div>'+
     '<button class="iconbtn" id="dclose" aria-label="閉じる">×</button></div>'+
 
-  (it.imageUrl ? '<div class="dsec"><h3>商品画像</h3><img class="zoomimg" src="'+esc(thumbURL(it.imageUrl, 400))+'" alt=""></div>' : '')+
   '<div class="dsec"><h3>現在 → 推奨</h3><div class="transit">'+
     '<div class="state"><span class="lbl">現在の固定保管</span><span class="v">'+esc(it.curMain)+'</span></div>'+
     '<span class="bigarrow">→</span>'+
