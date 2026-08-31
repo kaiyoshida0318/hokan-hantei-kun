@@ -385,6 +385,19 @@ tr[data-cat="al"] td.stripe{border-left-color:var(--alert)}
 tr[data-cat="hold"] td.stripe{border-left-color:transparent}
 
 .reason{width:390px;min-width:390px;white-space:normal;font-family:var(--f-body);font-size:13px;line-height:1.65;color:var(--ink-2);padding-top:9px;padding-bottom:9px}
+/* 判定理由の列は既定で閉じておく。見出しの＋を押すと開く。 */
+.colexp{
+  margin-left:6px;padding:0;width:20px;height:20px;line-height:1;cursor:pointer;
+  border:1px solid var(--line-strong);border-radius:5px;background:var(--surface);
+  color:var(--ink-2);font-size:12px;font-weight:700;vertical-align:middle
+}
+.colexp:hover{border-color:var(--accent);color:var(--accent)}
+.colexp:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+/* 閉じているときも見出しは出す（何のボタンか分からなくなるため）。隠すのは中身だけ。 */
+body.reason-closed th.reason,
+body.reason-closed td.reason{width:104px;min-width:104px;max-width:104px}
+body.reason-closed .reason-text{display:none}
+body.reason-closed td.reason::after{content:'…';color:var(--ink-3)}
 .n{font-family:var(--f-num);font-variant-numeric:tabular-nums;text-align:right}
 th.n{text-align:center}
 thead th:first-child,thead th.lead{text-align:left}
@@ -913,7 +926,7 @@ function seed(){
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.2003';
+const APP_VERSION = 'v1.2005';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
@@ -926,6 +939,7 @@ function blankState(){
     csvHistory:[],
     tab:'main',
     hideHead:false,
+    reasonOpen:false,
     sort:null,
     colw:{ code:160, name:214 },
     sharedStamp:null,
@@ -1845,7 +1859,8 @@ function renderMain(){
       '<th class="b-cur gstart">現在の固定保管</th>'+
       '<th class="b-qty n gstart">在庫定数</th><th class="b-qty n">フリー在庫</th>'+
       '<th class="b-rec gstart">推奨固定保管</th>'+
-      '<th class="gstart">判定結果</th><th>バッファ判定</th><th>判定理由</th><th>変更要否</th>'+
+      '<th class="gstart">判定結果</th><th>バッファ判定</th>'+
+      '<th class="reason"><span class="reason-label">判定理由</span><button class="colexp" data-colexp="1" type="button" aria-expanded="false" title="判定理由を開く／閉じる"><span class="colexp-mark">＋</span></button></th>'+'<th>変更要否</th>'+
       '<th>対応状況</th><th>備考</th>'+
     '</tr></thead>';
 
@@ -1867,7 +1882,7 @@ function renderMain(){
       '<td class="b-rec sto gstart">'+stoPill(j.recMain)+'</td>'+
       '<td class="gstart">'+pill(j.result, j.cat)+'</td>'+
       '<td>'+bufPill(j)+'</td>'+
-      '<td class="reason">'+esc(j.reason)+'</td>'+
+      '<td class="reason"><span class="reason-text">'+esc(j.reason)+'</span></td>'+
       '<td>'+(j.need ? '<span class="need '+(j.need === '要' ? 'yes' : 'no')+'">'+j.need+'</span>' : '<span class="ro">―</span>')+'</td>'+
       '<td>'+selCell(it.status, STATUSES, 'data-f="status" data-code="'+esc(it.code)+'"', 'pillsel statsel')+'</td>'+
       '<td><input class="cell-in note-in" value="'+esc(it.note)+'" data-f="note" data-code="'+esc(it.code)+'" placeholder="—"><button class="rowbtn" data-open="'+esc(it.code)+'">詳細</button></td>'+
@@ -1890,7 +1905,8 @@ function renderChange(){
     '<th class="b-cur gstart">現在の固定保管</th>'+
     '<th class="b-qty n gstart">在庫定数</th><th class="b-qty n">小箱上限</th><th class="b-qty n">箱上限</th>'+
     '<th class="b-rec gstart">推奨固定保管</th>'+
-    '<th class="gstart">判定結果</th><th>判定理由</th><th>対応状況</th><th></th></tr></thead>';
+    '<th class="gstart">判定結果</th>'+
+    '<th class="reason"><span class="reason-label">判定理由</span><button class="colexp" data-colexp="1" type="button" aria-expanded="false" title="判定理由を開く／閉じる"><span class="colexp-mark">＋</span></button></th>'+'<th>対応状況</th><th></th></tr></thead>';
   const body = R2.map(({it,j}) =>
     '<tr data-cat="'+j.cat+'" data-code="'+esc(it.code)+'">'+
     '<td class="code stripe">'+esc(it.code)+'<span class="colgrip"></span></td>'+
@@ -1900,7 +1916,7 @@ function renderChange(){
     '<td class="b-qty n">'+fmt(it.smallCap)+'</td><td class="b-qty n">'+fmt(it.boxCap)+'</td>'+
     '<td class="b-rec sto gstart">'+stoPill(j.recMain)+'</td>'+
     '<td class="gstart">'+pill(j.result, j.cat)+'</td>'+
-    '<td class="reason">'+esc(j.reason)+'</td>'+
+    '<td class="reason"><span class="reason-text">'+esc(j.reason)+'</span></td>'+
     '<td>'+selCell(it.status, STATUSES, 'data-f="status" data-code="'+esc(it.code)+'"', 'pillsel statsel')+'</td>'+
     '<td><button class="rowbtn" data-open="'+esc(it.code)+'">詳細</button></td></tr>'
   ).join('');
@@ -2091,6 +2107,7 @@ function applyColWidths(){
 function render(){
   applyColWidths();
   renderTabCounts(); renderFilters(); renderCodeButtons(); renderMain(); renderChange(); renderBuffer(); renderSync(); renderShared(); save();
+  applyReasonState();
   requestAnimationFrame(fitTable);
 }
 
@@ -2781,6 +2798,24 @@ $('opsHistory').addEventListener('click', () => {
 
 function renderGhButton(){ $('pushShared').hidden = !ghReady(); }
 $('ghSetup').addEventListener('click', openGhSetup);
+
+/* 判定理由の列の開閉。行数が多いので、再描画せずクラスの付け外しだけで切り替える。 */
+function applyReasonState(){
+  const open = !!state.reasonOpen;
+  document.body.classList.toggle('reason-closed', !open);
+  document.querySelectorAll('.colexp').forEach(b => {
+    b.setAttribute('aria-expanded', String(open));
+    b.title = open ? '判定理由を閉じる' : '判定理由を開く';
+    const m = b.querySelector('.colexp-mark');
+    if(m) m.textContent = open ? '−' : '＋';
+  });
+}
+document.addEventListener('click', e => {
+  if(e.target.closest && e.target.closest('[data-colexp]')){
+    state.reasonOpen = !state.reasonOpen;
+    applyReasonState(); fitTable(); save();
+  }
+});
 
 function renderHeadToggle(){
   const on = !!state.hideHead;
