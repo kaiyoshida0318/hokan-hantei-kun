@@ -1,70 +1,763 @@
-# 保管形式判定くん — 引き継ぎ資料
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>保管形式判定くん</title>
+<meta name="description" content="在庫定数から固定保管（小箱／箱／コンテナ）を自動判定し、フリー在庫から共用コンテナバッファの使用候補を抽出する倉庫向け管理ツール。">
+<style>
+*,*::before,*::after{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0}
+img,svg,video{max-width:100%;height:auto}
+</style>
+</head>
+<body>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700&family=Noto+Sans+JP:wght@400;500&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
 
-このzipは、これまでのチャットで作った「保管形式判定くん」を**新しいチャットへそのまま引き継ぐ**ためのものです。
-新しいチャットの最初のメッセージで、このzipを添付して次のように伝えてください。
+:root{
+  --ground:#F4F6F8;
+  --surface:#FFFFFF;
+  --surface-2:#EDF0F4;
+  --surface-3:#E4E9EF;
+  --ink:#131820;
+  --ink-2:#39434F;
+  --ink-3:#5C6877;
+  --line:#D5DBE3;
+  --line-strong:#B6BFCB;
+  --accent:#1B4B73;
+  --accent-soft:#E6EEF5;
+  --on-accent:#FFFFFF;
+  --brand:#1D6FD0;
+  --up:#93450F;        /* 拡大方向：昇格・予備追加 */
+  --up-bg:#FAECE0;
+  --up-line:#E7C9AC;
+  --dn:#0F6152;        /* 縮小方向：降格・予備解除 */
+  --dn-bg:#E2F0EC;
+  --dn-line:#A9CFC5;
+  --alert:#A3231F;     /* 要確認 */
+  --alert-bg:#FAE7E5;
+  --alert-line:#E6B5B1;
+  --hold:#525D6C;      /* 維持 */
+  --hold-bg:#EDF0F4;
+  --band-cur:transparent;
+  --band-qty:transparent;
+  --band-rec:transparent;
+  --c-sml:#0E6C74; --c-sml-bg:#D5EEF0; --c-sml-bg2:#EBF7F8; --c-sml-line:#A8D6DA;
+  --c-box:#1B4F86; --c-box-bg:#D8E7F8; --c-box-bg2:#EDF4FC; --c-box-line:#AECBEB;
+  --c-cnt:#5A3593; --c-cnt-bg:#E9DFF8; --c-cnt-line:#CFBDEB;
+  --shadow:0 1px 2px rgba(19,24,32,.06), 0 8px 24px rgba(19,24,32,.07);
+  --radius:6px;
+  --f-ui:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Yu Gothic",system-ui,sans-serif;
+  --f-body:"Noto Sans JP","Hiragino Kaku Gothic ProN",system-ui,sans-serif;
+  --f-num:"IBM Plex Mono",ui-monospace,"SFMono-Regular",monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --ground:#101419;
+    --surface:#171C23;
+    --surface-2:#1E242C;
+    --surface-3:#262D36;
+    --ink:#E9EDF2;
+    --ink-2:#BCC6D2;
+    --ink-3:#98A3B1;
+    --line:#2B323B;
+    --line-strong:#3C4550;
+    --accent:#7FB3D9;
+    --accent-soft:#1C2A36;
+    --on-accent:#0E141A;
+  --brand:#7FB3D9;
+    --brand:#7FB3D9;
+    --up:#E3A776;
+    --up-bg:#2E2119;
+    --up-line:#4D3524;
+    --dn:#7FCBB6;
+    --dn-bg:#152621;
+    --dn-line:#27453B;
+    --alert:#E99A94;
+    --alert-bg:#2E1B1A;
+    --alert-line:#4A2A28;
+    --hold:#94A0B0;
+    --hold-bg:#212831;
+    --band-cur:transparent;
+    --band-qty:transparent;
+    --band-rec:transparent;
+    --c-sml:#7FCED5; --c-sml-bg:#123034; --c-sml-bg2:#18262A; --c-sml-line:#20474D;
+    --c-box:#8FC0EF; --c-box-bg:#152B41; --c-box-bg2:#182430; --c-box-line:#274462;
+    --c-cnt:#C4A9EE; --c-cnt-bg:#2A2340; --c-cnt-line:#3E3358;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#101419;
+  --surface:#171C23;
+  --surface-2:#1E242C;
+  --surface-3:#262D36;
+  --ink:#E9EDF2;
+  --ink-2:#BCC6D2;
+  --ink-3:#98A3B1;
+  --line:#2B323B;
+  --line-strong:#3C4550;
+  --accent:#7FB3D9;
+  --accent-soft:#1C2A36;
+  --on-accent:#0E141A;
+  --brand:#7FB3D9;
+  --up:#E3A776;
+  --up-bg:#2E2119;
+  --up-line:#4D3524;
+  --dn:#7FCBB6;
+  --dn-bg:#152621;
+  --dn-line:#27453B;
+  --alert:#E99A94;
+  --alert-bg:#2E1B1A;
+  --alert-line:#4A2A28;
+  --hold:#94A0B0;
+  --hold-bg:#212831;
+  --band-cur:transparent;
+  --band-qty:transparent;
+  --band-rec:transparent;
+  --c-sml:#7FCED5; --c-sml-bg:#123034; --c-sml-bg2:#18262A; --c-sml-line:#20474D;
+  --c-box:#8FC0EF; --c-box-bg:#152B41; --c-box-bg2:#182430; --c-box-line:#274462;
+  --c-cnt:#C4A9EE; --c-cnt-bg:#2A2340; --c-cnt-line:#3E3358;
+  --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 28px rgba(0,0,0,.35);
+}
 
-> 保管形式判定くんの続きをやりたい。引き継ぎ資料.md を読んで、状況を把握してから作業して。
+*{box-sizing:border-box}
+body{
+  margin:0;
+  background:var(--ground);
+  color:var(--ink);
+  font-family:var(--f-ui);
+  font-size:14px;
+  line-height:1.6;
+  -webkit-font-smoothing:antialiased;
+}
+button,input,select,textarea{font:inherit;color:inherit}
+.num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
 
-最終更新：2026-08-31 / 現行バージョン **v1.1000**
+/* ---------- shell ---------- */
+.wrap{max-width:none;margin:0;padding:0 16px 8px}
 
-> **v1.1000 で仕様を全面変更しました。** 旧仕様（MAX判定・予備保管コンテナ）の記述は残っていません。
-> 変更内容は「12. v1.1000 の仕様変更」を参照してください。
+.masthead{
+  display:flex;flex-wrap:wrap;gap:20px 24px;align-items:flex-start;justify-content:space-between;
+  padding:10px 16px 6px;
+}
+.masthead .sync{margin-top:10px}
+.masthead .flow{background:var(--surface);border-color:var(--line-strong)}
+.brandline{display:flex;align-items:center;gap:11px}
+.logomark{width:58px;height:46px;flex:none;display:block}
+.brand h1{
+  margin:0;font-size:27px;font-weight:700;letter-spacing:.02em;line-height:1.15;white-space:nowrap;
+}
+.brand h1 .hl{color:var(--brand)}
+.ver{font-family:var(--f-num);font-size:11.5px;color:var(--ink-3);letter-spacing:.02em;align-self:flex-end;padding-bottom:4px}
 
----
+/* sync panel */
+.sync{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.sync-meta{text-align:left;line-height:1.45}
+.sync-meta .lbl{display:block;font-size:11.5px;letter-spacing:.1em;color:var(--ink-3)}
+.sync-meta .val{font-family:var(--f-num);font-size:13px;color:var(--ink-2)}
+.status-chip{
+  display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:100px;
+  font-size:13px;font-weight:500;border:1px solid var(--line-strong);background:var(--surface-2);color:var(--ink-2);
+}
+.status-chip .dot{width:7px;height:7px;border-radius:50%;background:var(--ink-3)}
+.status-chip[data-s="同期成功"]{background:var(--dn-bg);border-color:var(--dn-line);color:var(--dn)}
+.status-chip[data-s="同期成功"] .dot{background:var(--dn)}
+.status-chip[data-s="同期中"]{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.status-chip[data-s="同期中"] .dot{background:var(--accent);animation:pulse 1s infinite}
+.status-chip[data-s="同期失敗"],.status-chip[data-s="認証エラー"]{background:var(--alert-bg);border-color:var(--alert-line);color:var(--alert)}
+.status-chip[data-s="同期失敗"] .dot,.status-chip[data-s="認証エラー"] .dot{background:var(--alert)}
+.status-chip[data-s="一部商品取得エラー"]{background:var(--up-bg);border-color:var(--up-line);color:var(--up)}
+.status-chip[data-s="一部商品取得エラー"] .dot{background:var(--up)}
+@keyframes pulse{50%{opacity:.25}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 
-## 0. 新しい担当（AI）が必ず守るルール
+.btn{
+  border:1px solid var(--line-strong);background:var(--surface-2);color:var(--ink);
+  padding:8px 14px;border-radius:var(--radius);cursor:pointer;font-weight:500;
+  transition:background .12s,border-color .12s;
+}
+.btn:hover{background:var(--surface-3)}
+.btn.btn-primary:hover{background:var(--accent);border-color:var(--accent);color:var(--on-accent);filter:none}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn-primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn[disabled]{opacity:.5;cursor:not-allowed}
+.btn-sm{padding:5px 10px;font-size:12.5px}
 
-ユーザーが明確に指示している運用ルールです。**必ず守ってください。**
+.selectlike{
+  border:1px solid var(--line-strong);background:var(--surface);border-radius:var(--radius);
+  padding:7px 9px;font-size:12.5px;
+}
 
-1. **ブラウザを操作しない。** GitHubへのアップロード・貼り付け・設定変更はすべてユーザー本人が行います。
-2. **納品するのは `index.html` 1ファイルだけ。** 表示・仕様変更をしたときは index.html を出せば十分です（貼り付けはユーザーが行う）。
-   他のファイル（README / ワークフロー / スクリプト）を変えたときだけ、そのファイルも一緒に出してください。
-3. **トークン類は絶対に受け取らない・扱わない・ファイルに書かない。**
-   - GitHubのPAT → ユーザーのブラウザの localStorage にだけ保存される。
-   - ネクストエンジンの `NE_READ_API_TOKEN` → GitHub の Secrets にだけ置く。**ブラウザ側に出さない。**
-   - もしユーザーがトークンを貼ってきたら、使わずに「そのトークンは無効化して作り直してください」と伝えること。
-4. **index.html を更新したら、必ず `APP_VERSION` の数字を1つ増やす。**（画面右上に出るバージョン表示）
-5. 変更後は必ず自己検証（後述の `t5.mjs`）を走らせ、**16ケース全部PASS**を確認してから納品する。
+/* banner */
+.banner{
+  margin-top:14px;display:none;gap:10px;align-items:flex-start;
+  padding:11px 14px;border-radius:var(--radius);font-size:13px;
+  background:var(--alert-bg);border:1px solid var(--alert-line);color:var(--alert);
+}
+.banner.show{display:flex}
+.banner b{font-weight:700}
 
----
+/* ---------- data bar ---------- */
+.databar{
+  margin-top:14px;display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;
+  padding:10px 14px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+}
+.dbinfo{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.dbinfo .lbl{font-size:11.5px;letter-spacing:.08em;color:var(--ink-3)}
+.dbstate{font-size:13px;color:var(--ink-2);font-family:var(--f-body)}
+.dbstate b{font-family:var(--f-num);font-weight:500;color:var(--ink)}
+.dbstate.warn{color:var(--up)}
+.dbactions{display:flex;gap:8px;flex-wrap:wrap}
+.filebtn{display:inline-flex;align-items:center;cursor:pointer}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--ink-3)}
+.btn.ghost:hover{background:var(--alert-bg);border-color:var(--alert-line);color:var(--alert)}
 
-## 1. このツールは何か
+/* 月次の流れ：① NE取得 → ② 再読み込み */
+.flow{
+  display:inline-flex;align-items:center;gap:8px;
+  padding:5px 10px;border:1px solid var(--line-strong);border-radius:100px;background:var(--surface-2);
+}
+.flow .btn{border-radius:100px}
+.stepno{
+  display:inline-grid;place-items:center;width:17px;height:17px;margin-right:7px;border-radius:50%;
+  font-family:var(--f-num);font-size:10.5px;font-weight:600;vertical-align:-2px;
+  background:rgba(255,255,255,.28);
+}
+#reloadShared .stepno{background:var(--surface-3);color:var(--ink-2)}
+.flow-arrow{color:var(--ink-3);font-size:14px;line-height:1}
+.flow.running{border-color:var(--accent);background:var(--accent-soft)}
+.flow.ready #reloadShared{
+  background:var(--dn);border-color:var(--dn);color:#fff;
+  animation:readypulse 1.4s ease-in-out infinite;
+}
+:root[data-theme="dark"] .flow.ready #reloadShared{color:#0E141A}
+.flow.ready #reloadShared .stepno{background:rgba(255,255,255,.3);color:inherit}
+@keyframes readypulse{50%{opacity:.72}}
+.flownote{
+  display:inline-flex;align-items:center;gap:6px;font-family:var(--f-body);font-size:13px;font-weight:500;
+  padding:3px 11px;border-radius:100px;background:var(--dn-bg);border:1px solid var(--dn-line);color:var(--dn);
+}
+.flownote[hidden]{display:none}
+.flownote.wait{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
 
-倉庫の商品ごとに、**在庫定数から適切な固定保管（小箱／箱／コンテナ）を自動判定**し、
-**フリー在庫から共用コンテナバッファの使用候補を抽出**する社内ツールです。
+/* ---------- empty state ---------- */
+.intro{padding:34px 26px;font-family:var(--f-body);max-width:760px}
+.intro h2{font-family:var(--f-ui);font-size:17px;margin:0 0 6px}
+.intro p{font-size:13.5px;color:var(--ink-2);line-height:1.85;margin:0 0 14px}
+.steps{display:grid;gap:10px;margin:0 0 18px;padding:0;list-style:none;counter-reset:s}
+.steps li{
+  counter-increment:s;display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:start;
+  background:var(--surface-2);border-radius:var(--radius);padding:11px 14px;font-size:13.5px;color:var(--ink-2);
+}
+.steps li::before{
+  content:counter(s);font-family:var(--f-num);font-size:11px;color:var(--on-accent);background:var(--accent);
+  width:20px;height:20px;border-radius:50%;display:grid;place-items:center;margin-top:2px;
+}
+.csvspec{
+  font-family:var(--f-num);font-size:11.5px;background:var(--surface-2);border:1px solid var(--line);
+  border-radius:var(--radius);padding:12px 14px;overflow-x:auto;white-space:pre;line-height:1.75;font-size:12.5px;
+}
 
-- 単一HTMLファイル（外部ライブラリなし）。GitHub Pages で公開。
-- データは `localStorage` に保存 ＋ リポジトリの `data.json` を共有マスタとして複数PCで共有。
-- 在庫数（在庫定数・フリー在庫）はネクストエンジン（NE）から GitHub Actions 経由で自動取得。
+/* ---------- KPI ---------- */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:14px}
+.kpi{
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+  padding:11px 13px;cursor:pointer;text-align:left;transition:border-color .12s,background .12s;
+}
+.kpi:hover{border-color:var(--line-strong)}
+.kpi[aria-pressed="true"]{border-color:var(--accent);background:var(--accent-soft)}
+.kpi .k{display:block;font-size:11.5px;letter-spacing:.06em;color:var(--ink-3)}
+.kpi .v{display:block;font-family:var(--f-num);font-size:27px;font-weight:600;line-height:1.25}
+.kpi.up .v{color:var(--up)} .kpi.dn .v{color:var(--dn)} .kpi.al .v{color:var(--alert)}
 
-### 公開先
+/* ---------- tabs ---------- */
+.tabs{display:flex;gap:2px;margin:14px 0 0;border-bottom:1px solid var(--line);align-items:flex-end}
+.headtoggle{margin-left:auto}
+.histbtn{margin-left:auto}
+.histbtn + .headtoggle{margin-left:0}
+body.head-hidden .masthead,
+body.head-hidden .databar,
+body.head-hidden .kpis,
+body.head-hidden .tabs,
+body.head-hidden .panel.filters,
+body.head-hidden #banner{display:none}
+body.head-hidden .tablecard{margin-top:10px}
 
-| 項目 | 値 |
-|---|---|
-| リポジトリ | `kaiyoshida0318/hokan-hantei-kun`（Public） |
-| 公開URL | GitHub Pages（main ブランチ / ルート） |
-| 共有データ | リポジトリ直下の `data.json` |
+.tab{
+  border:1px solid transparent;border-bottom:none;background:none;padding:9px 16px;cursor:pointer;
+  font-weight:500;color:var(--ink-3);border-radius:var(--radius) var(--radius) 0 0;
+}
+.tab[aria-selected="true"]{background:var(--surface);border-color:var(--line);color:var(--ink);margin-bottom:-1px}
+.tab:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 
----
+.panel{background:var(--surface);border:1px solid var(--line);border-top:none;border-radius:0 0 var(--radius) var(--radius);box-shadow:var(--shadow)}
+.panel[hidden]{display:none}
+section[hidden]{display:none}
+/* 表のまとまり（フィルタ枠とは別の枠にする） */
+.tablecard{
+  margin-top:12px;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;
+}
+.tablebar{
+  display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+  padding:9px 14px;border-bottom:1px solid var(--line);
+}
 
-## 2. 判定ロジック（これがツールの心臓部）
+/* ---------- toolbar ---------- */
+.toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:12px 14px}
+.search{flex:0 0 260px;min-width:180px;position:relative}
+.search input{width:100%;padding:8px 10px;border:1px solid var(--line-strong);background:var(--surface);border-radius:var(--radius)}
+.search input:focus-visible{outline:2px solid var(--accent);outline-offset:-1px}
+.fgroup{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.fgroup > .glabel{font-size:11.5px;letter-spacing:.08em;color:var(--ink-3);margin-right:2px}
+.chip{
+  border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-2);
+  padding:5px 12px;border-radius:100px;font-size:13px;cursor:pointer;
+}
+.chip[data-cat="all"]  {color:var(--accent);border-color:var(--accent)}
+.chip[data-cat="hold"] {color:var(--hold);  border-color:var(--line-strong)}
+.chip[data-cat="up"]   {color:var(--up);    border-color:var(--up-line)}
+.chip[data-cat="dn"]   {color:var(--dn);    border-color:var(--dn-line)}
+.chip[data-cat="al"]   {color:var(--alert); border-color:var(--alert-line)}
+.chip[data-cat="cnt"]  {color:var(--c-cnt); border-color:var(--c-cnt-line)}
+.chip[aria-pressed="true"]{color:var(--on-accent);font-weight:500}
+.chip[data-cat="all"][aria-pressed="true"] {background:var(--accent); border-color:var(--accent)}
+.chip[data-cat="hold"][aria-pressed="true"]{background:var(--hold);   border-color:var(--hold)}
+.chip[data-cat="up"][aria-pressed="true"]  {background:var(--up);     border-color:var(--up)}
+.chip[data-cat="dn"][aria-pressed="true"]  {background:var(--dn);     border-color:var(--dn)}
+.chip[data-cat="al"][aria-pressed="true"]  {background:var(--alert);  border-color:var(--alert)}
+.chip[data-cat="cnt"][aria-pressed="true"] {background:var(--c-cnt);  border-color:var(--c-cnt)}
 
-### 2-0. 大前提：固定保管とバッファを分ける
+.chip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.toggle{display:inline-flex;align-items:center;gap:7px;font-size:13px;color:var(--ink-2);cursor:pointer}
+.toggle input{accent-color:var(--accent);width:15px;height:15px}
 
-| | 意味 | 判定に使う数値 |
-|---|---|---|
-| **固定保管** | SKUごとに通常使用する固定の保管場所（小箱／箱／コンテナ） | **在庫定数** |
-| **共用コンテナバッファ** | 入庫直後などに入りきらない分を、倉庫全体で流動的に使うコンテナへ一時保管する状態 | **フリー在庫** |
+/* ---------- table ---------- */
+.tablewrap{overflow:auto;max-height:min(72vh,780px)}   /* JSの fitTable() が起動後に実寸へ上書きする */
+/* 横スクロールバーを掴みやすく */
+.tablewrap::-webkit-scrollbar{height:13px;width:13px}
+.tablewrap::-webkit-scrollbar-track{background:var(--surface-2)}
+.tablewrap::-webkit-scrollbar-thumb{background:var(--line-strong);border-radius:8px;border:3px solid var(--surface-2)}
+.tablewrap::-webkit-scrollbar-thumb:hover{background:var(--ink-3)}
+.tablewrap::-webkit-scrollbar-corner{background:var(--surface-2)}
+.tablewrap{scrollbar-color:var(--line-strong) var(--surface-2)}
+table{border-collapse:separate;border-spacing:0;width:100%;font-size:14px}
+#tblMain{min-width:2250px}
+#tblChange{min-width:1400px}
+thead th{
+  position:sticky;background:var(--surface-2);text-align:center;font-weight:500;
+  border-bottom:1px solid var(--line);white-space:nowrap;color:var(--ink-2);
+}
+tr.grouprow th{
+  top:0;z-index:7;font-size:11px;letter-spacing:.1em;color:var(--ink-3);
+  padding:0 10px;height:30px;box-sizing:border-box;border-bottom:1px solid var(--line);
+}
+tr.headrow th{top:30px;z-index:6;padding:8px 10px;font-size:13px}
+/* 変更対象一覧はグループ行が無いので、見出し行を一番上に固定する */
+#tblChange tr.headrow th{top:0}
+tbody td{padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
 
-- 固定保管の昇格・降格は**在庫定数だけ**で判定する。フリー在庫は使わない。
-- 共用コンテナバッファは**SKUの固定保管場所として保存しない**。`小箱＋コンテナ` `箱＋コンテナ` は存在しない。
-- MAX（在庫定数, フリー在庫）は画面に参考表示するだけ。**判定基準にしない。**
+/* 帯の色は本文セルだけに適用する（見出しは不透明のままにして、スクロール時に行が透けないようにする） */
+tbody td.b-cur{background:var(--band-cur)}
+tbody td.b-qty{background:var(--band-qty)}
+tbody td.b-rec{background:var(--band-rec)}
 
-### 2-1. 基礎区分と上限
+td.code{font-family:var(--f-num);font-weight:500}
+td.stripe{border-left:3px solid transparent;padding-left:9px}
+tr[data-cat="up"] td.stripe{border-left-color:var(--up)}
+tr[data-cat="dn"] td.stripe{border-left-color:var(--dn)}
+tr[data-cat="al"] td.stripe{border-left-color:var(--alert)}
+tr[data-cat="hold"] td.stripe{border-left-color:transparent}
 
-判定は**区分名に依存せず**、「ルート」と「SKUごとの小箱上限・箱上限」だけで行う。
+.reason{width:390px;min-width:390px;white-space:normal;font-family:var(--f-body);font-size:13px;line-height:1.65;color:var(--ink-2);padding-top:9px;padding-bottom:9px}
+.n{font-family:var(--f-num);font-variant-numeric:tabular-nums;text-align:right}
+th.n{text-align:center}
+thead th:first-child,thead th.lead{text-align:left}
+/* 列グループの境目をはっきりさせる */
+.gstart{border-left:2px solid var(--line-strong)}
+/* 保管形式のセル：判定結果と同じ角丸で色分け */
+td.sto{text-align:center;padding-left:6px;padding-right:6px}
+.spill{
+  display:inline-block;min-width:66px;padding:3px 10px;border-radius:100px;
+  font-size:13px;font-weight:500;border:1px solid transparent;
+}
+select.pillsel{
+  min-width:78px;border-radius:100px;padding:3px 18px 3px 10px;font-weight:500;
+  text-align:center;text-align-last:center;border:1px solid transparent;
+}
+.spill[data-v="小箱"],select.pillsel[data-v="小箱"]{background-color:var(--c-sml-bg);color:var(--c-sml);border-color:var(--c-sml-line)}
+.spill[data-v="箱"],select.pillsel[data-v="箱"]{background-color:var(--c-box-bg);color:var(--c-box);border-color:var(--c-box-line)}
+.spill[data-v="コンテナ"],select.pillsel[data-v="コンテナ"]{background-color:var(--c-cnt-bg);color:var(--c-cnt);border-color:var(--c-cnt-line)}
+.spill[data-v="なし"],select.pillsel[data-v="なし"]{background-color:transparent;color:var(--ink-3);border-color:var(--line-strong)}
+.spill[data-v="―"]{background:transparent;color:var(--ink-3);border-color:transparent;min-width:0}
+select.pillsel:hover{filter:brightness(.97)}
+:root[data-theme="dark"] select.pillsel:hover{filter:brightness(1.15)}
+/* 並び替え */
+.rowbreak{flex-basis:100%;height:0}
+.sortbtn{
+  border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-3);
+  border-radius:4px;font-family:var(--f-num);font-size:11px;line-height:1;
+  padding:2px 5px;margin-left:6px;cursor:pointer;vertical-align:middle;
+}
+.sortbtn.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.sortbtn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.btn.floorbtn.on{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.chip .cnt{font-family:var(--f-num);opacity:.72;margin-left:3px}
 
-```js
+/* 対応状況の色分け */
+select.statsel[data-v="未対応"]{background-color:var(--up-bg);color:var(--up);border-color:var(--up-line)}
+select.statsel[data-v="対応済"]{background-color:var(--dn-bg);color:var(--dn);border-color:var(--dn-line)}
+select.statsel[data-v="例外運用"]{background-color:var(--c-cnt-bg);color:var(--c-cnt);border-color:var(--c-cnt-line)}
+
+/* 商品画像 */
+td.thumb,th.thumb{width:54px;min-width:54px;max-width:54px;text-align:center;padding:4px 5px}
+td.thumb img{
+  width:42px;height:42px;object-fit:contain;border-radius:4px;background:var(--surface-2);
+  border:1px solid var(--line);display:block;margin:0 auto;cursor:zoom-in;
+}
+.noimg{color:var(--ink-3);font-size:12px}
+.zoomimg{max-width:100%;border-radius:var(--radius);border:1px solid var(--line);background:var(--surface-2)}
+
+/* 列幅のドラッグ調整 */
+td.code,th.col-code{width:var(--w-code);min-width:var(--w-code);max-width:var(--w-code)}
+td.name,th.col-name{width:var(--w-name);min-width:var(--w-name);max-width:var(--w-name)}
+td.code,td.name{overflow:hidden;text-overflow:ellipsis;position:relative}
+th.col-code,th.col-name{overflow:hidden}
+.colgrip{position:absolute;top:0;right:0;width:7px;height:100%;cursor:col-resize;z-index:4}
+.colgrip:hover{background:var(--accent);opacity:.4}
+body.colresizing{user-select:none;cursor:col-resize}
+
+/* 商品名：ダブルクリックで編集 */
+td.name{cursor:text}
+input.name-in{width:100%;font-size:14px;padding:3px 5px;border:1px solid var(--accent);border-radius:4px;background:var(--surface)}
+.qty-key{font-weight:600;color:var(--ink)}
+
+/* inline inputs */
+.cell-in{
+  border:1px solid transparent;background:transparent;border-radius:4px;
+  padding:3px 5px;font-size:14px;
+}
+.cell-in:hover{border-color:var(--line-strong)}
+.cell-in:focus{outline:none;border-color:var(--accent);background:var(--surface);box-shadow:0 0 0 2px var(--accent-soft)}
+input.cell-in.n{font-family:var(--f-num);text-align:right;width:70px}
+select.cell-in{
+  cursor:pointer;appearance:none;padding-right:17px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='5'%3E%3Cpath d='M0 0h8L4 5z' fill='%238A94A3'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:right 5px center;
+}
+select.cell-in[data-f="kubun"]{width:136px}
+select.kubunsel[data-v="小箱-少収納"]{background-color:var(--c-sml-bg2);color:var(--c-sml);border-color:var(--c-sml-line)}
+select.kubunsel[data-v="小箱-多収納"]{background-color:var(--c-sml-bg); color:var(--c-sml);border-color:var(--c-sml-line)}
+select.kubunsel[data-v="箱-少収納"]  {background-color:var(--c-box-bg2);color:var(--c-box);border-color:var(--c-box-line)}
+select.kubunsel[data-v="箱-多収納"]  {background-color:var(--c-box-bg); color:var(--c-box);border-color:var(--c-box-line)}
+select.kubunsel[data-v="コンテナ"]   {background-color:var(--c-cnt-bg); color:var(--c-cnt);border-color:var(--c-cnt-line)}
+select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[data-f="status"]{width:96px}
+.note-in{width:165px}
+.capcell{display:inline-flex;align-items:center;gap:4px;justify-content:flex-end}
+.ro{color:var(--ink-3)}
+
+/* pills */
+.pill{display:inline-block;padding:3px 10px;border-radius:100px;font-size:13px;font-weight:500;border:1px solid transparent;white-space:nowrap}
+.pill.hold{background:var(--hold-bg);color:var(--hold);border-color:var(--line-strong)}
+.pill.up{background:var(--up-bg);color:var(--up);border-color:var(--up-line)}
+.pill.dn{background:var(--dn-bg);color:var(--dn);border-color:var(--dn-line)}
+.pill.al{background:var(--alert-bg);color:var(--alert);border-color:var(--alert-line)}
+.need{font-weight:600}
+.need.yes{color:var(--up)} .need.no{color:var(--ink-3);font-weight:400}
+.tag{
+  display:inline-block;margin-left:5px;padding:1px 6px;border-radius:3px;font-size:10.5px;letter-spacing:.04em;
+  border:1px solid var(--line-strong);color:var(--ink-3);vertical-align:middle;
+}
+.tag.warn{border-color:var(--up-line);color:var(--up);background:var(--up-bg)}
+.arrow{color:var(--ink-3);padding:0 2px}
+.empty{padding:44px 20px;text-align:center;color:var(--ink-2);font-size:14px;font-family:var(--f-body)}
+.rowbtn{border:none;background:none;color:var(--accent);cursor:pointer;font-size:13px;text-decoration:underline;padding:2px 4px;border-radius:4px}
+.rowbtn:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+
+/* ---------- drawer ---------- */
+.scrim{position:fixed;inset:0;background:rgba(10,14,19,.42);opacity:0;pointer-events:none;transition:opacity .16s;z-index:40}
+.scrim.show{opacity:1;pointer-events:auto}
+.drawer{
+  position:fixed;top:0;right:0;height:100%;width:min(470px,94vw);background:var(--surface);
+  border-left:1px solid var(--line);box-shadow:var(--shadow);z-index:50;overflow-y:auto;
+  transform:translateX(100%);transition:transform .18s ease-out;
+}
+.drawer.show{transform:none}
+.dhead{padding:18px 20px 14px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+.dhead .code{font-family:var(--f-num);font-size:13px;color:var(--ink-3)}
+.dhead h2{margin:2px 0 0;font-size:18px;font-weight:700}
+.dsec{padding:16px 20px;border-bottom:1px solid var(--line)}
+.dsec h3{margin:0 0 10px;font-size:11.5px;letter-spacing:.1em;color:var(--ink-3);font-weight:500}
+.kv{display:grid;grid-template-columns:1fr auto;gap:6px 12px;font-size:13.5px}
+.kv dt{color:var(--ink-2)} .kv dd{margin:0;text-align:right;font-family:var(--f-num);font-variant-numeric:tabular-nums}
+.transit{display:flex;align-items:center;gap:12px;flex-wrap:wrap;font-size:13px}
+.state{background:var(--surface-2);border:1px solid var(--line);border-radius:var(--radius);padding:9px 12px;min-width:120px}
+.state .lbl{display:block;font-size:11px;letter-spacing:.08em;color:var(--ink-3)}
+.state .v{font-weight:500}
+.state.rec{background:var(--band-rec);border-color:var(--accent)}
+.bigarrow{font-size:18px;color:var(--ink-3)}
+.reason-box{font-family:var(--f-body);font-size:13.5px;line-height:1.75;color:var(--ink-2);background:var(--surface-2);border-radius:var(--radius);padding:11px 13px}
+.field{display:grid;gap:5px;margin-bottom:11px}
+.field label{font-size:12px;color:var(--ink-2);letter-spacing:.04em}
+.field select,.field input,.field textarea{
+  border:1px solid var(--line-strong);background:var(--surface);border-radius:var(--radius);padding:7px 9px;font-size:13px;width:100%;
+}
+.field textarea{min-height:66px;resize:vertical;font-family:var(--f-body)}
+.field select:focus-visible,.field input:focus-visible,.field textarea:focus-visible{outline:2px solid var(--accent);outline-offset:-1px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
+.errlist{margin:0;padding-left:18px;font-family:var(--f-body);font-size:13px;color:var(--alert);line-height:1.7}
+.iconbtn{border:1px solid var(--line-strong);background:var(--surface-2);border-radius:var(--radius);width:30px;height:30px;cursor:pointer;line-height:1;font-size:16px}
+
+/* ---------- rules tab ---------- */
+.rules{padding:22px 24px;font-family:var(--f-body);max-width:900px}
+.rules h2{font-family:var(--f-ui);font-size:15px;margin:26px 0 8px;letter-spacing:.02em}
+.rules h2:first-child{margin-top:0}
+.rules p{margin:0 0 9px;font-size:13.5px;color:var(--ink-2);line-height:1.8}
+.rules code{font-family:var(--f-num);background:var(--surface-2);padding:1px 5px;border-radius:3px;font-size:12.5px}
+.routes{display:grid;gap:8px;margin:6px 0 4px}
+.route{display:flex;gap:10px;align-items:center;flex-wrap:wrap;background:var(--surface-2);border-radius:var(--radius);padding:9px 12px}
+.route .rk{font-family:var(--f-ui);font-weight:500;min-width:112px;font-size:13px}
+.step{background:var(--surface);border:1px solid var(--line-strong);border-radius:100px;padding:3px 12px;font-size:13px;font-family:var(--f-ui)}
+.rtable{width:auto;font-size:13px;margin:6px 0;font-family:var(--f-ui)}
+.rtable th,.rtable td{border:1px solid var(--line);padding:5px 12px;white-space:nowrap}
+.rtable thead th{position:static;background:var(--surface-2)}
+.ok{color:var(--dn);font-weight:600} .ng{color:var(--alert);font-weight:600}
+
+/* ---------- CSV取り込みモーダル ---------- */
+.modal{position:fixed;inset:0;z-index:55;display:grid;place-items:center;padding:20px}
+.modal[hidden]{display:none}
+.modal-card{
+  width:min(520px,100%);background:var(--surface);border:1px solid var(--line);
+  border-radius:calc(var(--radius) * 2);box-shadow:var(--shadow);padding:22px 24px 20px;
+}
+.modal-card h2{margin:0 0 6px;font-size:18px;font-weight:700}
+.modal-lead{margin:0 0 16px;font-family:var(--f-body);font-size:13px;color:var(--ink-2);line-height:1.7}
+.dropzone{
+  border:2px dashed var(--line-strong);border-radius:var(--radius);background:var(--surface-2);
+  padding:30px 18px;text-align:center;cursor:pointer;transition:border-color .12s,background .12s;
+}
+.dropzone:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.dropzone.over{border-color:var(--accent);background:var(--accent-soft)}
+.dz-mark{font-family:var(--f-num);font-size:26px;color:var(--ink-3);line-height:1}
+.dz-main{margin-top:10px;font-size:14.5px;font-weight:500}
+.dz-sub{margin-top:4px;font-size:12.5px;color:var(--ink-3)}
+.dz-info{
+  margin-top:14px;min-height:22px;font-family:var(--f-body);font-size:13px;color:var(--ink-2);line-height:1.7;
+}
+.dz-info b{font-family:var(--f-num);font-weight:600;color:var(--ink)}
+.dz-info.err{color:var(--alert)}
+.modal-actions{display:flex;gap:10px;justify-content:flex-end;margin-top:18px}
+
+/* toast */
+.toast{
+  position:fixed;left:50%;bottom:26px;transform:translate(-50%,14px);opacity:0;pointer-events:none;
+  background:var(--ink);color:var(--ground);padding:10px 18px;border-radius:100px;font-size:13px;z-index:60;
+  transition:opacity .18s,transform .18s;box-shadow:var(--shadow);
+}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* ===== 新仕様で追加した見た目 ===== */
+.opsbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px;padding:12px 14px;
+  border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
+.opsbar .opsnote{font-size:12px;color:var(--ink-2);flex:1 1 240px;line-height:1.55}
+.pill.buf{background:#efe7fb;color:#5b3a99;border:1px solid #d9c8f2}
+:root[data-theme="dark"] .pill.buf,html.dark .pill.buf{background:#3a2c55;color:#d9c6ff;border-color:#523f78}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .pill.buf{background:#3a2c55;color:#d9c6ff;border-color:#523f78}}
+.bufqty{margin-left:5px;font-size:11px;opacity:.85}
+td.over-qty{font-weight:700;color:#7a4fc0}
+select.cell-in.capsel{width:104px}
+.modal-card.wide{max-width:900px;width:min(900px,94vw)}
+.toggle.csvadd{display:flex;align-items:center;gap:7px;margin:10px 0 0;font-size:12.5px;color:var(--ink-2)}
+.csvpreview{margin-top:12px;max-height:44vh;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--surface-2)}
+.cpv-h{margin:10px 0 6px;font-size:12.5px;font-weight:700;color:var(--ink)}
+.cpv-h:first-child{margin-top:0}
+.cpv-h.ng{color:var(--alert)}
+.cpv-list{margin:0 0 6px;padding-left:18px;font-size:12px;color:var(--ink-2);line-height:1.7}
+.cpv-more{margin:6px 0 0;font-size:12px;color:var(--ink-2)}
+.cpv-table{width:100%;border-collapse:collapse;font-size:12px}
+.cpv-table th,.cpv-table td{border:1px solid var(--line);padding:4px 7px;text-align:left;white-space:nowrap}
+.cpv-table th{background:var(--surface);font-weight:700}
+.cpv-table td.n,.cpv-table th.n{text-align:right;font-family:var(--f-num)}
+.cpv-table td.after{font-weight:700;color:var(--brand)}
+.dz-info b.ng{color:var(--alert)}
+</style>
+
+  <header class="masthead">
+  <div class="brand">
+    <div class="brandline">
+      <svg class="logomark" viewBox="18 34 196 156" role="img" aria-label="保管形式判定くん">
+        <g fill="none" stroke="var(--ink)" stroke-width="9" stroke-linejoin="round" stroke-linecap="round">
+          <rect x="24" y="126" width="60" height="56" rx="4"/>
+          <path d="M24 144 H84"/><path d="M54 126 V144"/>
+          <rect x="104" y="80" width="102" height="102" rx="5"/>
+          <path d="M104 111 H206"/><path d="M155 80 V111"/>
+        </g>
+        <g stroke="var(--brand)" stroke-width="11" stroke-linecap="round" stroke-linejoin="round" fill="none">
+          <path d="M42 104 C 56 62, 110 50, 152 58"/>
+          <path d="M56 90 L41 106 L36 84"/>
+          <path d="M138 44 L154 59 L134 71"/>
+        </g>
+      </svg>
+      <h1>保管形式<span class="hl">判定</span>くん</h1>
+      <span class="ver" id="ver"></span>
+    </div>
+  </div>
+  <div class="sync">
+    <div class="flow" id="flow">
+      <button class="btn btn-sm btn-primary" id="syncBtn"><span class="stepno">1</span>NEから最新データ取得</button>
+      <span class="flow-arrow" aria-hidden="true">→</span>
+      <button class="btn btn-sm" id="reloadShared"><span class="stepno">2</span>共有データを再読み込み</button>
+    </div>
+    <span class="status-chip" id="syncChip" data-s="未同期"><span class="dot"></span><span id="syncText">未同期</span></span>
+    <div class="sync-meta">
+      <span class="lbl">NE 最終同期日時</span>
+      <span class="val" id="lastSync">―</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+
+  <div class="banner" id="banner"></div>
+
+  <div class="databar">
+    <div class="dbinfo">
+      <span class="lbl">共有データ（data.json）</span>
+      <span class="dbstate" id="sharedState">読み込み中…</span>
+      <span class="flownote" id="flowNote" hidden></span>
+    </div>
+    <div class="dbactions">
+      <button class="btn btn-sm" id="csvBtn">CSV取込</button>
+      <button class="btn btn-sm btn-primary" id="pushShared" hidden>GitHubに保存</button>
+      <button class="btn btn-sm" id="ghSetup">保存設定</button>
+      <button class="btn btn-sm ghost" id="clearAll">全消去</button>
+    </div>
+  </div>
+
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true" data-tab="main">全SKU一覧</button>
+    <button class="tab" role="tab" aria-selected="false" data-tab="change">保管変更対象 <span id="changeCount" class="num"></span></button>
+    <button class="tab" role="tab" aria-selected="false" data-tab="buffer">バッファ使用候補 <span id="bufferCount" class="num"></span></button>
+    <button class="tab" role="tab" aria-selected="false" data-tab="rules">判定ルール</button>
+  </div>
+
+  <section id="panel-main">
+    <div class="panel filters">
+      <div class="toolbar">
+        <div class="fgroup"><span class="glabel">判定結果</span><span id="resFilters"></span></div>
+        <div class="fgroup"><span class="glabel">バッファ判定</span><span id="bufFilters"></span></div>
+        <div class="fgroup"><span class="glabel">上限設定状態</span><span id="capFilters"></span></div>
+        <div class="rowbreak"></div>
+        <div class="fgroup"><span class="glabel">対応状況</span><span id="staFilters"></span></div>
+      </div>
+    </div>
+    <div class="tablecard">
+      <div class="tablebar">
+        <div class="search"><input type="search" id="q" placeholder="商品コード・商品名で検索"></div>
+        <button class="btn btn-sm floorbtn" data-sort="floor">階数でソート</button>
+        <button class="btn btn-sm" id="opsCsvOut" title="SKUごとの小箱上限・箱上限・上限設定状態をまとめて確認・変更するためのCSVを書き出します">CSVダウンロード</button>
+        <button class="btn btn-sm" id="opsCsvIn" title="商品コードをキーに、小箱上限・箱上限・上限設定状態を更新します">CSV取込</button>
+        <button class="btn btn-sm" data-xls="filters">Excel出力</button>
+        <label class="toggle"><input type="checkbox" id="manualMode"> 管理者：手動入力モード</label>
+        <button class="btn btn-sm ghost histbtn" id="opsHistory">取込履歴</button>
+        <button class="btn btn-sm headtoggle" aria-pressed="false">ヘッダーを隠す</button>
+      </div>
+      <div class="tablewrap"><table id="tblMain"></table></div>
+    </div>
+  </section>
+
+  <section id="panel-change" hidden>
+    <div class="panel filters">
+      <div class="toolbar">
+        <div class="fgroup"><span class="glabel">判定結果</span><span id="resFilters2"></span></div>
+        <div class="rowbreak"></div>
+        <div class="fgroup"><span class="glabel">対応状況</span><span id="staFilters2"></span></div>
+      </div>
+    </div>
+    <div class="tablecard">
+      <div class="tablebar">
+        <div class="search"><input type="search" id="q2" placeholder="商品コード・商品名で検索"></div>
+        <button class="btn btn-sm floorbtn" data-sort="floor">階数でソート</button>
+        <button class="btn btn-sm" data-xls="filters2">Excel出力</button>
+        <button class="btn btn-sm" id="copyBtn">一覧をテキストで表示</button>
+        <button class="btn btn-sm headtoggle" aria-pressed="false">ヘッダーを隠す</button>
+      </div>
+      <div class="tablewrap"><table id="tblChange"></table></div>
+    </div>
+  </section>
+
+  <section id="panel-buffer" hidden>
+    <div class="panel filters">
+      <div class="toolbar">
+        <div class="fgroup"><span class="glabel">対応状況</span><span id="staFilters3"></span></div>
+        <span class="opsnote">共用コンテナへ一時保管する候補です。<b>固定保管の変更ではありません。</b>超過数量＝フリー在庫 − 現在の固定保管の収納上限。</span>
+      </div>
+    </div>
+    <div class="tablecard">
+      <div class="tablebar">
+        <div class="search"><input type="search" id="q3" placeholder="商品コード・商品名で検索"></div>
+        <button class="btn btn-sm floorbtn" data-sort="floor">階数でソート</button>
+        <button class="btn btn-sm headtoggle" aria-pressed="false">ヘッダーを隠す</button>
+      </div>
+      <div class="tablewrap"><table id="tblBuffer"></table></div>
+    </div>
+  </section>
+
+  <section class="panel" id="panel-rules" hidden>
+    <div class="rules" id="rulesBody"></div>
+  </section>
+
+</div>
+
+<div class="scrim" id="scrim"></div>
+
+<div class="modal" id="csvModal" hidden>
+  <div class="modal-card wide" role="dialog" aria-modal="true" aria-labelledby="csvTitle">
+    <h2 id="csvTitle">CSV取込</h2>
+    <p class="modal-lead">商品コードをキーに照合し、<b>小箱上限・箱上限・上限設定状態</b>を更新します。
+      商品名・在庫定数・フリー在庫はネクストエンジンから取得する情報なので上書きしません。
+      現在の固定保管も、実際の倉庫移動を伴うため一括更新の対象外です。
+      <b>空欄は「今の値を維持」</b>です。値を消したいときだけ半角の <code>-</code> を入れてください。</p>
+    <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="CSVファイルを選択">
+      <div class="dz-mark">＋</div>
+      <div class="dz-main">ここにCSVファイルをドロップ</div>
+      <div class="dz-sub">またはクリックしてファイルを選ぶ</div>
+    </div>
+    <label class="toggle csvadd"><input type="checkbox" id="csvAllowAdd"> ツールに無い商品コードは新規追加する（初回の商品登録に使います）</label>
+    <div class="dz-info" id="csvInfo"></div>
+    <div class="csvpreview" id="csvPreview" hidden></div>
+    <div class="modal-actions">
+      <button class="btn btn-primary" id="csvApply" disabled>この内容で反映</button>
+      <button class="btn" id="csvCancel">キャンセル</button>
+    </div>
+    <input type="file" id="csvIn" accept=".csv,text/csv" hidden>
+  </div>
+</div>
+<aside class="drawer" id="drawer" aria-hidden="true"></aside>
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+"use strict";
+
+/* ============ 定数 ============ */
+/*
+ * 基礎区分の定義。
+ *
+ * 「多収納 / 少収納」は、収納上限の初期値を決めるための暫定的な分類です。
+ * 判定ロジックはこの名称を一切見ません。判定に使うのは
+ *   ① route（その商品が使える保管ルート：小箱 / 箱 / コンテナ）
+ *   ② SKUごとの 小箱上限・箱上限
+ * の2つだけです。
+ *
+ * 将来「小箱 / 箱 / コンテナ」の3分類へ統合する場合は、この表を3行に書き換え、
+ * KUBUN_ALIAS に旧名称からの読み替えを入れるだけで済みます。
+ * 判定・昇格・降格・予備保管のコードは変更不要です。
+ */
 const KUBUN_DEFS = [
   { name:'小箱-少収納', route:'小箱',     smallCap:30,   boxCap:150  },
   { name:'小箱-多収納', route:'小箱',     smallCap:150,  boxCap:750  },
@@ -72,308 +765,1827 @@ const KUBUN_DEFS = [
   { name:'箱-多収納',   route:'箱',       smallCap:null, boxCap:190  },
   { name:'コンテナ',    route:'コンテナ', smallCap:null, boxCap:null }
 ];
-const ROUTE_CHAIN = { '小箱':['小箱','箱'], '箱':['箱'], 'コンテナ':['コンテナ'] };
-```
-
-通常商品のルートは **小箱 ⇔ 箱** だけ。在庫が増えても固定コンテナへ昇格させない。
-コンテナ固定は、もともとコンテナ保管が必要な商品だけ（在庫の増減で他へ変えない）。
-
-3分類へ統合するときは `KUBUN_DEFS` を書き換え、`KUBUN_ALIAS` に旧名称→新名称を入れるだけ。
-
-### 2-2. 固定保管の判定
-
-| 判定結果 | 条件 |
-|---|---|
-| **昇格**（小箱→箱） | 在庫定数 ＞ 小箱上限（ちょうど100%は維持） |
-| **降格**（箱→小箱） | ①在庫定数 ＜ **箱上限**×50% ②在庫定数 ≦ 小箱上限　の**両方**（ちょうど50%は降格しない） |
-| **箱上限超過** | 在庫定数 ＞ 箱上限。**推奨は「箱」のまま**。固定コンテナへ自動昇格させない |
-| **維持** | 上記以外 |
-| **要確認** | validate() がエラーを返したとき |
-
-- 箱区分（`箱-少収納` `箱-多収納`）は小箱上限を持たないので、降格しない。
-- コンテナ区分は在庫数に関わらず固定保管コンテナ。
-
-### 2-3. バッファ判定
-
-```
-使用候補 ⟺ フリー在庫 ＞ 現在の固定保管の収納上限
-超過数量 = MAX(フリー在庫 − 現在の固定保管の収納上限, 0)
-```
-
-**「現在の」固定保管の上限**で見るのが重要。昇格待ちのSKUは、実際に移動するまで小箱に入りきらないので使用候補になる。
-コンテナ固定商品は常に「不要」。
-
-### 2-4. 上限設定状態
-
-`仮設定`（基礎区分の初期値のまま） / `SKU確認済`（実測済み）。既定は `仮設定`。
-基礎区分を変えると上限が初期値に戻るので、`capState` も `仮設定` に戻す。
-
-### 2-5. 要確認になる条件（`validate()`）
-
-在庫定数・フリー在庫の未取得、必要な収納上限の未入力、小箱上限＞箱上限、マイナス値、
-基礎区分と現在の固定保管の矛盾、API商品照合エラー。**不足データを0として扱わない。**
-
-## 3. ファイル構成
-
-```
-hokan-hantei-kun/            ← GitHub リポジトリの中身
-├── index.html               ← 本体（納品するのはこれだけ）
-├── data.json                ← 共有データ（現在は空。ユーザーが「GitHubに保存」で1195件を入れる予定）
-├── README.md                ← 運用マニュアル（判定ルール／PAT設定／NE連携）
-├── .gitignore
-├── scripts/
-│   └── ne-sync.mjs          ← Actions側でNEから在庫を取得し data.json を更新
-├── .github/workflows/
-│   └── ne-sync.yml          ← 毎朝7時(JST)に自動実行 ＋ 手動実行
-└── docs/仕様書.txt          ← 元の仕様書（在庫保管形式管理ツール.txt）
-
-logo/                        ← ロゴ素材（A案採用：箱＋青い双方向矢印）
-tests/                       ← 検証用スクリプト（Playwright）
-商品リスト_テンプレート.csv  ← CSV取り込み用テンプレート
-```
-
-### index.html の主要な定数（場所の目印）
-
-| 定数 | 内容 |
-|---|---|
-| `APP_VERSION` | 画面右上のバージョン表示。**更新のたびに +1** |
-| `LS = 'hokan-hantei-kun-v2'` | 本体データの localStorage キー |
-| `GH_LS = 'hokan-hantei-kun-github'` | GitHub設定（PAT含む）の localStorage キー |
-| `KUBUN_DEFS` / `ROUTE_CHAIN` | 基礎区分と上限 |
-| `CSV_COLS` | CSVの列定義 |
-| `judge(it)` | 判定ロジック本体 |
-| `buildXlsx()` / `exportXlsx()` | Excel出力（ZIP・OOXMLを自前生成） |
-
----
-
-## 4. データの流れ
-
-```
-ネクストエンジン
-   │  (ne-sync-worker 経由。トークンは Actions の Secret のみ)
-   ▼
-GitHub Actions「NE同期」 ── scripts/ne-sync.mjs ──▶ data.json を更新・コミット
-                                                        │
-                                          raw.githubusercontent.com
-                                                        ▼
-                              ブラウザのツール ──「共有データを再読み込み」で取り込む
-                                                        │
-                                          「GitHubに保存」(PAT) で data.json を上書き
-```
-
-- ツール上の操作順は **「NEから最新データ取得」→（Actions完了を待つ）→「共有データを再読み込み」**。
-  この2つは流れが分かるよう横に並べて配置済み。
-- `ne-sync.mjs` は取得できなかった商品を **0で埋めない**。前回値を残して `stale=true`、一度も取得できていない場合だけ `matchError=true`（＝要確認）。
-
-### 重要：過去に一度データ消失事故が起きています
-
-原因：起動時に空の共有 `data.json` を自動で取り込んで上書きしてしまった。
-対策（v1.0005で修正済み・**絶対に戻さないこと**）：
-
-```js
-// 自動で取り込むのは、この端末にデータが一度も無いときだけ。
-if(!saved && sh.status === '読込済'){ adoptShared(sh); ... }
-```
-
-さらに、未保存の変更がある状態で「共有データを再読み込み」を押すと確認ダイアログが出る。
-
----
-
-## 5. 画面の構成（現状）
-
-- **ヘッダー**：ロゴ＋バージョン／NEから最新データ取得 → 共有データを再読み込み（2ステップの流れ）／NE最終同期日時
-- **フッターの説明文は v1.1002 で削除済み**（表を画面最下部まで伸ばすため）。内容は README に移してある
-- **KPI行（全SKU・変更対象…）は v1.1004 で削除済み**。件数はタブ見出しと絞り込みチップに出るので重複していた。
-  CSSの `.kpis` / `.kpi` は残してあるが未使用
-- **データバー**：共有データの状態／CSV取込・GitHubに保存・保存設定・全消去
-- **KPI**：全SKU・変更対象・昇格・降格・箱上限超過・要確認・バッファ使用候補・上限未確認・未対応（クリックで該当タブへ移動）
-- **タブ**：全SKU一覧／保管変更対象／バッファ使用候補／判定ルール
-
-### 全SKU一覧
-
-操作ボタンは表バーに置いてある（v1.1004でこの配置に変更）：
-
-`検索 / 階数でソート / CSVダウンロード / CSV取込 / Excel出力 / 手動入力モード` … 右端に `取込履歴 / ヘッダーを隠す`
-
-ネクストエンジン同期はヘッダーの①ボタンだけ（表バーからは削除済み）。
-
-絞り込み：**1行目**に判定結果・バッファ判定・上限設定状態、**2行目**に対応状況（v1.1001でこの配置に変更）。
-**全チップに件数を表示**する。件数は「そのチップを押したら何件になるか」を `matches()` で実際に絞り込んで数えているので、
-「未対応は変更が要るものだけ」のような特別ルールも自動的に反映される（v1.1004）。
-
-列：画像／商品コード／商品名／基礎区分／小箱上限／箱上限／上限設定状態／現在の固定保管／
-在庫定数／フリー在庫／推奨固定保管／判定結果／バッファ判定／判定理由／変更要否／対応状況／備考
-
-- 商品コード・商品名の列は**右端をドラッグして幅調整**できる（どの行でも掴める）
-- ヘッダーは2段でスティッキー固定
-
-### 保管変更対象
-
-`昇格` `降格` `箱上限超過` `要確認` を抽出（`needsChange(j)`）。「維持」は出さない。例外運用は既定で伏せる。
-
-### バッファ使用候補
-
-固定保管／収納上限／在庫定数／フリー在庫／**超過数量**。固定保管の変更ではないことを明記している。
-
-### 配色ルール（過去に何度も調整済み。むやみに変えないこと）
-
-- 現在の保管／在庫数量／推奨保管の列の背景は**白**（一度色を付けたが白に戻した）
-- 保管形式のピル色：小箱／箱（青）／コンテナ（紫）— 推奨列と現在列で色が近くならないよう調整済み
-- バッファ「使用候補」は紫系のピル（`.pill.buf`）。判定結果と混ざらない色にしてある
-- 基礎区分のドロップダウンは 小箱-少収納 → 小箱-多収納 → 箱-少収納 → 箱-多収納 → コンテナ の順で色付き
-- ライト／ダーク両対応（CSS変数＋`prefers-color-scheme`＋`data-theme`）
-
----
-
-## 6. Excel出力の仕様（v1.1000で確定）
-
-外部ライブラリを使わず、CRC32＋ZIP(STORE)＋最小限のOOXMLを自前で組み立てている。
-
-- 1行目：`※コンテナは倉庫全体で使う共用バッファです。SKU専用の固定保管ではありません。`（A1:F1 結合・**20pt・黒**・行高28）
-- 2行目：見出し（**折り返し表示ON・行高34**・10pt太字）
-  `商品コード / 商品名 / 現在の\n固定保管 / 推奨\n固定保管 / 判定結果 / 対応\n可否`
-- **1行目以外はすべて10pt**
-- 商品名は**全文**（列幅はいちばん長い名前に自動追従。全角=2文字、上限60）
-- **対応可否の列は空欄**（手書き記入用）
-- 推奨固定保管の列にうっすら色付け（`FFE4EEFA`）
-- 現在／推奨の2列は中央揃え・罫線あり
-- ウィンドウ枠固定 `A3`、オートフィルター `A2:F*`
-- 列幅：`[商品コード(自動12〜34), 商品名(自動21〜60), 11, 11, 15, 9]`
-
----
-
-## 7. 検証のしかた
-
-**必ず `cd /home/claude/tests` してから実行すること。**（テストスクリプトの `root` は `../hokan-hantei-kun` 相対）
-過去に `cd` したまま次のコマンドを打って、古い結果を見て「直った」と誤認する事故が起きています。
-
-```bash
-cd /home/claude/tests
-node t5.mjs     # 判定ロジック16ケースの自己検証 → 全部 PASS になること
-node t15.mjs    # Excel出力をダウンロード → /home/claude/test-export.xlsx
-node t20.mjs    # 判定理由・KPI・各タブ・CSVダウンロード・Excel出力の総合確認
-node t21.mjs    # CSV取込のエラー/警告/空欄維持/"-"削除/確認画面/履歴
-node t22.mjs    # CSV取込の反映結果を localStorage で数値確認
-node t23.mjs    # 旧データ（curSub付き）からの移行・全タブ・絞り込み・詳細ドロワー
-```
-
-- Chromium は `/opt/pw-browsers/chromium-1194/chrome-linux/chrome`
-- `t5.mjs` の「FAIL count」はログ全体の "FAIL" 文字列を数えているだけなので、
-  ネットワーク遮断による `Failed to load resource` を1件拾う。**個別行が全部 PASS なら問題なし。**
-- 新しい環境では `cd tests && npm i playwright`、`pip install openpyxl --break-system-packages` が必要な場合がある。
-
----
-
-## 8. 未完了・保留中のタスク
-
-### (1) 楽天の商品画像URL ★ユーザーの対応待ち
-
-- 商品コードの左に画像列は**実装済み**（`imgCell` / CSVの「画像URL」列）。
-- 画像URLは楽天の商品管理番号から機械的に導けないことが判明。
-  - 例）`cg-22-01 → cabinet/cg/cg-22-01-01.jpg`、`ih-21-02 → cabinet/new-heel/ih-21-02-01.jpg`、`si-22-05 → cabinet/si/si-22-05d-01.jpg`
-- **ユーザーがRMSから商品CSV（item.csv）を落として送る**方針で合意済み。まだ未受領。
-- 受け取ったら：NEのSKUコードと楽天の商品管理番号を**最長前綴り一致**（例 `cg-22-01-1s` → `cg-22-01`）で突き合わせ、
-  「画像URL」列を付けたCSVを出力する。突合できなかったSKUは一覧で報告する。
-
-### (2) ユーザー側の作業
-
-- 最新の `index.html` を GitHub にアップロードする。
-- ツールで「GitHubに保存」を押して `data.json` に1195件を入れる（現在 data.json は空）。
-- **v1.1000 で全SKUの `上限設定状態` が `仮設定` になります。** 既に実測済みのSKUがあれば、
-  CSVダウンロード → `SKU確認済` に変更 → CSV取込 で一括更新してください。
-
-### (3) 将来の予定
-
-- 「多収納／少収納」を廃止し、**小箱・箱・コンテナの3分類へ統合**する。
-  → `KUBUN_DEFS` と `KUBUN_ALIAS` を書き換えるだけで済むよう設計済み。
-- バッファの詳細管理（使用中コンテナ／バッファ数量／バッファ使用開始日）。
-  仕様書§17で「将来必要になったら」とされている。初期版では過剰に複雑化しない方針。
-
-### (4) 見送りになったもの
-
-- **予備保管に「箱」を追加** → ユーザーが「やはり中止にして」と判断。実装しないこと。
-- そもそも v1.1000 で**予備保管という概念自体が廃止**された。
-
----
-
-## 9. 実データの所見（1195件のCSVを分析した結果）
-
-- 構造上のエラーはなし。
-- **変更が必要：253件 / 1195件**
-- 在庫0のSKUが107件（要確認候補）
-- 箱上限を5倍以上超えているSKUが53件
-
----
-
-## 10. これまでの主な不具合と対策（再発防止メモ）
-
-| 事象 | 原因 | 対策 |
-|---|---|---|
-| データが消えた | 起動時に空の共有data.jsonを自動取り込み | 保存済みデータが無いときだけ自動取り込み（v1.0005） |
-| 主ボタンが白地に白文字 | `.btn:hover` の詳細度が `.btn-primary` に勝っていた | `.btn.btn-primary:hover{...filter:none}` を追加 |
-| スクロールで表が崩れる | スティッキーヘッダーのtop指定漏れ | `#tblChange tr.headrow th{top:0}`＋grouprow高さ固定 |
-| 横スクロールバーが見えない | テーブル高さが画面外まで伸びていた | `fitTable()` でビューポートから max-height を算出 |
-| 表が画面をはみ出す | `fitTable()` で `getBoundingClientRect().top` をそのまま使い、スクロール分がズレた | **必ず `+ window.scrollY` して絶対位置に直す**。これを外すと収束しなくなる |
-| 取り込んだ直後にデータが消える | 起動時の `fetchShared()` が数秒かかり、その間に入れたデータを空の共有data.jsonが上書きしていた（v1.0005対策の抜け道） | 起動時の `saved` だけでなく **`!state.items.length` も同時に確認**してから `adoptShared()` する（v1.1005） |
-| 商品画像セルが二重に入った | 置換パターンが別の行にもマッチ | 重複を削除 |
-| 検証結果が古いまま | `cd` したまま次のコマンドを実行 | 必ず `cd /home/claude/tests` から実行する |
-| 全画面のCSSが効かない | 追加CSSがリセット用の先頭 `<style>` にも重複挿入された | `</style>` は2箇所ある。**2つ目**（560行目付近）に追記する |
-| 自己検証ログが出ない | 末尾の `</script></body></html>` を消してしまった | ファイル末尾の閉じタグを必ず確認する |
-
----
-
-## 11. 用語
-
-| 用語 | 意味 |
-|---|---|
-| 在庫定数 | 通常時に保有しておきたい数量。**固定保管の判定基準** |
-| フリー在庫 | いま実際に倉庫にあり、場所を取っている数量。**バッファ判定に使う** |
-| 固定保管 | SKUごとに通常使用する保管場所。小箱 / 箱 / コンテナ |
-| 共用コンテナバッファ | 一時的な超過分を置く、倉庫全体で流動的に使うコンテナ。SKUに紐づけて保存しない |
-| 基礎区分 | 上限のセットを決める分類（将来3分類へ統合予定） |
-| 上限設定状態 | 仮設定 / SKU確認済 |
-| 昇格 / 降格 | 固定保管が小箱→箱 / 箱→小箱 に変わること |
-| 箱上限超過 | 在庫定数が箱上限を超えた状態。固定コンテナへは昇格させず、担当者が確認する |
-| 例外運用 | 推奨と違う形式を担当者の判断で使っている状態 |
-| NE | ネクストエンジン |
-
----
-
-## 12. v1.1000 の仕様変更（2026-08-31）
-
-GPTからの新しい仕様書に合わせて、判定の中核を入れ替えました。**旧仕様には戻さないこと。**
-
-| | 旧（〜v1.0027） | 新（v1.1000〜） |
-|---|---|---|
-| 判定基準 | MAX(在庫定数, フリー在庫) | **在庫定数のみ**（MAXは参考表示だけ） |
-| コンテナ | 「予備保管」としてSKUに保存 | **共用バッファ**。SKUに保存しない |
-| 小箱＋コンテナ | 例外運用として有効 | **廃止**（概念ごと削除） |
-| 箱上限超過 | 予備コンテナを追加 | **固定コンテナへ昇格させず**「箱上限超過」で要確認 |
-| 判定結果 | 10種類（予備保管の組み合わせ含む） | **5種類**（維持/昇格/降格/箱上限超過/要確認）＋バッファ判定（不要/使用候補） |
-| 上限設定状態 | なし | **仮設定 / SKU確認済** を新設 |
-| CSV取込 | 全項目を上書き・新規追加 | **小箱上限/箱上限/上限設定状態のみ**。確認画面・エラーチェック・履歴あり |
-| CSV空欄 | 既存値を維持 | 同左（明示削除は半角 `-`） |
-| 画面 | メイン一覧／変更対象一覧 | 全SKU一覧／保管変更対象／**バッファ使用候補**／判定ルール |
-
-### データ移行について
-
-- 既存データの `curSub`（予備保管）は、読み込み時に**黙って捨てられます**（`normalize()`）。
-  旧「小箱＋コンテナ」は「固定保管＝小箱」＋（フリー在庫が上限超なら）「バッファ使用候補」に自然に移行します。
-- `capState` が無いデータは、全部 `仮設定` になります。
-- `filters3`（バッファタブの絞り込み）と `csvHistory` は起動時に補完されます。
-
-### CSV取込の「新規追加」チェック
-
-仕様書§24〜25では取込は既存SKUの更新だけですが、**初回の商品登録ができなくなる**ため、
-取込画面に「ツールに無い商品コードは新規追加する」チェックを残しています（**既定オフ**）。
-通常の運用ではオフのまま使ってください。
-
-### 判定理由の文面
-
-仕様書§36の例文にそろえてあります。実際の出力例：
-
-```
-固定保管は小箱。在庫定数200 ＞ 小箱上限100のため、小箱から箱への昇格を推奨。（箱上限500以内）
-ただしフリー在庫150が小箱上限100を超えている（超過50）ため、一時バッファ使用候補。
-SKU専用のコンテナは新設せず、共用コンテナへ一時保管します。
-```
+/* 基礎区分が空欄のときに使う既定値 */
+const DEFAULT_KUBUN = '小箱-多収納';
+
+/* 旧名称 → 現行名称の読み替え表。区分を統合したときに、
+   既存の data.json / CSV をそのまま読み込めるようにするためのもの。
+   例）3分類へ統合する場合：
+   const KUBUN_ALIAS = {
+     '小箱-多収納':'小箱', '小箱-少収納':'小箱',
+     '箱-多収納'  :'箱',   '箱-少収納'  :'箱'
+   }; */
+const KUBUN_ALIAS = {};
+
+/* 保管ルートごとの固定保管の並び（容量の小さい順）。
+   通常商品のルートは「小箱 ⇔ 箱」だけ。コンテナは共用バッファなので、
+   在庫が増えたことを理由にここへ昇格させることはありません。 */
+const ROUTE_CHAIN = {
+  '小箱'   : ['小箱','箱'],
+  '箱'     : ['箱'],
+  'コンテナ': ['コンテナ']
+};
+
+const KUBUN = KUBUN_DEFS.map(d => d.name);
+const KUBUN_MAP = new Map(KUBUN_DEFS.map(d => [d.name, d]));
+
+function kubunDef(k){
+  const name = KUBUN_ALIAS[k] || k;
+  if(KUBUN_MAP.has(name)) return KUBUN_MAP.get(name);
+  // 表に無い名称でも、ルートだけは名前から推測して動かす（判定は上限で行うため）
+  if(/コンテナ/.test(name)) return { name, route:'コンテナ', smallCap:null, boxCap:null, unknown:true };
+  if(/^小箱/.test(name))    return { name, route:'小箱',     smallCap:null, boxCap:null, unknown:true };
+  if(/^箱/.test(name))      return { name, route:'箱',       smallCap:null, boxCap:null, unknown:true };
+  return null;
+}
+const routeOf = k => { const d = kubunDef(k); return d ? d.route : null; };
+const defCaps = k => { const d = kubunDef(k); return d ? {s:d.smallCap, b:d.boxCap} : {s:null, b:null}; };
+const STATUSES = ['未対応','対応済','例外運用'];
+/* 上限設定状態：その上限が基礎区分の仮の初期値なのか、実際に確認したSKU固有値なのか */
+const CAP_STATES = ['仮設定','SKU確認済'];
+const DEFAULT_CAP_STATE = '仮設定';
+/* 固定保管の判定結果。コンテナへの昇格・予備保管という概念は持たない。 */
+const RESULTS = ['維持','昇格','降格','箱上限超過','要確認'];
+const CAT = { '維持':'hold','昇格':'up','降格':'dn','箱上限超過':'al','要確認':'al' };
+/* 共用コンテナバッファの使用判定。SKUの固定保管場所としては保存しない。 */
+const BUFFERS = ['不要','使用候補'];
+const RANK = {'小箱':0,'箱':1,'コンテナ':2};
+/* 固定保管の並び（容量の小さい順）。基礎区分の名称ではなく route で決まる。 */
+function allowedMains(k){ return ROUTE_CHAIN[routeOf(k)] || ['箱']; }
+const usesSmall = k => allowedMains(k).includes('小箱');
+const usesBox   = k => allowedMains(k).includes('箱');
+/* SKUごとの収納上限。判定はすべてこの値で行う。 */
+function capOf(it, main){
+  if(main === '小箱') return (it.smallCap === undefined) ? null : it.smallCap;
+  if(main === '箱')   return (it.boxCap   === undefined) ? null : it.boxCap;
+  return null;   // コンテナは上限なし
+}
+const fmt = v => (v === null || v === undefined || v === '') ? '―' : Number(v).toLocaleString('ja-JP');
+
+/* ============ 初期データ（仕様書の例をそのまま再現） ============ */
+function seed(){
+  const S = (code,name,kubun,s,b,main,teisu,free,extra) => Object.assign({
+    code, name, kubun, smallCap:s, boxCap:b,
+    smallCapEdited: s !== defCaps(kubun).s,
+    boxCapEdited:   b !== defCaps(kubun).b,
+    capState: DEFAULT_CAP_STATE,
+    curMain:main,
+    apiTeisu:teisu, apiFree:free,
+    manTeisu:null, manFree:null,
+    stale:false, matchError:false,
+    lastFetch: teisu === null && free === null ? null : '2026-07-28 06:00',
+    status:'未対応', note:''
+  }, extra || {});
+  return [
+    /* §36 維持：在庫定数80 ≦ 小箱上限100 */
+    S('ABC-001','モバイルバッテリー 5000mAh','小箱-多収納',100,500,'小箱',80,60),
+    /* §13 昇格：在庫定数200 ＞ 小箱上限100、かつ箱上限500以内 */
+    S('ABC-002','USB-C ケーブル 1m ブラック','小箱-多収納',100,500,'小箱',200,150),
+    /* §15 箱上限超過：在庫定数800 ＞ 箱上限500。固定コンテナへは昇格させない */
+    S('ABC-003','ワイヤレスイヤホン 充電ケース付','小箱-多収納',100,500,'小箱',800,600),
+    /* §14 降格：在庫定数40 ＜ 箱上限500の50%（250）、かつ小箱上限100以内 */
+    S('ABC-004','スマホリング スタンド兼用','小箱-多収納',100,500,'箱',40,30),
+    /* 降格しない：在庫定数200 は箱上限500の50%（250）未満だが小箱上限100を超える */
+    S('ABC-005','レンズクリーナー 30ml','小箱-多収納',100,500,'箱',200,180),
+    /* 箱上限超過（現在も箱） */
+    S('ABC-006','A4クリアファイル 10枚組','小箱-多収納',100,500,'箱',700,650),
+    /* 維持：在庫定数400 は箱上限500の50%以上 */
+    S('ABC-007','卓上カレンダー 2027','小箱-多収納',100,500,'箱',400,300,{note:'年末に再入荷予定'}),
+    /* 降格：在庫定数40 ＜ 250 かつ ≦ 100 */
+    S('ABC-008','マウスパッド 大判','小箱-多収納',100,500,'箱',40,20),
+    /* §16 維持＋バッファ使用候補：定数80は小箱上限100以内、フリー在庫300が上限超過 */
+    S('ABC-009','名刺ケース アルミ','小箱-多収納',100,500,'小箱',80,300,{note:'セール用の一時入荷（8月末まで）'}),
+    /* §4 コンテナ固定商品：在庫数に関わらずコンテナのまま */
+    S('CNT-001','折りたたみコンテナ 50L','コンテナ',null,null,'コンテナ',50,30),
+    S('SML-011','アロマオイル 10ml 詰替','小箱-少収納',30,150,'小箱',25,18),
+    /* 昇格：定数120 ＞ 小箱上限30、かつ箱上限150以内 */
+    S('SML-012','ハンドクリーム 50g','小箱-少収納',30,150,'小箱',120,90),
+    /* 箱区分＋箱上限超過：定数60 ＞ 箱上限40。小箱は使えないので降格対象外 */
+    S('BOX-021','ペットフード ドライ 5kg','箱-少収納',null,40,'箱',60,55),
+    /* 箱区分の維持＋バッファ使用候補：フリー在庫250 ＞ 箱上限190 */
+    S('BOX-022','トイレットペーパー 12ロール','箱-多収納',null,190,'箱',60,250),
+    /* §35 要確認：一度もNEから取得できていない */
+    S('NEW-031','【新規】保冷バッグ Lサイズ','小箱-多収納',150,750,'小箱',null,null),
+    /* 要確認：箱区分なのに現在の固定保管が小箱になっている */
+    S('NG-041','園芸用プランター 60cm','箱-多収納',null,190,'小箱',35,30)
+  ];
+}
+
+/* ============ 状態 ============ */
+/* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
+const APP_VERSION = 'v1.1005';
+const LS = 'hokan-hantei-kun-v2';
+function blankState(){
+  return {
+    items: [],
+    sync:{ status:'未同期', at:null, message:'' },
+    manualMode:false,
+    filters:{ q:'', res:'すべて', sta:'すべて', cap:'すべて', buf:'すべて' },
+    filters2:{ q:'', res:'すべて', sta:'すべて', cap:'すべて', buf:'すべて' },
+    filters3:{ q:'', res:'すべて', sta:'すべて', cap:'すべて', buf:'すべて' },
+    csvHistory:[],
+    tab:'main',
+    hideHead:false,
+    sort:null,
+    colw:{ code:160, name:214 },
+    sharedStamp:null,
+    ne:null
+  };
+}
+let state = blankState();
+let sharedInfo = { status:'読み込み中', updatedAt:null, count:0 };
+function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ return null; } }
+function save(){ try{ localStorage.setItem(LS, JSON.stringify(state)); }catch(e){} }
+
+/* ---- 商品1件を正規化（欠けた項目は基礎区分の初期値で補う） ---- */
+function normalize(raw){
+  const kubun = KUBUN.includes(raw.kubun) ? raw.kubun : '小箱-多収納';
+  const def = defCaps(kubun);
+  const num = v => (v === '' || v === null || v === undefined || isNaN(Number(v))) ? null : Number(v);
+  const sc = raw.smallCap === undefined ? def.s : num(raw.smallCap);
+  const bc = raw.boxCap === undefined ? def.b : num(raw.boxCap);
+  let main = ['小箱','箱','コンテナ'].includes(raw.curMain) ? raw.curMain : allowedMains(kubun)[0];
+  /* 旧仕様の「現在の予備保管＝コンテナ」は固定保管形式として保存しない（共用バッファへ移行）。
+     読み込み時に黙って捨てる。curMain 自体は変えない。 */
+  return {
+    code:String(raw.code || '').trim(), name:String(raw.name || '').trim(),
+    kubun, smallCap:sc, boxCap:bc,
+    smallCapEdited: sc !== def.s, boxCapEdited: bc !== def.b,
+    capState: CAP_STATES.includes(raw.capState) ? raw.capState : DEFAULT_CAP_STATE,
+    curMain:main,
+    apiTeisu:num(raw.apiTeisu !== undefined ? raw.apiTeisu : raw.teisu),
+    apiFree :num(raw.apiFree  !== undefined ? raw.apiFree  : raw.free),
+    manTeisu:num(raw.manTeisu), manFree:num(raw.manFree),
+    imageUrl: String(raw.imageUrl || raw['画像URL'] || '').trim(),
+    stale:!!raw.stale, matchError:!!raw.matchError,
+    neStockFound: raw.neStockFound, neGoodsFound: raw.neGoodsFound,
+    lastFetch: raw.lastFetch || null,
+    status: STATUSES.includes(raw.status) ? raw.status : '未対応',
+    note: raw.note ? String(raw.note) : ''
+  };
+}
+
+/* ============ GitHub 設定（トークンはこのブラウザにのみ保存） ============ */
+const GH_LS = 'hokan-hantei-kun-github';
+const GH_DEFAULT = { owner:'kaiyoshida0318', repo:'hokan-hantei-kun', branch:'main', path:'data.json' };
+function ghLoad(){
+  try{ return Object.assign({}, GH_DEFAULT, JSON.parse(localStorage.getItem(GH_LS) || '{}')); }
+  catch(e){ return Object.assign({}, GH_DEFAULT); }
+}
+function ghSave(cfg){ try{ localStorage.setItem(GH_LS, JSON.stringify(cfg)); }catch(e){} }
+let gh = ghLoad();
+const ghReady = () => !!(gh.token && gh.owner && gh.repo && gh.path);
+const rawURL = () => 'https://raw.githubusercontent.com/'+gh.owner+'/'+gh.repo+'/'+gh.branch+'/'+gh.path;
+const apiURL = () => 'https://api.github.com/repos/'+gh.owner+'/'+gh.repo+'/contents/'+gh.path;
+function ghHeaders(){
+  const h = { 'Accept':'application/vnd.github+json', 'X-GitHub-Api-Version':'2022-11-28' };
+  if(gh.token) h['Authorization'] = 'Bearer ' + gh.token;
+  return h;
+}
+function fetchT(url, opts, ms){
+  const c = new AbortController();
+  const t = setTimeout(() => c.abort(), ms || 8000);
+  return fetch(url, Object.assign({signal:c.signal}, opts || {})).finally(() => clearTimeout(t));
+}
+function b64utf8(str){
+  const bytes = new TextEncoder().encode(str);
+  let s = '';
+  bytes.forEach(b => { s += String.fromCharCode(b); });
+  return btoa(s);
+}
+function ghError(status){
+  return {
+    401:'トークンが正しくないか、期限切れです。保存設定から入れ直してください。',
+    403:'このトークンにはこのリポジトリへの書き込み権限がありません（Contents を Read and write にしてください）。',
+    404:'リポジトリまたはファイルのパスが違うか、トークンがこのリポジトリを選んでいません。',
+    409:'ほかのPCが先に保存しました。「共有データを再読み込み」してからもう一度保存してください。',
+    422:'ほかのPCが先に保存しました。「共有データを再読み込み」してからもう一度保存してください。'
+  }[status] || ('GitHubがエラーを返しました（' + status + '）');
+}
+async function ghPut(json){
+  let sha = null;
+  const cur = await fetchT(apiURL() + '?ref=' + encodeURIComponent(gh.branch) + '&t=' + Date.now(), {headers:ghHeaders(), cache:'no-store'}, 15000);
+  if(cur.ok){ sha = (await cur.json()).sha; }
+  else if(cur.status !== 404){ throw new Error(ghError(cur.status)); }
+  const res = await fetchT(apiURL(), {
+    method:'PUT', headers:Object.assign({'Content-Type':'application/json'}, ghHeaders()),
+    body: JSON.stringify(Object.assign({
+      message:'保管形式判定くん：共有データを更新', content:b64utf8(json), branch:gh.branch
+    }, sha ? {sha} : {}))
+  }, 20000);
+  if(!res.ok) throw new Error(ghError(res.status));
+  return true;
+}
+
+/* ---- 共有データ（data.json）の読み込み ---- */
+async function fetchShared(){
+  if(gh.owner && gh.repo && gh.path){
+    try{
+      const r = await fetchT(rawURL() + '?t=' + Date.now(), {cache:'no-store'}, 8000);
+      if(r.ok){
+        const j = await r.json();
+        if(j && Array.isArray(j.items))
+          return { status:'読込済', updatedAt:j.updatedAt || null, ne:j.ne || null, items:j.items.map(normalize).filter(x => x.code) };
+      }
+    }catch(e){ /* 同一フォルダの data.json にフォールバック */ }
+  }
+  try{
+    const res = await fetchT('data.json?t=' + Date.now(), {cache:'no-store'}, 8000);
+    if(!res.ok) return { status: res.status === 404 ? '未設定' : '取得失敗' };
+    const j = await res.json();
+    if(!j || !Array.isArray(j.items)) return { status:'形式エラー' };
+    return { status:'読込済', updatedAt: j.updatedAt || null, ne: j.ne || null, items: j.items.map(normalize).filter(x => x.code) };
+  }catch(e){
+    return { status: location.protocol === 'file:' ? 'ローカル表示' : '取得失敗' };
+  }
+}
+function adoptShared(sh){
+  const ui = { tab:state.tab, hideHead:state.hideHead, filters:state.filters, filters2:state.filters2 };
+  state = blankState();
+  Object.assign(state, ui);
+  state.items = sh.items;
+  state.ne = sh.ne || null;
+  if(sh.ne){
+    state.sync = { status: sh.ne.status || '未同期', at: jstStr(sh.ne.syncedAt), message: sh.ne.message || '' };
+  }
+  state.sharedStamp = sh.updatedAt || String(sh.items.length);
+  state.dirty = false;
+  save();
+}
+function markDirty(){ state.dirty = true; }
+function renderShared(){
+  const el = $('sharedState');
+  const s = sharedInfo;
+  const msg = {
+    '読込済':'<b>'+ (jstStr(s.updatedAt) || '日付なし') +'</b> 時点のデータを読み込み済み（'+ s.count +'件）',
+    '未設定':'リポジトリに data.json がまだありません。CSVを取り込んでから「共有用JSONを書き出す」で作成してください。',
+    '取得失敗':'data.json を取得できませんでした。表示中のデータはこの端末に保存されているものです。',
+    '形式エラー':'data.json の形式が正しくありません。{"updatedAt":"…","items":[…]} の形で保存してください。',
+    'ローカル表示':'ファイルを直接開いているため共有データは読み込めません。公開URLから開くと共有データが反映されます。',
+    '読み込み中':'読み込み中…'
+  }[s.status] || s.status;
+  el.className = 'dbstate' + (['取得失敗','形式エラー'].includes(s.status) ? ' warn' : '');
+  const newer = s.status === '読込済' && state.items.length
+             && state.sharedStamp && s.updatedAt && state.sharedStamp !== s.updatedAt;
+  el.innerHTML = msg
+    + (state.dirty ? ' <span class="tag warn">この端末だけの変更あり</span>' : '')
+    + (newer ? ' <span class="tag warn">共有データが更新されています（反映するには再読み込み）</span>' : '');
+}
+
+/* ---- CSV ---- */
+const CSV_COLS = ['商品コード','商品名','画像URL','基礎区分','小箱上限','箱上限','上限設定状態','現在の固定保管','在庫定数','フリー在庫','対応状況','備考'];
+function parseCSV(text){
+  const rows = []; let row = [], cur = '', q = false;
+  text = text.replace(/^﻿/, '');
+  for(let i = 0; i < text.length; i++){
+    const c = text[i];
+    if(q){
+      if(c === '"'){ if(text[i+1] === '"'){ cur += '"'; i++; } else q = false; }
+      else cur += c;
+    }else{
+      if(c === '"') q = true;
+      else if(c === ','){ row.push(cur); cur = ''; }
+      else if(c === '\n'){ row.push(cur); rows.push(row); row = []; cur = ''; }
+      else if(c !== '\r') cur += c;
+    }
+  }
+  if(cur !== '' || row.length){ row.push(cur); rows.push(row); }
+  return rows.filter(r => r.some(v => String(v).trim() !== ''));
+}
+async function readTextFile(file){
+  const buf = await file.arrayBuffer();
+  try{ return new TextDecoder('utf-8', {fatal:true}).decode(buf); }
+  catch(e){ return new TextDecoder('shift_jis').decode(buf); }
+}
+/* ---- CSV取込：商品コードをキーに照合し、変更内容を先に確認してから反映する ---- */
+/* §25 取込で更新できるのは収納上限まわりだけ。商品名・在庫定数・フリー在庫はNEの情報なので上書きしない。
+   現在の固定保管も実移動を伴うため一括更新の対象外。 */
+const CSV_EDITABLE = ['小箱上限','箱上限','上限設定状態'];
+/* §28 空欄は「既存値を維持」。意図して値を消すときだけ、この記号を書く。 */
+const CSV_CLEAR = '-';
+
+function planCSV(text, opts){
+  const allowAdd = !!(opts && opts.allowAdd);
+  const out = { rows:0, changed:0, same:0, errors:[], warns:[], changes:[], adds:[], allowAdd };
+  const rows = parseCSV(text);
+  if(rows.length < 2){ out.errors.push({ code:'', msg:'データ行がありません。1行目に見出し、2行目以降に商品を入れてください。' }); return out; }
+  const head = rows[0].map(h => h.replace(/\s/g,''));
+  const idx = n => head.indexOf(n);
+  if(idx('商品コード') < 0){ out.errors.push({ code:'', msg:'1行目に「商品コード」の見出しが見つかりません。' }); return out; }
+  const get = (r, n) => { const i = idx(n); return i < 0 ? undefined : String(r[i] === undefined ? '' : r[i]).trim(); };
+  const byCode = new Map(state.items.map(x => [x.code, x]));
+  const seen = new Map();
+
+  rows.slice(1).forEach((r, i) => {
+    const line = i + 2;
+    const code = get(r, '商品コード');
+    out.rows++;
+    if(!code){ out.errors.push({ line, code:'', msg:'商品コードが空欄です' }); return; }
+    if(seen.has(code)){ out.errors.push({ line, code, msg:'商品コードがCSV内で重複しています（'+seen.get(code)+'行目と同じ）' }); return; }
+    seen.set(code, line);
+
+    const it = byCode.get(code);
+    if(!it){
+      if(!allowAdd){ out.errors.push({ line, code, msg:'ツールに存在しない商品コードです' }); return; }
+      const kubunRaw = get(r, '基礎区分');
+      if(kubunRaw && !KUBUN.includes(kubunRaw)){ out.errors.push({ line, code, msg:'基礎区分「'+kubunRaw+'」は使用できません' }); return; }
+      out.adds.push({ line, code, raw:{
+        code, name:get(r,'商品名') || '', imageUrl:get(r,'画像URL') || undefined,
+        kubun:kubunRaw || undefined, smallCap:get(r,'小箱上限'), boxCap:get(r,'箱上限'),
+        capState:get(r,'上限設定状態'), curMain:get(r,'現在の固定保管') || get(r,'現在の主保管'),
+        teisu:get(r,'在庫定数'), free:get(r,'フリー在庫'),
+        status:get(r,'対応状況'), note:get(r,'備考') || ''
+      }});
+      return;
+    }
+
+    /* 数値項目：空欄＝維持、CSV_CLEAR＝削除、それ以外は数値でなければエラー */
+    let bad = false;
+    const readCap = (label, cur) => {
+      const v = get(r, label);
+      if(v === undefined || v === '') return { keep:true, value:cur };
+      if(v === CSV_CLEAR) return { keep:false, value:null };
+      if(!/^-?\d+(\.\d+)?$/.test(v)){ out.errors.push({ line, code, msg:label+'「'+v+'」は数値ではありません' }); bad = true; return { keep:true, value:cur }; }
+      const n = Number(v);
+      if(n < 0){ out.errors.push({ line, code, msg:label+'にマイナス値（'+v+'）が入力されています' }); bad = true; return { keep:true, value:cur }; }
+      return { keep:false, value:n };
+    };
+    const sc = readCap('小箱上限', it.smallCap);
+    const bc = readCap('箱上限',   it.boxCap);
+
+    let cs = it.capState;
+    const csRaw = get(r, '上限設定状態');
+    if(csRaw !== undefined && csRaw !== ''){
+      if(!CAP_STATES.includes(csRaw)){ out.errors.push({ line, code, msg:'上限設定状態「'+csRaw+'」は使用できません（'+CAP_STATES.join(' / ')+'）' }); bad = true; }
+      else cs = csRaw;
+    }
+    if(bad) return;
+
+    if(sc.value !== null && bc.value !== null && sc.value > bc.value){
+      out.errors.push({ line, code, msg:'小箱上限（'+sc.value+'）が箱上限（'+bc.value+'）より大きくなっています' }); return;
+    }
+    const route = routeOf(it.kubun);
+    if(route === 'コンテナ' && (sc.value !== null || bc.value !== null))
+      out.warns.push({ line, code, msg:'コンテナ固定商品ですが、小箱上限・箱上限が入力されています（判定には使いません）' });
+    if(route === '箱' && sc.value !== null)
+      out.warns.push({ line, code, msg:'箱区分の商品ですが、小箱上限が入力されています（この区分は小箱を使いません）' });
+
+    const diff = [];
+    if(sc.value !== it.smallCap) diff.push({ field:'小箱上限', before:it.smallCap, after:sc.value });
+    if(bc.value !== it.boxCap)   diff.push({ field:'箱上限',   before:it.boxCap,   after:bc.value });
+    if(cs !== it.capState)       diff.push({ field:'上限設定状態', before:it.capState, after:cs });
+    if(!diff.length){ out.same++; return; }
+    out.changed++;
+    diff.forEach(d => out.changes.push({ line, code, name:it.name, field:d.field, before:d.before, after:d.after }));
+  });
+  return out;
+}
+
+/* 確認画面で［この内容で反映］を押したときだけ、実際に書き換える */
+function applyCSVPlan(plan, fileName){
+  const byCode = new Map(state.items.map(x => [x.code, x]));
+  const codes = new Set();
+  plan.changes.forEach(c => {
+    const it = byCode.get(c.code);
+    if(!it) return;
+    if(c.field === '小箱上限'){ it.smallCap = c.after; it.smallCapEdited = it.smallCap !== defCaps(it.kubun).s; }
+    else if(c.field === '箱上限'){ it.boxCap = c.after; it.boxCapEdited = it.boxCap !== defCaps(it.kubun).b; }
+    else if(c.field === '上限設定状態'){ it.capState = c.after; }
+    codes.add(c.code);
+  });
+  let added = 0;
+  plan.adds.forEach(a => {
+    const raw = Object.assign({}, a.raw);
+    Object.keys(raw).forEach(k => { if(raw[k] === '') delete raw[k]; });
+    state.items.push(normalize(raw)); added++;
+  });
+  if(codes.size || added) markDirty();
+  pushCsvHistory(fileName, plan, codes.size, added);
+  return { updated:codes.size, added, errors:plan.errors.length };
+}
+
+/* §30 取込履歴。変更前の値も残して、誤った取込を追跡できるようにする。 */
+function pushCsvHistory(fileName, plan, updated, added){
+  if(!Array.isArray(state.csvHistory)) state.csvHistory = [];
+  state.csvHistory.unshift({
+    at: nowStr(), file: fileName || '(名前なし)',
+    updated, added, errors: plan.errors.length, warns: plan.warns.length,
+    changes: plan.changes.slice(0, 2000).map(c => ({ code:c.code, field:c.field, before:c.before, after:c.after }))
+  });
+  state.csvHistory = state.csvHistory.slice(0, 20);   // 直近20回ぶんだけ持つ
+}
+
+/* §22 CSVダウンロード。SKUごとの収納上限をExcel等でまとめて確認・入力するためのもの。 */
+function exportCSV(){
+  const lines = [CSV_COLS.join(',')];
+  const q = v => { const s = v === null || v === undefined ? '' : String(v); return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
+  state.items.forEach(it => lines.push([it.code,it.name,it.imageUrl,it.kubun,it.smallCap,it.boxCap,it.capState,it.curMain,
+    usedTeisu(it),usedFree(it),it.status,it.note].map(q).join(',')));
+  return '﻿' + lines.join('\r\n') + '\r\n';
+}
+function sharedJSON(){
+  const p = n => String(n).padStart(2,'0');
+  const d = new Date();
+  return JSON.stringify({
+    ne: state.ne || undefined,
+    updatedAt: d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes()),
+    items: state.items.map(it => ({
+      code:it.code, name:it.name, kubun:it.kubun, smallCap:it.smallCap, boxCap:it.boxCap,
+      imageUrl:it.imageUrl || undefined,
+      capState:it.capState, curMain:it.curMain, apiTeisu:it.apiTeisu, apiFree:it.apiFree,
+      lastFetch:it.lastFetch, stale:it.stale, matchError:it.matchError,
+      neStockFound:it.neStockFound, neGoodsFound:it.neGoodsFound,
+      status:it.status, note:it.note
+    }))
+  }, null, 2);
+}
+function offerFile(name, text, mime){
+  try{
+    const url = URL.createObjectURL(new Blob([text], {type:mime + ';charset=utf-8'}));
+    const a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+  }catch(e){}
+  showText(name, text);
+}
+function showText(title, text, note){
+  const d = $('drawer');
+  const sub = note === undefined ? 'ダウンロードされない場合は、下のテキストを選択してコピーしてください' : note;
+  d.innerHTML = '<div class="dhead"><div><h2>'+esc(title)+'</h2>'+(sub ? '<span class="code">'+esc(sub)+'</span>' : '')+'</div>'+
+    '<button class="iconbtn" id="dclose" aria-label="閉じる">×</button></div>'+
+    '<div class="dsec"><textarea style="width:100%;min-height:62vh;font-family:var(--f-num);font-size:11px;border:1px solid var(--line-strong);border-radius:6px;padding:10px;background:var(--surface-2)">'+esc(text)+'</textarea></div>';
+  $('scrim').classList.add('show'); d.classList.add('show'); d.setAttribute('aria-hidden','false');
+  $('dclose').onclick = closeDrawer;
+  const ta = d.querySelector('textarea'); ta.focus(); ta.select();
+}
+
+const usedTeisu = it => (state.manualMode && it.manTeisu !== null && it.manTeisu !== undefined) ? it.manTeisu : it.apiTeisu;
+const usedFree  = it => (state.manualMode && it.manFree  !== null && it.manFree  !== undefined) ? it.manFree  : it.apiFree;
+
+/* ============ 判定ロジック ============ */
+function validate(it){
+  const e = [];
+  const t = usedTeisu(it), f = usedFree(it);
+  if(it.matchError) e.push('API商品照合エラー：ネクストエンジン側に一致する商品コードがありません');
+  if(!KUBUN_MAP.has(it.kubun) && !KUBUN_ALIAS[it.kubun]) e.push('基礎区分「'+it.kubun+'」は登録されていません');
+  if(t === null || t === undefined || t === '') e.push('在庫定数が未取得（未入力）です');
+  if(f === null || f === undefined || f === '') e.push('フリー在庫が未取得（未入力）です');
+  if(usesSmall(it.kubun) && (it.smallCap === null || it.smallCap === undefined || it.smallCap === '')) e.push('小箱を使用する基礎区分ですが、小箱上限が未入力です');
+  if(usesBox(it.kubun)   && (it.boxCap   === null || it.boxCap   === undefined || it.boxCap   === '')) e.push('箱を使用する基礎区分ですが、箱上限が未入力です');
+  if(it.smallCap !== null && it.boxCap !== null && it.smallCap > it.boxCap) e.push('小箱上限（'+it.smallCap+'）が箱上限（'+it.boxCap+'）より大きくなっています');
+  [['在庫定数',t],['フリー在庫',f],['小箱上限',it.smallCap],['箱上限',it.boxCap]].forEach(([n,v])=>{
+    if(v !== null && v !== undefined && v !== '' && Number(v) < 0) e.push(n+'にマイナス値が入力されています');
+  });
+  if(!allowedMains(it.kubun).includes(it.curMain)) e.push('基礎区分「'+it.kubun+'」では現在の固定保管に「'+it.curMain+'」を設定できません');
+  return e;
+}
+
+function judge(it){
+  const errs = validate(it);
+  const t = usedTeisu(it), f = usedFree(it);
+  const teisu = (t === null || t === undefined || t === '') ? null : Number(t);
+  const free  = (f === null || f === undefined || f === '') ? null : Number(f);
+  /* MAX値は参考情報としてだけ保持する（§12：固定保管判定の主基準にはしない） */
+  const qty = (teisu === null || free === null) ? null : Math.max(teisu, free);
+
+  if(errs.length){
+    return { teisu, free, qty, recMain:null, result:'要確認', cat:'al',
+             buffer:'不要', over:0, over1:0,
+             reason:'【要確認】'+errs.join(' / ')+'。自動判定は行いません。', need:null, errs };
+  }
+
+  const k = it.kubun;
+  const route = routeOf(k);
+  const sCap = capOf(it, '小箱');
+  const bCap = capOf(it, '箱');
+  const canSmall = usesSmall(k);
+
+  let recMain, result, mainNote;
+
+  if(route === 'コンテナ'){
+    /* §4 コンテナ固定商品。在庫の増減でコンテナ以外へ自動変更しない。 */
+    recMain = 'コンテナ'; result = '維持';
+    mainNote = '基礎区分「'+k+'」はもともとコンテナ保管が必要な商品のため、在庫定数'+fmt(teisu)+'に関わらず固定保管はコンテナで固定。';
+  }else if(bCap !== null && teisu > bCap){
+    /* §15 箱上限超過。数量を理由にSKU専用の固定コンテナを新設しない。 */
+    recMain = '箱'; result = '箱上限超過';
+    mainNote = '在庫定数'+fmt(teisu)+' ＞ 箱上限'+fmt(bCap)+'。固定コンテナへの自動変更は行わず、箱上限超過として要確認。'
+             + (it.curMain === '小箱' ? '（現在は小箱のため、まず箱への移動が必要です。）' : '');
+  }else if(it.curMain === '小箱'){
+    if(sCap !== null && teisu > sCap){
+      /* §13 昇格：在庫定数 ＞ 小箱上限、かつ箱上限以内 */
+      recMain = '箱'; result = '昇格';
+      mainNote = '在庫定数'+fmt(teisu)+' ＞ 小箱上限'+fmt(sCap)+'のため、小箱から箱への昇格を推奨。（箱上限'+fmt(bCap)+'以内）';
+    }else{
+      recMain = '小箱'; result = '維持';
+      mainNote = '在庫定数'+fmt(teisu)+' ≦ 小箱上限'+fmt(sCap)+'のため、小箱を維持。';
+    }
+  }else{
+    /* 現在の固定保管が箱 */
+    const half = bCap !== null ? bCap * 0.5 : null;
+    const c1 = half !== null && teisu < half;              // §14 条件① 50%ちょうどは降格しない
+    const c2 = canSmall && sCap !== null && teisu <= sCap;  // §14 条件②
+    if(c1 && c2){
+      recMain = '小箱'; result = '降格';
+      mainNote = '在庫定数'+fmt(teisu)+' ＜ 箱上限'+fmt(bCap)+'の50%（'+fmt(half)+'）、かつ小箱上限'+fmt(sCap)+'以内のため、箱から小箱への降格を推奨。';
+    }else{
+      recMain = '箱'; result = '維持';
+      if(!canSmall){
+        mainNote = '基礎区分「'+k+'」は小箱を使用しないため、固定保管は箱を維持。在庫定数'+fmt(teisu)+' ≦ 箱上限'+fmt(bCap)+'。';
+      }else if(!c1){
+        mainNote = '在庫定数'+fmt(teisu)+' は箱上限'+fmt(bCap)+'の50%（'+fmt(half)+'）未満ではないため、箱を維持。';
+      }else{
+        mainNote = '在庫定数'+fmt(teisu)+' ＜ 箱上限'+fmt(bCap)+'の50%（'+fmt(half)+'）だが、小箱上限'+fmt(sCap)+'を超えているため、箱を維持。';
+      }
+    }
+  }
+
+  /* §16 一時バッファ判定。フリー在庫が「現在の」固定保管の収納上限を超えているか。
+     固定保管の昇格・降格とは切り離して判定する。 */
+  const curCap = capOf(it, it.curMain);
+  const over = (curCap !== null && free !== null && free > curCap) ? free - curCap : 0;
+  const buffer = over > 0 ? '使用候補' : '不要';
+  let bufNote;
+  if(route === 'コンテナ'){
+    bufNote = 'コンテナ固定商品のため、共用コンテナバッファの判定は行いません。';
+  }else if(over > 0){
+    bufNote = 'ただしフリー在庫'+fmt(free)+'が'+it.curMain+'上限'+fmt(curCap)+'を超えている（超過'+fmt(over)+'）ため、一時バッファ使用候補。'
+            + 'SKU専用のコンテナは新設せず、共用コンテナへ一時保管します。';
+  }else{
+    bufNote = 'フリー在庫'+fmt(free)+' ≦ '+it.curMain+'上限'+fmt(curCap)+'のため、共用コンテナバッファは不要。';
+  }
+
+  const need = recMain !== it.curMain ? '要' : '不要';
+  const staleNote = it.stale ? '※在庫数値は前回取得値です。' : '';
+  const head = '固定保管は'+it.curMain+'。';
+
+  return { teisu, free, qty, recMain, result, cat:CAT[result], need, buffer, over, errs:[],
+           reason:(staleNote + head + mainNote + bufNote) };
+}
+
+
+
+/* ===== Excel（.xlsx）書き出し：外部ライブラリを使わず、ZIPを自前で組み立てる ===== */
+const CRC_TBL = (() => {
+  const t = new Uint32Array(256);
+  for(let i = 0; i < 256; i++){
+    let c = i;
+    for(let k = 0; k < 8; k++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+    t[i] = c >>> 0;
+  }
+  return t;
+})();
+function crc32(buf){
+  let c = 0xFFFFFFFF;
+  for(let i = 0; i < buf.length; i++) c = CRC_TBL[(c ^ buf[i]) & 0xFF] ^ (c >>> 8);
+  return (c ^ 0xFFFFFFFF) >>> 0;
+}
+const enc = str => new TextEncoder().encode(str);
+function zipStore(files){
+  const chunks = [], central = [];
+  let offset = 0;
+  const u16 = n => [n & 255, (n >>> 8) & 255];
+  const u32 = n => [n & 255, (n >>> 8) & 255, (n >>> 16) & 255, (n >>> 24) & 255];
+  files.forEach(f => {
+    const name = enc(f.name), data = f.data, crc = crc32(data);
+    const local = [].concat([0x50,0x4b,0x03,0x04], u16(20), u16(0), u16(0), u16(0), u16(0),
+      u32(crc), u32(data.length), u32(data.length), u16(name.length), u16(0));
+    chunks.push(new Uint8Array(local), name, data);
+    central.push([].concat([0x50,0x4b,0x01,0x02], u16(20), u16(20), u16(0), u16(0), u16(0), u16(0),
+      u32(crc), u32(data.length), u32(data.length), u16(name.length), u16(0), u16(0), u16(0), u16(0),
+      u32(0), u32(offset), Array.from(name)));
+    offset += local.length + name.length + data.length;
+  });
+  const cd = central.flat();
+  const end = [].concat([0x50,0x4b,0x05,0x06], u16(0), u16(0), u16(files.length), u16(files.length),
+    u32(cd.length), u32(offset), u16(0));
+  const parts = chunks.concat([new Uint8Array(cd), new Uint8Array(end)]);
+  const total = parts.reduce((n, p) => n + p.length, 0);
+  const out = new Uint8Array(total);
+  let at = 0;
+  parts.forEach(p => { out.set(p, at); at += p.length; });
+  return out;
+}
+const xe = v => String(v === null || v === undefined ? '' : v)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const colLetter = i => String.fromCharCode(65 + i);
+
+/* rows: [[{v, s}, ...], ...]  s = セル書式番号 */
+function buildXlsx(sheetRows, opts){
+  const o = opts || {};
+  const body = sheetRows.map((cells, r) => {
+    const cs = cells.map((c, i) => c === null || c === undefined ? '' :
+      '<c r="'+colLetter(i)+(r+1)+'"'+(c.s ? ' s="'+c.s+'"' : '')+' t="inlineStr"><is><t xml:space="preserve">'
+      + xe(c.v) + '</t></is></c>').join('');
+    const ht = r === 0 ? ' ht="28" customHeight="1"' : (r === 1 ? ' ht="34" customHeight="1"' : '');
+    return '<row r="'+(r+1)+'"'+ht+'>'+cs+'</row>';
+  }).join('');
+  const cols = (o.widths || []).map((w, i) =>
+    '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"/>').join('');
+  const last = colLetter((o.widths || []).length - 1);
+  const sheet =
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+    '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+
+    '<sheetViews><sheetView workbookViewId="0">'+
+    '<pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/>'+
+    '</sheetView></sheetViews>'+
+    '<sheetFormatPr defaultRowHeight="18"/>'+
+    (cols ? '<cols>'+cols+'</cols>' : '')+
+    '<sheetData>'+body+'</sheetData>'+
+    '<autoFilter ref="A2:'+last+sheetRows.length+'"/>'+
+    '<mergeCells count="1"><mergeCell ref="A1:'+last+'1"/></mergeCells>'+
+    '</worksheet>';
+  const styles =
+    '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+    '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+
+    '<fonts count="3">'+
+      '<font><sz val="10"/><name val="Yu Gothic"/></font>'+
+      '<font><b/><sz val="10"/><name val="Yu Gothic"/></font>'+
+      '<font><sz val="20"/><color rgb="FF000000"/><name val="Yu Gothic"/></font>'+
+    '</fonts>'+
+    '<fills count="4">'+
+      '<fill><patternFill patternType="none"/></fill>'+
+      '<fill><patternFill patternType="gray125"/></fill>'+
+      '<fill><patternFill patternType="solid"><fgColor rgb="FFEDEFF2"/><bgColor indexed="64"/></patternFill></fill>'+
+      '<fill><patternFill patternType="solid"><fgColor rgb="FFE4EEFA"/><bgColor indexed="64"/></patternFill></fill>'+
+    '</fills>'+
+    '<borders count="2"><border/>'+
+      '<border><left style="thin"><color rgb="FFC9CFD8"/></left><right style="thin"><color rgb="FFC9CFD8"/></right>'+
+      '<top style="thin"><color rgb="FFC9CFD8"/></top><bottom style="thin"><color rgb="FFC9CFD8"/></bottom></border>'+
+    '</borders>'+
+    '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'+
+    '<cellXfs count="6">'+
+      '<xf xfId="0"/>'+
+      '<xf xfId="0" fontId="1" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'+
+      '<xf xfId="0" borderId="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>'+
+      '<xf xfId="0" fillId="3" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'+
+      '<xf xfId="0" fontId="2" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>'+
+      '<xf xfId="0" borderId="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'+
+    '</cellXfs>'+
+    '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'+
+    '<dxfs count="0"/>'+
+    '</styleSheet>';
+  const files = [
+    { name:'[Content_Types].xml', data: enc('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+      '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'+
+      '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'+
+      '<Default Extension="xml" ContentType="application/xml"/>'+
+      '<Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'+
+      '<Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'+
+      '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>'+
+      '</Types>') },
+    { name:'_rels/.rels', data: enc('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'+
+      '</Relationships>') },
+    { name:'xl/workbook.xml', data: enc('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+      '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '+
+      'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'+
+      '<sheets><sheet name="保管形式判定" sheetId="1" r:id="rId1"/></sheets></workbook>') },
+    { name:'xl/_rels/workbook.xml.rels', data: enc('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+      '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
+      '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'+
+      '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>'+
+      '</Relationships>') },
+    { name:'xl/styles.xml', data: enc(styles) },
+    { name:'xl/worksheets/sheet1.xml', data: enc(sheet) }
+  ];
+  return zipStore(files);
+}
+
+const XLS_NOTE = '※コンテナは倉庫全体で使う共用バッファです。SKU専用の固定保管ではありません。';
+const XLS_HEAD = ['商品コード','商品名','現在の\n固定保管','推奨\n固定保管','判定結果','対応\n可否'];
+function exportXlsx(list){
+  if(!list.length){ toast('書き出す商品がありません'); return; }
+  const rows = [];
+  rows.push([{v:XLS_NOTE, s:4}]);
+  rows.push(XLS_HEAD.map(h => ({v:h, s:1})));
+  list.forEach(({it,j}) => rows.push([
+    {v:it.code, s:2}, {v:String(it.name || ''), s:2},
+    {v:it.curMain, s:5},
+    {v:j.recMain || '―', s:3},
+    {v:j.result, s:2}, {v:'', s:2}
+  ]));
+  // 幅は中身に合わせて詰める（全角は約2文字分）
+  const codeW = Math.min(34, Math.max(12, ...list.map(x => String(x.it.code).length)) + 1);
+  // 商品名は全文を入れるので、いちばん長い名前に合わせて幅を広げる（全角は約2文字分）
+  const wide = s => [...String(s)].reduce((n, c) => n + (/[\x20-\x7E｡-ﾟ]/.test(c) ? 1 : 2), 0);
+  const nameW = Math.min(60, Math.max(21, ...list.map(x => wide(x.it.name || ''))) + 2);
+  const bin = buildXlsx(rows, { widths:[codeW, nameW, 11, 11, 15, 9] });
+  const p2 = n => String(n).padStart(2,'0');
+  const d = new Date();
+  const name = '保管形式判定_'+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'_'+p2(d.getHours())+p2(d.getMinutes())+'.xlsx';
+  try{
+    const url = URL.createObjectURL(new Blob([bin], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+    const a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+    toast('Excelを書き出しました（'+list.length.toLocaleString('ja-JP')+'件）');
+  }catch(e){
+    toast('Excelの書き出しに失敗しました');
+  }
+}
+
+/* ============ 描画 ============ */
+const $ = id => document.getElementById(id);
+const esc = s => String(s === null || s === undefined ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+function rows(){ return state.items.map(it => ({ it, j: judge(it) })); }
+
+/* 商品名に含まれる階数（例：【PKT2-4F】→ 4）。無ければ null */
+function floorOf(name){
+  const m = String(name || '').match(/(\d+)\s*F/i);
+  return m ? Number(m[1]) : null;
+}
+const byCode = (a, b) => String(a.it.code).localeCompare(String(b.it.code), 'ja', {numeric:true});
+function sortRows(list){
+  const s = state.sort;
+  if(!s) return list;
+  const arr = list.slice();
+  if(s.key === 'code'){
+    arr.sort((a, b) => byCode(a, b) * (s.dir === 'asc' ? 1 : -1));
+  }else{
+    arr.sort((a, b) => {
+      const fa = floorOf(a.it.name), fb = floorOf(b.it.name);
+      if(fa === null && fb === null) return byCode(a, b);
+      if(fa === null) return 1;          // 階数が読み取れない商品は最後
+      if(fb === null) return -1;
+      if(fa !== fb) return (fb - fa) * (s.dir === 'desc' ? 1 : -1);
+      return byCode(a, b);
+    });
+  }
+  return arr;
+}
+function sortMark(key){
+  const s = state.sort;
+  if(!s || s.key !== key) return '⇅';
+  return s.dir === 'asc' ? '↑' : '↓';
+}
+
+function matches(r, f, skip){
+  const q = f.q.trim().toLowerCase();
+  if(q && !(r.it.code.toLowerCase().includes(q) || r.it.name.toLowerCase().includes(q))) return false;
+  if(skip !== 'res' && f.res !== 'すべて' && r.j.result !== f.res) return false;
+  if(skip !== 'cap' && f.cap && f.cap !== 'すべて' && r.it.capState !== f.cap) return false;
+  if(skip !== 'buf' && f.buf && f.buf !== 'すべて' && r.j.buffer !== f.buf) return false;
+  if(skip !== 'sta' && f.sta !== 'すべて'){
+    if(r.it.status !== f.sta) return false;
+    // 「維持」など変更の必要がない商品は、未対応の抽出には出さない
+    if(f.sta === '未対応' && !needsChange(r.j)) return false;
+  }
+  return true;
+}
+/* チップに出す件数＝「そのチップを選んだら何件になるか」。
+   実際に matches() で絞り込んで数えるので、「未対応は変更が要るものだけ」といった
+   特別なルールも自動的に反映される。 */
+function chipCounts(R, f, key, values){
+  const c = {};
+  values.forEach(v => {
+    const g = Object.assign({}, f);
+    g[key] = v;
+    c[v] = R.filter(r => matches(r, g)).length;
+  });
+  return c;
+}
+
+/* タブ見出しに出す件数。KPI行は廃止したので、ここだけで数える。 */
+function renderTabCounts(){
+  const R = rows();
+  $('changeCount').textContent = '(' + R.filter(x => needsChange(x.j)).length + ')';
+  $('bufferCount').textContent = '(' + R.filter(x => x.j.buffer === '使用候補').length + ')';
+}
+
+function selCell(value, options, attrs, cls){
+  return '<select class="cell-in '+(cls || '')+'" '+(cls ? 'data-v="'+esc(value)+'" ' : '')+attrs+'>'+options.map(o =>
+    '<option'+(o === value ? ' selected' : '')+'>'+esc(o)+'</option>').join('')+'</select>';
+}
+
+function numCell(v, attrs, disabled){
+  return '<input class="cell-in n" type="number" min="0" value="'+(v === null || v === undefined ? '' : v)+'" '+attrs+(disabled ? ' disabled' : '')+'>';
+}
+
+function pill(text, cat){ return '<span class="pill '+cat+'">'+esc(text)+'</span>'; }
+/* 楽天の画像はサイズ指定パラメータが使えるので、小さい画像で読み込む */
+function thumbURL(u, px){
+  if(!u) return '';
+  if(/(r10s\.jp|image\.rakuten\.co\.jp)/.test(u) && !/[?&]_ex=/.test(u))
+    return u + (u.includes('?') ? '&' : '?') + '_ex=' + px + 'x' + px;
+  return u;
+}
+function imgCell(it){
+  if(!it.imageUrl) return '<td class="thumb"><span class="noimg">—</span></td>';
+  return '<td class="thumb"><img src="'+esc(thumbURL(it.imageUrl, 96))+'" alt="" loading="lazy" '+
+         'onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{className:\'noimg\',textContent:\'×\'}))"></td>';
+}
+function stoPill(v){ const t = v || '―'; return '<span class="spill" data-v="'+esc(t)+'">'+esc(t)+'</span>'; }
+/* 共用コンテナバッファの使用判定。固定保管の変更ではないので、判定結果とは別の色にする。 */
+function bufPill(j){
+  if(j.buffer !== '使用候補') return '<span class="ro">不要</span>';
+  return '<span class="pill buf">使用候補<span class="bufqty num">+'+fmt(j.over)+'</span></span>';
+}
+/* 「保管変更対象」に載る条件：昇格・降格が要るもの、箱上限超過、要確認 */
+function needsChange(j){ return j.need === '要' || j.result === '箱上限超過' || j.result === '要確認'; }
+
+function renderMain(){
+  $('tblMain').style.minWidth = state.items.length ? '' : '0';
+  if(!state.items.length){
+    $('tblMain').innerHTML = '<tbody><tr><td><div class="intro">'+
+      '<h2>まだ商品が登録されていません</h2>'+
+      '<p>商品リストをCSVで取り込むと、その場で保管形式の判定が始まります。</p>'+
+      '<ol class="steps">'+
+        '<li>下の見出し行をそのまま使ったCSVを用意します（商品コード以外は空欄でも構いません）。</li>'+
+        '<li>上の「CSV取込」で読み込みます（<b>新規追加</b>のチェックを入れてください）。基礎区分を入れておくと収納上限が自動で入ります。</li>'+
+        '<li>取り込んだあと「共有用JSONを書き出す」で data.json を作り、リポジトリに置くと全員が同じデータを見られます。</li>'+
+      '</ol>'+
+      '<div class="csvspec">商品コード,商品名,基礎区分,小箱上限,箱上限,上限設定状態,現在の固定保管,在庫定数,フリー在庫,対応状況,備考\n'+
+      'ABC-001,USB-C ケーブル 1m,小箱-多収納,100,500,SKU確認済,小箱,200,150,未対応,\n'+
+      'BOX-021,ペットフード 5kg,箱-少収納,,40,仮設定,箱,60,55,未対応,</div>'+
+      '<p style="margin-top:14px">基礎区分は <b>小箱-多収納 / 小箱-少収納 / 箱-多収納 / 箱-少収納 / コンテナ</b>、現在の固定保管は <b>小箱 / 箱 / コンテナ</b>、上限設定状態は <b>仮設定 / SKU確認済</b> のいずれかで入力してください。</p>'+
+      '<p><button class="btn btn-sm" id="loadSample">サンプルデータを入れて試す</button></p>'+
+      '</div></td></tr></tbody>';
+    const ls = $('loadSample');
+    if(ls) ls.onclick = () => { state.items = seed(); markDirty(); render(); toast('サンプル16件を読み込みました'); };
+    return;
+  }
+  const R = sortRows(rows().filter(r => matches(r, state.filters)));
+  const head =
+    '<thead>'+
+    '<tr class="grouprow"><th colspan="4" class="lead">商品</th><th colspan="3">収納上限</th><th class="b-cur gstart">現在</th>'+
+    '<th colspan="2" class="b-qty gstart">在庫数量</th><th class="b-rec gstart">推奨</th>'+
+    '<th colspan="4" class="gstart">判定</th><th colspan="2">運用</th></tr>'+
+    '<tr class="headrow">'+
+      '<th class="thumb">画像</th>'+
+    '<th class="lead col-code">商品コード<button class="sortbtn'+(state.sort && state.sort.key === 'code' ? ' on' : '')+'" data-sort="code" title="商品コードで並び替え">'+sortMark('code')+'</button><span class="colgrip"></span></th>'+
+    '<th class="lead col-name">商品名<span class="colgrip"></span></th><th>基礎区分</th>'+
+      '<th class="n">小箱上限</th><th class="n">箱上限</th><th>上限設定状態</th>'+
+      '<th class="b-cur gstart">現在の固定保管</th>'+
+      '<th class="b-qty n gstart">在庫定数</th><th class="b-qty n">フリー在庫</th>'+
+      '<th class="b-rec gstart">推奨固定保管</th>'+
+      '<th class="gstart">判定結果</th><th>バッファ判定</th><th>判定理由</th><th>変更要否</th>'+
+      '<th>対応状況</th><th>備考</th>'+
+    '</tr></thead>';
+
+  const body = R.map(({it,j}) => {
+    const mm = state.manualMode;
+    const t = usedTeisu(it), f = usedFree(it);
+    const manT = mm && it.manTeisu !== null && it.manTeisu !== undefined;
+    const manF = mm && it.manFree !== null && it.manFree !== undefined;
+    return '<tr data-cat="'+j.cat+'" data-code="'+esc(it.code)+'">'+
+      imgCell(it)+
+    '<td class="code stripe">'+esc(it.code)+'<span class="colgrip"></span></td>'+
+      '<td class="name" data-code="'+esc(it.code)+'" title="ダブルクリックで編集：'+esc(it.name)+'">'+esc(it.name)+'<span class="colgrip"></span></td>'+
+      '<td class="kubuncell">'+selCell(it.kubun, KUBUN, 'data-f="kubun" data-code="'+esc(it.code)+'"', 'pillsel kubunsel')+'</td>'+
+      '<td class="n">'+(usesSmall(it.kubun) ? '<span class="capcell">'+numCell(it.smallCap,'data-f="smallCap" data-code="'+esc(it.code)+'"')+(it.smallCapEdited?'<span class="tag">個別</span>':'')+'</span>' : '<span class="ro">―</span>')+'</td>'+
+      '<td class="n">'+(usesBox(it.kubun) ? '<span class="capcell">'+numCell(it.boxCap,'data-f="boxCap" data-code="'+esc(it.code)+'"')+(it.boxCapEdited?'<span class="tag">個別</span>':'')+'</span>' : '<span class="ro">―</span>')+'</td>'+
+      '<td>'+selCell(it.capState, CAP_STATES, 'data-f="capState" data-code="'+esc(it.code)+'"', 'pillsel capsel')+'</td>'+
+      '<td class="b-cur sto gstart">'+selCell(it.curMain, allowedMains(it.kubun).includes(it.curMain) ? allowedMains(it.kubun) : [it.curMain].concat(allowedMains(it.kubun)), 'data-f="curMain" data-code="'+esc(it.code)+'"', 'pillsel')+'</td>'+
+      '<td class="b-qty n gstart qty-key"><span class="capcell">'+(mm ? numCell(t,'data-f="manTeisu" data-code="'+esc(it.code)+'"') : '<span class="num">'+fmt(t)+'</span>')+(manT?'<span class="tag warn">手入力</span>':(it.stale?'<span class="tag warn">前回値</span>':''))+'</span></td>'+
+      '<td class="b-qty n"><span class="capcell">'+(mm ? numCell(f,'data-f="manFree" data-code="'+esc(it.code)+'"') : '<span class="num">'+fmt(f)+'</span>')+(manF?'<span class="tag warn">手入力</span>':'')+'</span></td>'+
+      '<td class="b-rec sto gstart">'+stoPill(j.recMain)+'</td>'+
+      '<td class="gstart">'+pill(j.result, j.cat)+'</td>'+
+      '<td>'+bufPill(j)+'</td>'+
+      '<td class="reason">'+esc(j.reason)+'</td>'+
+      '<td>'+(j.need ? '<span class="need '+(j.need === '要' ? 'yes' : 'no')+'">'+j.need+'</span>' : '<span class="ro">―</span>')+'</td>'+
+      '<td>'+selCell(it.status, STATUSES, 'data-f="status" data-code="'+esc(it.code)+'"', 'pillsel statsel')+'</td>'+
+      '<td><input class="cell-in note-in" value="'+esc(it.note)+'" data-f="note" data-code="'+esc(it.code)+'" placeholder="—"><button class="rowbtn" data-open="'+esc(it.code)+'">詳細</button></td>'+
+    '</tr>';
+  }).join('');
+
+  $('tblMain').innerHTML = head + '<tbody>' + body + '</tbody>';
+  if(!R.length) $('tblMain').innerHTML = head + '<tbody><tr><td colspan="16" class="empty">条件に一致する商品はありません。</td></tr></tbody>';
+}
+
+function renderChange(){
+  const R = rows()
+    .filter(r => needsChange(r.j))
+    .filter(r => state.filters2.sta !== 'すべて' || r.it.status !== '例外運用')   // 例外運用は既定で伏せる
+    .filter(r => matches(r, state.filters2));
+  const R2 = sortRows(R);
+  const head = '<thead><tr class="headrow">'+
+    '<th class="thumb">画像</th>'+
+    '<th class="lead col-code">商品コード<button class="sortbtn'+(state.sort && state.sort.key === 'code' ? ' on' : '')+'" data-sort="code" title="商品コードで並び替え">'+sortMark('code')+'</button><span class="colgrip"></span></th>'+
+    '<th class="lead col-name">商品名<span class="colgrip"></span></th>'+
+    '<th class="b-cur gstart">現在の固定保管</th>'+
+    '<th class="b-qty n gstart">在庫定数</th><th class="b-qty n">小箱上限</th><th class="b-qty n">箱上限</th>'+
+    '<th class="b-rec gstart">推奨固定保管</th>'+
+    '<th class="gstart">判定結果</th><th>判定理由</th><th>対応状況</th><th></th></tr></thead>';
+  const body = R2.map(({it,j}) =>
+    '<tr data-cat="'+j.cat+'" data-code="'+esc(it.code)+'">'+
+    imgCell(it)+
+    '<td class="code stripe">'+esc(it.code)+'<span class="colgrip"></span></td>'+
+    '<td class="name" data-code="'+esc(it.code)+'" title="ダブルクリックで編集：'+esc(it.name)+'">'+esc(it.name)+'<span class="colgrip"></span></td>'+
+    '<td class="b-cur sto gstart">'+stoPill(it.curMain)+'</td>'+
+    '<td class="b-qty n qty-key gstart">'+fmt(j.teisu)+'</td>'+
+    '<td class="b-qty n">'+fmt(it.smallCap)+'</td><td class="b-qty n">'+fmt(it.boxCap)+'</td>'+
+    '<td class="b-rec sto gstart">'+stoPill(j.recMain)+'</td>'+
+    '<td class="gstart">'+pill(j.result, j.cat)+'</td>'+
+    '<td class="reason">'+esc(j.reason)+'</td>'+
+    '<td>'+selCell(it.status, STATUSES, 'data-f="status" data-code="'+esc(it.code)+'"', 'pillsel statsel')+'</td>'+
+    '<td><button class="rowbtn" data-open="'+esc(it.code)+'">詳細</button></td></tr>'
+  ).join('');
+  $('tblChange').innerHTML = head + '<tbody>' + (body || '<tr><td colspan="12" class="empty">変更が必要な商品はありません。今月の移動作業はゼロです。</td></tr>') + '</tbody>';
+}
+
+/* §33 バッファ使用候補一覧。固定保管の変更ではなく、いま入りきらない可能性のあるSKU。 */
+function renderBuffer(){
+  const R = sortRows(rows().filter(r => r.j.buffer === '使用候補').filter(r => matches(r, state.filters3)));
+  const head = '<thead><tr class="headrow">'+
+    '<th class="thumb">画像</th>'+
+    '<th class="lead col-code">商品コード<button class="sortbtn'+(state.sort && state.sort.key === 'code' ? ' on' : '')+'" data-sort="code" title="商品コードで並び替え">'+sortMark('code')+'</button><span class="colgrip"></span></th>'+
+    '<th class="lead col-name">商品名<span class="colgrip"></span></th>'+
+    '<th class="b-cur gstart">固定保管</th><th class="b-cur n">収納上限</th>'+
+    '<th class="b-qty n gstart">在庫定数</th><th class="b-qty n">フリー在庫</th>'+
+    '<th class="n gstart">超過数量</th><th>対応状況</th><th></th></tr></thead>';
+  const body = R.map(({it,j}) =>
+    '<tr data-code="'+esc(it.code)+'">'+
+    imgCell(it)+
+    '<td class="code stripe">'+esc(it.code)+'<span class="colgrip"></span></td>'+
+    '<td class="name" data-code="'+esc(it.code)+'" title="ダブルクリックで編集：'+esc(it.name)+'">'+esc(it.name)+'<span class="colgrip"></span></td>'+
+    '<td class="b-cur sto gstart">'+stoPill(it.curMain)+'</td>'+
+    '<td class="b-cur n">'+fmt(capOf(it, it.curMain))+'</td>'+
+    '<td class="b-qty n gstart">'+fmt(j.teisu)+'</td><td class="b-qty n">'+fmt(j.free)+'</td>'+
+    '<td class="n gstart over-qty">'+fmt(j.over)+'</td>'+
+    '<td>'+selCell(it.status, STATUSES, 'data-f="status" data-code="'+esc(it.code)+'"', 'pillsel statsel')+'</td>'+
+    '<td><button class="rowbtn" data-open="'+esc(it.code)+'">詳細</button></td></tr>'
+  ).join('');
+  $('tblBuffer').innerHTML = head + '<tbody>' + (body || '<tr><td colspan="10" class="empty">固定保管に入りきらない可能性のある商品はありません。</td></tr>') + '</tbody>';
+}
+
+const STA_CAT = { '未対応':'up', '対応済':'dn', '例外運用':'cnt' };
+const CAP_CAT = { '仮設定':'al', 'SKU確認済':'dn' };
+const BUF_CAT = { '不要':'hold', '使用候補':'cnt' };
+function chipCat(v){ return v === 'すべて' ? 'all' : (CAT[v] || STA_CAT[v] || CAP_CAT[v] || BUF_CAT[v] || 'hold'); }
+function renderFilters(){
+  const mk = (target, cur, list, key, counts) => list.map(v =>
+    '<button class="chip" data-cat="'+chipCat(v)+'" data-fk="'+key+'" data-t="'+target+'" data-v="'+esc(v)+'"'
+    + (v === '未対応' ? ' title="変更が必要な商品のうち、まだ対応していないものだけを表示します（維持は含みません）"' : '')
+    + (v === '仮設定' ? ' title="収納上限がまだ基礎区分の初期値のままで、実測していないSKUです"' : '')
+    + ' aria-pressed="'+(cur === v)+'">'
+    + esc(v) + (counts ? '<span class="cnt">('+(counts[v] || 0)+')</span>' : '') + '</button>').join('');
+  const all = list => ['すべて'].concat(list);
+  const R  = rows();
+  const R2 = R.filter(r => needsChange(r.j) && r.it.status !== '例外運用');
+  const R3 = R.filter(r => r.j.buffer === '使用候補');
+
+  const f1 = state.filters, f2 = state.filters2, f3 = state.filters3;
+  $('resFilters').innerHTML  = mk('filters',  f1.res, all(RESULTS),    'res', chipCounts(R, f1, 'res', all(RESULTS)));
+  $('bufFilters').innerHTML  = mk('filters',  f1.buf, all(BUFFERS),    'buf', chipCounts(R, f1, 'buf', all(BUFFERS)));
+  $('capFilters').innerHTML  = mk('filters',  f1.cap, all(CAP_STATES), 'cap', chipCounts(R, f1, 'cap', all(CAP_STATES)));
+  $('staFilters').innerHTML  = mk('filters',  f1.sta, all(STATUSES),   'sta', chipCounts(R, f1, 'sta', all(STATUSES)));
+
+  $('resFilters2').innerHTML = mk('filters2', f2.res, all(RESULTS),  'res', chipCounts(R2, f2, 'res', all(RESULTS)));
+  $('staFilters2').innerHTML = mk('filters2', f2.sta, all(STATUSES), 'sta', chipCounts(R2, f2, 'sta', all(STATUSES)));
+
+  $('staFilters3').innerHTML = mk('filters3', f3.sta, all(STATUSES), 'sta', chipCounts(R3, f3, 'sta', all(STATUSES)));
+
+  document.querySelectorAll('.floorbtn').forEach(b => {
+    const on = !!(state.sort && state.sort.key === 'floor');
+    b.classList.toggle('on', on);
+    b.textContent = on ? (state.sort.dir === 'desc' ? '階数でソート ↓（4F→2F）' : '階数でソート ↑（2F→4F）') : '階数でソート';
+  });
+}
+
+function renderSync(){
+  const s = state.sync;
+  $('syncChip').dataset.s = s.status;
+  $('syncText').textContent = s.status;
+  $('lastSync').textContent = s.at || '―';
+  const bad = ['同期失敗','認証エラー','一部商品取得エラー'].includes(s.status);
+  const b = $('banner');
+  b.classList.toggle('show', bad);
+  if(bad) b.innerHTML = '<b>最新データ取得失敗</b><span>'+esc(s.message)+'　表示中の在庫定数・フリー在庫は前回正常取得した値です（最新値ではありません）。</span>';
+}
+
+/* 表の高さを画面の残りに合わせる（横スクロールバーが常に画面内に出るように） */
+function fitTable(){
+  document.querySelectorAll('.tablewrap').forEach(el => {
+    // ページ先頭からこの表までの距離を引いた残り全部を表の高さにする。
+    // getBoundingClientRect().top は「今スクロールしている位置からの距離」なので、
+    // scrollY を足してページ先頭からの絶対位置に直す。これをしないと、
+    // 少しでもページがスクロールしていると表が画面をはみ出して収束しなくなる。
+    const top = el.getBoundingClientRect().top + window.scrollY;
+    const h = window.innerHeight - top - 12;   // 12px はカード下端の余白
+    el.style.maxHeight = Math.max(260, h) + 'px';
+  });
+}
+window.addEventListener('resize', fitTable);
+
+function applyColWidths(){
+  const w = (state.colw && state.colw.code) || 160;
+  const n = (state.colw && state.colw.name) || 214;
+  document.documentElement.style.setProperty('--w-code', w + 'px');
+  document.documentElement.style.setProperty('--w-name', n + 'px');
+}
+
+/* 商品コード・商品名の右端をドラッグして列幅を変える（見出しでも各行でも可） */
+(function colResize(){
+  let key = null, startX = 0, startW = 0;
+  document.addEventListener('mousedown', e => {
+    const g = e.target.closest && e.target.closest('.colgrip');
+    if(!g) return;
+    const cell = g.closest('td, th');
+    key = (cell.classList.contains('code') || cell.classList.contains('col-code')) ? 'code' : 'name';
+    startX = e.clientX;
+    startW = cell.getBoundingClientRect().width;
+    document.body.classList.add('colresizing');
+    e.preventDefault(); e.stopPropagation();
+  });
+  document.addEventListener('mousemove', e => {
+    if(!key) return;
+    if(!state.colw) state.colw = { code:160, name:214 };
+    state.colw[key] = Math.max(80, Math.min(600, Math.round(startW + (e.clientX - startX))));
+    applyColWidths();
+  });
+  document.addEventListener('mouseup', () => {
+    if(!key) return;
+    key = null;
+    document.body.classList.remove('colresizing');
+    save();
+  });
+  document.addEventListener('dblclick', e => {
+    if(e.target.closest && e.target.closest('.colgrip')) e.stopPropagation();
+  }, true);
+})();
+
+function render(){
+  applyColWidths();
+  renderTabCounts(); renderFilters(); renderMain(); renderChange(); renderBuffer(); renderSync(); renderShared(); save();
+  requestAnimationFrame(fitTable);
+}
+
+/* ============ 詳細ドロワー ============ */
+let openCode = null;
+function openDrawer(code){
+  const it = state.items.find(x => x.code === code);
+  if(!it) return;
+  const j = judge(it);
+  openCode = code;
+  const half = it.boxCap !== null && it.boxCap !== undefined ? it.boxCap * 0.5 : null;
+  const d = $('drawer');
+  d.innerHTML =
+  '<div class="dhead"><div><span class="code">'+esc(it.code)+'</span><h2>'+esc(it.name)+'</h2>'+
+    '<div style="margin-top:8px">'+pill(j.result, j.cat)+(j.need ? ' <span class="need '+(j.need==='要'?'yes':'no')+'" style="font-size:12px">変更要否：'+j.need+'</span>' : '')+'</div></div>'+
+    '<button class="iconbtn" id="dclose" aria-label="閉じる">×</button></div>'+
+
+  (it.imageUrl ? '<div class="dsec"><h3>商品画像</h3><img class="zoomimg" src="'+esc(thumbURL(it.imageUrl, 400))+'" alt=""></div>' : '')+
+  '<div class="dsec"><h3>現在 → 推奨</h3><div class="transit">'+
+    '<div class="state"><span class="lbl">現在の固定保管</span><span class="v">'+esc(it.curMain)+'</span></div>'+
+    '<span class="bigarrow">→</span>'+
+    '<div class="state rec"><span class="lbl">推奨固定保管</span><span class="v">'+esc(j.recMain || '―')+'</span></div>'+
+  '</div>'+
+  '<p class="reason-box" style="margin-top:10px">共用コンテナバッファ：<b>'+esc(j.buffer)+'</b>'+
+  (j.buffer === '使用候補' ? '（超過数量 '+fmt(j.over)+'）　一時的にコンテナへ置く候補です。固定保管は変えません。' : '')+'</p></div>'+
+
+  '<div class="dsec"><h3>判定に使った数値</h3><dl class="kv">'+
+    '<dt>在庫定数（NE取得）</dt><dd>'+fmt(it.apiTeisu)+'</dd>'+
+    '<dt>フリー在庫（NE取得）</dt><dd>'+fmt(it.apiFree)+'</dd>'+
+    (it.manTeisu !== null && it.manTeisu !== undefined ? '<dt>在庫定数（手入力値）</dt><dd>'+fmt(it.manTeisu)+'</dd>' : '')+
+    (it.manFree !== null && it.manFree !== undefined ? '<dt>フリー在庫（手入力値）</dt><dd>'+fmt(it.manFree)+'</dd>' : '')+
+    '<dt><b>固定保管の判定に使用中：在庫定数</b></dt><dd><b>'+fmt(j.teisu)+'</b></dd>'+
+    '<dt>バッファ判定に使用中：フリー在庫</dt><dd>'+fmt(j.free)+'</dd>'+
+    '<dt>MAX（在庫定数, フリー在庫）※参考</dt><dd>'+fmt(j.qty)+'</dd>'+
+    '<dt>小箱上限</dt><dd>'+fmt(it.smallCap)+(it.smallCapEdited?'（SKU個別）':'')+'</dd>'+
+    '<dt>箱上限</dt><dd>'+fmt(it.boxCap)+(it.boxCapEdited?'（SKU個別）':'')+'</dd>'+
+    '<dt>上限設定状態</dt><dd>'+esc(it.capState)+'</dd>'+
+    '<dt>箱上限の50%（降格しきい値）</dt><dd>'+fmt(half)+'</dd>'+
+    '<dt>現在の固定保管の収納上限（バッファ判定の基準）</dt><dd>'+fmt(capOf(it, it.curMain))+'</dd>'+
+    '<dt>NEからの最終取得日時</dt><dd>'+esc(jstStr(it.lastFetch) || '未取得')+'</dd>'+
+    (it.matchError ? '<dt>NE照合</dt><dd>商品コード未検出</dd>' : '')+
+  '</dl></div>'+
+
+  '<div class="dsec"><h3>判定理由</h3>'+
+    (j.errs && j.errs.length
+      ? '<ul class="errlist">'+j.errs.map(e => '<li>'+esc(e)+'</li>').join('')+'</ul>'
+      : '<p class="reason-box">'+esc(j.reason)+'</p>')+
+  '</div>'+
+
+  '<div class="dsec"><h3>ツール側で設定する項目</h3>'+
+    '<div class="field"><label>基礎区分</label><select data-df="kubun">'+KUBUN.map(k=>'<option'+(k===it.kubun?' selected':'')+'>'+k+'</option>').join('')+'</select></div>'+
+    '<div class="grid2">'+
+      '<div class="field"><label>小箱上限</label><input type="number" min="0" data-df="smallCap" value="'+(it.smallCap===null?'':it.smallCap)+'"'+(usesSmall(it.kubun)?'':' disabled')+'></div>'+
+      '<div class="field"><label>箱上限</label><input type="number" min="0" data-df="boxCap" value="'+(it.boxCap===null?'':it.boxCap)+'"'+(usesBox(it.kubun)?'':' disabled')+'></div>'+
+    '</div>'+
+    '<div class="grid2">'+
+      '<div class="field"><label>上限設定状態</label><select data-df="capState">'+CAP_STATES.map(m=>'<option'+(m===it.capState?' selected':'')+'>'+m+'</option>').join('')+'</select></div>'+
+      '<div class="field"><label>現在の固定保管（実移動後に更新）</label><select data-df="curMain">'+allowedMains(it.kubun).map(m=>'<option'+(m===it.curMain?' selected':'')+'>'+m+'</option>').join('')+(allowedMains(it.kubun).includes(it.curMain)?'':'<option selected>'+esc(it.curMain)+'</option>')+'</select></div>'+
+    '</div>'+
+    '<div class="field"><label>対応状況</label><select data-df="status"><option'+(it.status==='未対応'?' selected':'')+'>未対応</option><option'+(it.status==='対応済'?' selected':'')+'>対応済</option></select></div>'+
+    '<div class="field"><label>備考・例外対応（自動判定は残ります）</label><textarea data-df="note" placeholder="例：セール前の一時入荷。9月に通常水準へ戻る見込み">'+esc(it.note)+'</textarea></div>'+
+    '<button class="btn btn-sm" id="applyRec">推奨どおりに移動完了として反映（現在の固定保管を更新＋対応済）</button>'+
+  '</div>';
+
+  $('scrim').classList.add('show');
+  d.classList.add('show'); d.setAttribute('aria-hidden','false');
+  $('dclose').onclick = closeDrawer;
+  const ar = $('applyRec');
+  if(ar) ar.onclick = () => {
+    if(!j.recMain){ toast('要確認のSKUは反映できません'); return; }
+    it.curMain = j.recMain; it.status = '対応済'; markDirty();
+    render(); openDrawer(code); toast(it.code+' の現在の固定保管を更新しました');
+  };
+  d.querySelectorAll('[data-df]').forEach(el => {
+    el.addEventListener('change', e => {
+      applyField(it, e.target.dataset.df, e.target.value);
+      render(); openDrawer(code);
+    });
+  });
+}
+function closeDrawer(){
+  openCode = null;
+  $('scrim').classList.remove('show');
+  $('drawer').classList.remove('show');
+  $('drawer').setAttribute('aria-hidden','true');
+}
+
+/* ============ 編集 ============ */
+function applyField(it, field, value){
+  markDirty();
+  if(field === 'name'){ it.name = String(value); return; }
+  const numify = v => (v === '' || v === null) ? null : Number(v);
+  if(field === 'kubun'){
+    it.kubun = value;
+    const d = defCaps(value);
+    it.smallCap = d.s; it.boxCap = d.b; it.smallCapEdited = false; it.boxCapEdited = false;
+    it.capState = DEFAULT_CAP_STATE;   // 初期値に戻したので「仮設定」へ
+    const am = allowedMains(value);
+    if(!am.includes(it.curMain)){ it.curMain = am[0]; toast('基礎区分に合わせて現在の固定保管を「'+am[0]+'」に補正し、収納上限を初期値に戻しました'); }
+    else toast('収納上限を基礎区分の初期値に戻しました（上限設定状態は「仮設定」に戻ります）');
+  }
+  else if(field === 'smallCap'){ it.smallCap = numify(value); it.smallCapEdited = it.smallCap !== defCaps(it.kubun).s; }
+  else if(field === 'boxCap'){ it.boxCap = numify(value); it.boxCapEdited = it.boxCap !== defCaps(it.kubun).b; }
+  else if(field === 'curMain'){ it.curMain = value; }
+  else if(field === 'capState'){ it.capState = CAP_STATES.includes(value) ? value : DEFAULT_CAP_STATE; }
+  else if(field === 'status'){ it.status = value; }
+  else if(field === 'note'){ it.note = value; }
+  else if(field === 'manTeisu'){ it.manTeisu = numify(value); }
+  else if(field === 'manFree'){ it.manFree = numify(value); }
+}
+
+/* ============ NE同期（サーバー側＝GitHub Actions を起動） ============ */
+function nowStr(d){
+  d = d || new Date();
+  const p = n => String(n).padStart(2,'0');
+  return d.getFullYear()+'-'+p(d.getMonth()+1)+'-'+p(d.getDate())+' '+p(d.getHours())+':'+p(d.getMinutes());
+}
+function jstStr(iso){
+  if(!iso) return null;
+  const d = new Date(iso);
+  return isNaN(d) ? String(iso) : nowStr(d);
+}
+const actionsURL = () => 'https://github.com/'+gh.owner+'/'+gh.repo+'/actions/workflows/ne-sync.yml';
+
+/* idle / running（GitHubで実行中） / ready（取得完了・②待ち） / done（反映済み） */
+function setFlow(mode, note){
+  const f = $('flow'), n = $('flowNote'), b = $('syncBtn');
+  f.classList.toggle('running', mode === 'running');
+  f.classList.toggle('ready', mode === 'ready');
+  b.disabled = (mode === 'running');
+  b.innerHTML = mode === 'running'
+    ? '<span class="stepno">1</span>取得中…'
+    : '<span class="stepno">1</span>NEから最新データ取得';
+  if(note){
+    n.hidden = false;
+    n.textContent = note;
+    n.classList.toggle('wait', mode === 'running');
+  }else{
+    n.hidden = true;
+  }
+}
+
+let syncPoll = null;
+function stopSyncPoll(){ if(syncPoll){ clearInterval(syncPoll); syncPoll = null; } }
+
+/* 同期を投げたあと、GitHub側の完了を一定間隔で見に行く */
+function startSyncPoll(prevSyncedAt){
+  stopSyncPoll();
+  const started = Date.now();
+  const tick = async () => {
+    const sh = await fetchShared();
+    const done = sh.status === '読込済' && sh.ne && sh.ne.syncedAt && sh.ne.syncedAt !== prevSyncedAt;
+    if(done){
+      stopSyncPoll();
+      sharedInfo = { status:sh.status, updatedAt:sh.updatedAt || null, count:(sh.items||[]).length };
+      if(!state.dirty){
+        adoptShared(sh);
+        renderHeadToggle(); switchTab(state.tab || 'main'); render();
+        setFlow('done', '✓ 準備完了：' + jstStr(sh.ne.syncedAt) + ' 時点の在庫を反映しました（'
+                + sharedInfo.count.toLocaleString('ja-JP') + '件）');
+        toast('準備完了。最新の在庫で判定し直しました');
+      }else{
+        state.ne = sh.ne;
+        state.sync = { status: sh.ne.status || '同期成功', at: jstStr(sh.ne.syncedAt), message: sh.ne.message || '' };
+        render();
+        setFlow('ready', '✓ 取得完了：②「共有データを再読み込み」を押すと反映されます');
+        toast('NEの取得が完了しました。②を押してください');
+      }
+      return;
+    }
+    if(Date.now() - started > 6 * 60 * 1000){
+      stopSyncPoll();
+      state.sync.status = '未同期';
+      state.sync.message = '完了を確認できませんでした。GitHubのActions画面で実行結果を確認してください。';
+      setFlow('idle', null);
+      renderSync();
+    }
+  };
+  syncPoll = setInterval(tick, 15000);
+  setTimeout(tick, 8000);
+}
+
+async function sync(){
+  const btn = $('syncBtn');
+  $('flowNote').hidden = true;
+  if(!ghReady()){
+    showText('ネクストエンジン同期の実行', 
+      '同期はGitHub Actions（サーバー側）で実行します。ブラウザから直接ネクストエンジンを呼ぶことはありません。\n\n'+
+      '・毎朝7:00に自動実行されます。\n'+
+      '・今すぐ実行したい場合は、次のページを開いて「Run workflow」を押してください。\n'+
+      actionsURL()+'\n\n'+
+      'このボタンから実行できるようにするには、「保存設定」でトークンを登録してください'+
+      '（トークンの権限に Actions: Read and write が必要です）。', '');
+    return;
+  }
+  state.sync.status = '同期中'; state.sync.message = ''; renderSync();
+  btn.disabled = true;
+  try{
+    const res = await fetchT('https://api.github.com/repos/'+gh.owner+'/'+gh.repo+'/actions/workflows/ne-sync.yml/dispatches', {
+      method:'POST',
+      headers: Object.assign({'Content-Type':'application/json'}, ghHeaders()),
+      body: JSON.stringify({ ref: gh.branch })
+    }, 20000);
+    if(res.status === 204){
+      state.sync.status = '同期中';
+      state.sync.message = 'GitHub Actionsで実行中です。完了すると自動で反映されます。';
+      renderSync();
+      setFlow('running', 'ネクストエンジンから取得中です。完了すると自動で反映されます（1分ほど）');
+      startSyncPoll(state.ne && state.ne.syncedAt ? state.ne.syncedAt : null);
+      toast('取得を開始しました。完了すると自動で反映されます');
+    }else if(res.status === 403 || res.status === 404){
+      state.sync.status = '未同期';
+      setFlow('idle', null);
+      renderSync();
+      showText('このトークンでは同期を実行できません',
+        'トークンの権限に Actions: Read and write がありません。\n\n'+
+        '対処は2つです。\n'+
+        '1) GitHubでトークンを作り直し、Permissions に Actions（Read and write）を追加する\n'+
+        '2) 次のページを開いて「Run workflow」を手で押す\n'+
+        actionsURL(), '');
+    }else{
+      state.sync.status = '同期失敗';
+      state.sync.message = ghError(res.status);
+      setFlow('idle', null);
+      renderSync();
+    }
+  }catch(e){
+    state.sync.status = '同期失敗';
+    state.sync.message = 'GitHubに接続できませんでした。';
+    setFlow('idle', null);
+    renderSync();
+  }finally{
+    if(!syncPoll) btn.disabled = false;
+  }
+}
+
+/* ============ その他UI ============ */
+let toastT;
+function toast(msg){
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600);
+}
+function switchTab(name){
+  state.tab = name;
+  document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
+  ['main','change','buffer','rules'].forEach(n => { $('panel-'+n).hidden = (n !== name); });
+  requestAnimationFrame(fitTable);
+  save();
+}
+
+function renderRules(){
+  const capRows = KUBUN.map(k => '<tr><td>'+k+'</td><td class="num">'+(defCaps(k).s ?? '―')+'</td><td class="num">'+(defCaps(k).b ?? '―')+'</td></tr>').join('');
+  $('rulesBody').innerHTML =
+  '<h2>固定保管と共用コンテナバッファ</h2>'+
+  '<p>保管方法は2つに分けて考えます。</p>'+
+  '<p><b>① 固定保管</b>：SKUごとに通常使用する固定の保管場所（小箱 / 箱 / コンテナ）。判定の対象はこちらです。</p>'+
+  '<p><b>② 共用コンテナバッファ</b>：入庫直後などに固定保管へ入りきらない分を、倉庫全体で流動的に使うコンテナへ一時保管する状態。'+
+  '<b>SKUの固定保管場所としては保存しません。</b>商品Aの在庫が減れば同じコンテナを商品Bが使います。</p>'+
+
+  '<h2>固定保管の判定は在庫定数で行う</h2>'+
+  '<p><b>在庫定数</b>＝そのSKUについて通常時に保有しておきたい数量。<b>フリー在庫</b>＝いま実際に倉庫にあり、場所を取っている数量。</p>'+
+  '<p>固定保管の昇格・降格は<b>在庫定数</b>だけで判定します。入庫直後にフリー在庫が一時的に増えただけで固定保管を変えると、'+
+  '必要以上に大きな場所をSKU専用に確保し続けることになるためです。フリー在庫は、いま入りきらないかどうか（バッファ判定）にだけ使います。</p>'+
+
+  '<h2>保管ルート</h2><div class="routes">'+
+    '<div class="route"><span class="rk">小箱-多収納<br>小箱-少収納</span>'+
+      '<span class="step">小箱</span><span class="arrow">⇔</span><span class="step">箱</span></div>'+
+    '<div class="route"><span class="rk">箱-多収納<br>箱-少収納</span><span class="step">箱</span></div>'+
+    '<div class="route"><span class="rk">コンテナ</span><span class="step">コンテナ（固定）</span></div>'+
+  '</div>'+
+  '<p>通常商品のルートは<b>小箱 ⇔ 箱</b>だけです。在庫が増えたことを理由に、小箱→箱→固定コンテナと昇格させることはしません。'+
+  'コンテナを固定保管にするのは、商品サイズなどの理由でもともとコンテナ保管が必要な商品だけです。</p>'+
+  '<p><b>「多収納 / 少収納」は収納上限の初期値を決めるための暫定的な分類です。</b>'+
+  '判定そのものはこの名称を見ず、使える保管ルートと、SKUごとの小箱上限・箱上限だけで行います。'+
+  'そのため、将来この分類を「小箱 / 箱 / コンテナ」の3つへ統合しても、判定結果は変わりません。</p>'+
+
+  '<h2>昇格・降格・箱上限超過</h2>'+
+  '<p><b>昇格（小箱→箱）</b>：在庫定数 ＞ 小箱上限。ちょうど100%は維持。</p>'+
+  '<p><b>降格（箱→小箱）</b>：①在庫定数 ＜ 箱上限×50% ②在庫定数 ≦ 小箱上限　の<b>両方</b>を満たす場合のみ。ちょうど50%は降格しません。</p>'+
+  '<p><b>箱上限超過</b>：在庫定数 ＞ 箱上限。この場合も<b>固定コンテナへ自動昇格させません</b>。推奨固定保管は箱のままにして「箱上限超過」と表示し、'+
+  '箱上限そのものが適切か・在庫定数が適切か・倉庫運用上の別対応が要るかを担当者が確認します。</p>'+
+  '<p><b>コンテナ固定商品</b>：在庫定数やフリー在庫の増減でコンテナ以外へ自動変更しません。</p>'+
+
+  '<h2>バッファ判定</h2>'+
+  '<p><b>使用候補</b>：フリー在庫 ＞ 現在の固定保管の収納上限。<b>不要</b>：それ以外。'+
+  '超過数量 ＝ MAX（フリー在庫 − 現在の固定保管の収納上限, 0）。</p>'+
+  '<p>これは固定保管の変更ではありません。SKU専用のコンテナを新設せず、共用コンテナへ一時保管する候補という意味です。</p>'+
+
+  '<h2>収納上限の初期値と上限設定状態</h2>'+
+  '<table class="rtable"><thead><tr><th>基礎区分</th><th>小箱上限</th><th>箱上限</th></tr></thead><tbody>'+capRows+'</tbody></table>'+
+  '<p>初期値は基礎区分ごとに自動設定され、SKU単位で上書きできます。<b>最終的な判定に使われるのは、SKUごとの数値です。</b></p>'+
+  '<p><b>上限設定状態</b>は、その上限が基礎区分の仮の初期値なのか、実際に確認した値なのかを表します。'+
+  '<b>仮設定</b>＝まだ実測していない／<b>SKU確認済</b>＝実際の収納上限を確認済み。'+
+  '「上限設定状態＝仮設定」で絞り込むと、これから調査すべきSKUだけを抽出できます。</p>'+
+  '<p>収納上限とは、通常の倉庫作業でその保管場所へ<b>現実的に</b>収納できる最大数量です。物理的に無理やり詰め込める最大数量ではありません。</p>'+
+
+  '<h2>要確認になる条件</h2>'+
+  '<p>在庫定数・フリー在庫の未取得、必要な収納上限の未入力、小箱上限＞箱上限、マイナス値、基礎区分と現在の固定保管の矛盾、API商品照合エラー。'+
+  'これらは自動判定を行わず「要確認」と表示します（不足データを0として扱いません）。'+
+  'API取得に失敗しても前回正常取得値は削除せず、「前回値」と表示して判定を続けます。</p>'+
+
+  '<h2>現在の固定保管は自動で書き換えない</h2>'+
+  '<p>推奨固定保管が出ても、現在の固定保管は自動更新しません。倉庫担当者が実際に商品を移動したあとで、'+
+  '「現在の固定保管」を更新し、対応状況を「対応済」にしてください。システム上だけ変わって現物が動いていない状態を防ぐためです。</p>'+
+
+  '<h2>月次の運用フロー</h2>'+
+  '<p>① ネクストエンジン同期 → ② 推奨固定保管・判定結果・判定理由・バッファ判定が自動再計算される → ③「保管変更対象」で移動が要るSKUを確認 → '+
+  '④「バッファ使用候補」で一時的に入りきらないSKUを確認 → ⑤ 倉庫で作業する → ⑥ 現在の固定保管を更新し、対応済にする。</p>'+
+
+  '<h2>SKU別収納上限の整備</h2>'+
+  '<p>① 全SKU一覧で「上限設定状態＝仮設定」に絞る → ②［CSVダウンロード］→ ③ Excel等で小箱上限・箱上限を入力し、上限設定状態を「SKU確認済」にする → '+
+  '④［CSV取込］→ ⑤ 変更内容を確認して［この内容で反映］→ ⑥ 対象SKUの判定が自動で計算し直される。</p>'+
+  '<p>CSV取込で更新できるのは<b>小箱上限・箱上限・上限設定状態</b>だけです。商品名・在庫定数・フリー在庫はNEから取得する情報なので上書きしません。'+
+  '<b>空欄は「今の値を維持」</b>です（Excel編集時の空欄で上限が消える事故を防ぐため）。値を消したいときだけ半角の <code>-</code> を入れてください。</p>';
+}
+
+/* ============ イベント ============ */
+document.addEventListener('change', e => {
+  const el = e.target;
+  if(el.dataset && el.dataset.f && el.dataset.code){
+    const it = state.items.find(x => x.code === el.dataset.code);
+    if(it){ applyField(it, el.dataset.f, el.value); render(); if(openCode === it.code) openDrawer(it.code); }
+  }
+});
+document.addEventListener('click', e => {
+  const t = e.target.closest('[data-open], [data-sort], [data-xls], .chip, .tab');
+  if(!t) return;
+  if(t.dataset.open){ openDrawer(t.dataset.open); return; }
+  if(t.classList.contains('tab')){ switchTab(t.dataset.tab); return; }
+  if(t.dataset && t.dataset.xls){
+    const R = rows();
+    const list = t.dataset.xls === 'filters2'
+      ? sortRows(R.filter(r => needsChange(r.j))
+                  .filter(r => state.filters2.sta !== 'すべて' || r.it.status !== '例外運用')
+                  .filter(r => matches(r, state.filters2)))
+      : sortRows(R.filter(r => matches(r, state.filters)));
+    exportXlsx(list);
+    return;
+  }
+  if(t.dataset && t.dataset.sort){
+    const k = t.dataset.sort;
+    const cur = state.sort;
+    if(cur && cur.key === k) state.sort = { key:k, dir: cur.dir === 'asc' ? 'desc' : 'asc' };
+    else state.sort = { key:k, dir: k === 'floor' ? 'desc' : 'asc' };
+    render();
+    return;
+  }
+  if(t.classList.contains('chip')){
+    state[t.dataset.t][t.dataset.fk] = t.dataset.v;
+    render(); return;
+  }
+});
+$('q').addEventListener('input', e => { state.filters.q = e.target.value; renderMain(); });
+$('q2').addEventListener('input', e => { state.filters2.q = e.target.value; renderChange(); });
+$('q3').addEventListener('input', e => { state.filters3.q = e.target.value; renderBuffer(); });
+$('manualMode').addEventListener('change', e => {
+  state.manualMode = e.target.checked;
+  toast(state.manualMode ? '手動入力モード：在庫定数・フリー在庫を編集できます（通常運用ではAPI取得値を優先）' : '通常モード：API取得値で判定します');
+  render();
+});
+$('syncBtn').addEventListener('click', sync);
+$('scrim').addEventListener('click', () => { closeDrawer(); closeCsvModal(); });
+document.addEventListener('keydown', e => { if(e.key === 'Escape'){ closeDrawer(); closeCsvModal(); } });
+$('copyBtn').addEventListener('click', () => {
+  const R = rows().filter(r => needsChange(r.j) && r.it.status !== '例外運用');
+  const head = ['商品コード','商品名','現在の固定保管','在庫定数','小箱上限','箱上限','推奨固定保管','判定結果','判定理由','対応状況'].join('\t');
+  const body = R.map(({it,j}) => [it.code,it.name,it.curMain,j.teisu,it.smallCap,it.boxCap,j.recMain||'―',j.result,j.reason,it.status].join('\t')).join('\n');
+  const d = $('drawer');
+  d.innerHTML = '<div class="dhead"><div><h2>保管変更対象（'+R.length+'件）</h2><span class="code">選択してコピーし、Excel等に貼り付けてください</span></div><button class="iconbtn" id="dclose" aria-label="閉じる">×</button></div>'+
+    '<div class="dsec"><textarea style="width:100%;min-height:60vh;font-family:var(--f-num);font-size:11px;border:1px solid var(--line-strong);border-radius:6px;padding:10px;background:var(--surface-2)">'+esc(head+'\n'+body)+'</textarea></div>';
+  $('scrim').classList.add('show'); d.classList.add('show'); d.setAttribute('aria-hidden','false');
+  $('dclose').onclick = closeDrawer;
+  const ta = d.querySelector('textarea'); ta.focus(); ta.select();
+});
+
+/* ============ 共有データ・CSVのボタン ============ */
+$('reloadShared').addEventListener('click', async () => {
+  stopSyncPoll();
+  if(state.dirty && state.items.length &&
+     !confirm('この端末で編集した内容は、共有データの内容に置き換わります。続けますか？')) return;
+  const sh = await fetchShared();
+  sharedInfo = { status:sh.status, updatedAt:sh.updatedAt || null, count:(sh.items||[]).length };
+  if(sh.status === '読込済'){
+    adoptShared(sh);
+    $('manualMode').checked = false;
+    renderHeadToggle(); switchTab(state.tab); render();
+    setFlow('done', '✓ 準備完了：共有データ（' + sh.items.length.toLocaleString('ja-JP') + '件）を反映しました');
+    toast('共有データを読み込みました（'+sh.items.length+'件）');
+  }else{ renderShared(); toast('共有データを読み込めませんでした：'+sh.status); }
+});
+/* ---- CSV取り込みモーダル ---- */
+let pendingCSV = null;
+
+function openCsvModal(){
+  pendingCSV = null; pendingPlan = null; pendingText = null; pendingName = '';
+  $('csvPreview').hidden = true;
+  $('csvAllowAdd').checked = false;
+  $('csvInfo').textContent = '';
+  $('csvInfo').classList.remove('err');
+  $('csvApply').disabled = true;
+  $('dropzone').classList.remove('over');
+  $('csvModal').hidden = false;
+  $('scrim').classList.add('show');
+  $('dropzone').focus();
+}
+function closeCsvModal(){
+  $('csvModal').hidden = true;
+  if(!$('drawer').classList.contains('show')) $('scrim').classList.remove('show');
+  pendingCSV = null; pendingPlan = null; pendingText = null;
+}
+function csvInfo(html, isErr){
+  const el = $('csvInfo');
+  el.innerHTML = html;
+  el.classList.toggle('err', !!isErr);
+}
+let pendingPlan = null, pendingName = '';
+async function acceptCsvFile(file){
+  if(!file) return;
+  pendingPlan = null; pendingName = file.name;
+  $('csvApply').disabled = true;
+  $('csvPreview').hidden = true;
+  if(!/\.csv$/i.test(file.name) && file.type && !/csv|text/.test(file.type)){
+    csvInfo('CSVファイルを選んでください（選ばれたファイル：' + esc(file.name) + '）', true);
+    return;
+  }
+  const text = await readTextFile(file);
+  buildCsvPreview(text);
+}
+let pendingText = null;
+function buildCsvPreview(text){
+  if(text !== undefined) pendingText = text;
+  if(pendingText === null) return;
+  const plan = planCSV(pendingText, { allowAdd: $('csvAllowAdd').checked });
+  pendingPlan = plan;
+  const n = v => Number(v).toLocaleString('ja-JP');
+  const hasWork = plan.changed > 0 || plan.adds.length > 0;
+  csvInfo(esc(pendingName) + '<br>'
+    + '対象SKU：<b>' + n(plan.rows) + '</b> 件　'
+    + '変更あり：<b>' + n(plan.changed) + '</b> 件　'
+    + '変更なし：<b>' + n(plan.same) + '</b> 件'
+    + (plan.adds.length ? '　新規追加：<b>' + n(plan.adds.length) + '</b> 件' : '')
+    + '　エラー：<b class="' + (plan.errors.length ? 'ng' : '') + '">' + n(plan.errors.length) + '</b> 件'
+    + (plan.warns.length ? '　警告：<b>' + n(plan.warns.length) + '</b> 件' : ''),
+    plan.errors.length > 0 && !hasWork);
+  $('csvApply').disabled = !hasWork;
+
+  const CAPROWS = 300;
+  const fv = v => (v === null || v === undefined || v === '') ? '―' : String(v);
+  let html = '';
+  if(plan.errors.length){
+    html += '<h3 class="cpv-h ng">エラー（この行は反映しません）</h3><ul class="cpv-list">'
+      + plan.errors.slice(0, CAPROWS).map(e =>
+          '<li>' + (e.line ? e.line + '行目 ' : '') + (e.code ? '<b>' + esc(e.code) + '</b>：' : '') + esc(e.msg) + '</li>').join('')
+      + '</ul>'
+      + (plan.errors.length > CAPROWS ? '<p class="cpv-more">ほか ' + n(plan.errors.length - CAPROWS) + ' 件</p>' : '');
+  }
+  if(plan.warns.length){
+    html += '<h3 class="cpv-h">警告（反映はします）</h3><ul class="cpv-list">'
+      + plan.warns.slice(0, 50).map(e => '<li>' + e.line + '行目 <b>' + esc(e.code) + '</b>：' + esc(e.msg) + '</li>').join('')
+      + '</ul>';
+  }
+  if(plan.changes.length){
+    html += '<h3 class="cpv-h">変更される内容（' + n(plan.changes.length) + ' 項目）</h3>'
+      + '<table class="cpv-table"><thead><tr><th>商品コード</th><th>商品名</th><th>項目</th><th class="n">現在値</th><th class="n">取込後</th></tr></thead><tbody>'
+      + plan.changes.slice(0, CAPROWS).map(c =>
+          '<tr><td class="code">' + esc(c.code) + '</td><td>' + esc(String(c.name).slice(0, 20)) + '</td><td>' + esc(c.field) + '</td>'
+          + '<td class="n">' + esc(fv(c.before)) + '</td><td class="n after">' + esc(fv(c.after)) + '</td></tr>').join('')
+      + '</tbody></table>'
+      + (plan.changes.length > CAPROWS ? '<p class="cpv-more">ほか ' + n(plan.changes.length - CAPROWS) + ' 項目（反映はすべてに行われます）</p>' : '');
+  }
+  if(plan.adds.length){
+    html += '<h3 class="cpv-h">新規追加される商品コード（' + n(plan.adds.length) + ' 件）</h3>'
+      + '<p class="cpv-more">' + esc(plan.adds.slice(0, 60).map(a => a.code).join('、')) + (plan.adds.length > 60 ? ' ほか' : '') + '</p>';
+  }
+  if(!html) html = '<p class="cpv-more">変更される項目はありません。</p>';
+  $('csvPreview').innerHTML = html;
+  $('csvPreview').hidden = false;
+}
+
+/* 商品名はダブルクリックで編集 */
+document.addEventListener('dblclick', e => {
+  const td = e.target.closest && e.target.closest('td.name[data-code]');
+  if(!td || td.querySelector('input')) return;
+  const it = state.items.find(x => x.code === td.dataset.code);
+  if(!it) return;
+  const before = it.name;
+  td.innerHTML = '<input class="name-in" value="'+esc(it.name)+'">';
+  const inp = td.querySelector('input');
+  inp.focus(); inp.select();
+  let closed = false;
+  const finish = keep => {
+    if(closed) return; closed = true;
+    if(keep && inp.value !== before){ applyField(it, 'name', inp.value.trim()); render(); }
+    else render();
+  };
+  inp.addEventListener('blur', () => finish(true));
+  inp.addEventListener('keydown', ev => {
+    if(ev.key === 'Enter'){ ev.preventDefault(); finish(true); }
+    if(ev.key === 'Escape'){ ev.preventDefault(); finish(false); }
+  });
+});
+
+$('csvBtn').addEventListener('click', openCsvModal);
+$('csvCancel').addEventListener('click', closeCsvModal);
+$('dropzone').addEventListener('click', () => $('csvIn').click());
+$('dropzone').addEventListener('keydown', e => { if(e.key === 'Enter' || e.key === ' '){ e.preventDefault(); $('csvIn').click(); } });
+$('csvIn').addEventListener('change', async e => {
+  const f = e.target.files && e.target.files[0];
+  e.target.value = '';
+  await acceptCsvFile(f);
+});
+['dragenter','dragover'].forEach(ev => $('dropzone').addEventListener(ev, e => {
+  e.preventDefault(); e.stopPropagation(); $('dropzone').classList.add('over');
+}));
+['dragleave','dragend'].forEach(ev => $('dropzone').addEventListener(ev, e => {
+  e.preventDefault(); e.stopPropagation(); $('dropzone').classList.remove('over');
+}));
+$('dropzone').addEventListener('drop', async e => {
+  e.preventDefault(); e.stopPropagation();
+  $('dropzone').classList.remove('over');
+  await acceptCsvFile(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files[0]);
+});
+// ページ外へのドロップでブラウザがファイルを開いてしまうのを防ぐ
+['dragover','drop'].forEach(ev => document.addEventListener(ev, e => {
+  if(!e.target.closest || !e.target.closest('#dropzone')) e.preventDefault();
+}));
+$('csvAllowAdd').addEventListener('change', () => buildCsvPreview());
+$('csvApply').addEventListener('click', () => {
+  if(!pendingPlan) return;
+  const r = applyCSVPlan(pendingPlan, pendingName);
+  closeCsvModal();
+  render();   // §29 上限が変わったSKUはこの再描画でそのまま再判定される
+  toast('CSVを反映しました（更新 '+r.updated+'件'+(r.added?' / 新規追加 '+r.added+'件':'')+(r.errors?' / エラー '+r.errors+'件':'')+'）。判定は自動で計算し直しました');
+});
+function exportCsvFile(){
+  if(!state.items.length){ toast('書き出す商品がありません'); return; }
+  offerFile('保管形式判定くん.csv', exportCSV(), 'text/csv');
+}
+function exportJsonFile(){
+  if(!state.items.length){ toast('書き出す商品がありません'); return; }
+  offerFile('data.json', sharedJSON(), 'application/json');
+}
+$('pushShared').addEventListener('click', async () => {
+  if(!ghReady()){ openGhSetup(); return; }
+  if(!state.items.length){ toast('保存する商品がありません'); return; }
+  const btn = $('pushShared');
+  btn.disabled = true; btn.textContent = '保存中…';
+  try{
+    const json = sharedJSON();
+    await ghPut(json);
+    state.sharedStamp = JSON.parse(json).updatedAt;
+    state.dirty = false;
+    sharedInfo = { status:'読込済', updatedAt:state.sharedStamp, count:state.items.length };
+    render();
+    toast('GitHubに保存しました。ほかのPCは再読み込みで反映されます');
+  }catch(e){
+    showText('GitHubに保存できませんでした', String(e.message || e), '');
+  }finally{
+    btn.disabled = false; btn.textContent = 'GitHubに保存';
+  }
+});
+
+function openGhSetup(){
+  const d = $('drawer');
+  d.innerHTML =
+  '<div class="dhead"><div><h2>共有データの保存設定</h2>'+
+    '<span class="code">GitHubに直接保存できるようにします（担当者のPCのみ）</span></div>'+
+    '<button class="iconbtn" id="dclose" aria-label="閉じる">×</button></div>'+
+  '<div class="dsec"><h3>保存先</h3>'+
+    '<div class="grid2">'+
+      '<div class="field"><label>オーナー（ユーザー名）</label><input data-gh="owner" value="'+esc(gh.owner)+'"></div>'+
+      '<div class="field"><label>リポジトリ名</label><input data-gh="repo" value="'+esc(gh.repo)+'"></div>'+
+      '<div class="field"><label>ブランチ</label><input data-gh="branch" value="'+esc(gh.branch)+'"></div>'+
+      '<div class="field"><label>ファイル名</label><input data-gh="path" value="'+esc(gh.path)+'"></div>'+
+    '</div></div>'+
+  '<div class="dsec"><h3>アクセストークン</h3>'+
+    '<div class="field"><label>Fine-grained personal access token</label>'+
+      '<input type="password" data-gh="token" autocomplete="off" placeholder="'+(gh.token ? '設定済み（変更する場合のみ入力）' : 'github_pat_… を貼り付け')+'"></div>'+
+    '<p class="reason-box">このトークンは<b>このブラウザにのみ</b>保存され、GitHubには送られません（保存先のGitHubへの通信にのみ使います）。共用PCや、ほかの人も使うブラウザでは設定しないでください。CSVや共有用JSONにも含まれません。</p>'+
+    '<div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">'+
+      '<button class="btn btn-sm btn-primary" id="ghTest">接続を確認して保存</button>'+
+      '<button class="btn btn-sm ghost" id="ghClear">トークンを削除</button>'+
+    '</div>'+
+    '<p id="ghMsg" class="reason-box" style="margin-top:12px;display:none"></p>'+
+  '</div>'+
+  '<div class="dsec"><h3>その他の書き出し</h3>'+
+    '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
+      '<button class="btn btn-sm" id="csvOut">CSVを書き出す</button>'+
+      '<button class="btn btn-sm" id="jsonOut">共有用JSONを書き出す</button>'+
+    '</div>'+
+    '<p class="reason-box" style="margin-top:11px">共有用JSONは、トークンを使わずに GitHub の data.json を差し替えたいときに使います。'+
+    '商品一覧そのものを配りたいときはCSVを書き出してください（表の見た目のままExcelで見たい場合は、一覧側のExcel出力を使います）。</p>'+
+  '</div>'+
+  '<div class="dsec"><h3>トークンの作り方</h3>'+
+    '<ol class="errlist" style="color:var(--ink-2)">'+
+      '<li>GitHub → 右上のアイコン → Settings → 一番下の Developer settings</li>'+
+      '<li>Personal access tokens → Fine-grained tokens → Generate new token</li>'+
+      '<li>Repository access で「Only select repositories」→ このリポジトリだけを選ぶ</li>'+
+      '<li>Permissions → Repository permissions → <b>Contents</b> を <b>Read and write</b> にする</li>'+
+      '<li>Expiration（期限）を決めて Generate token。表示された文字列をこの画面に貼り付ける</li>'+
+    '</ol>'+
+    '<p class="reason-box">トークンは表示されたときにしかコピーできません。リポジトリのファイルには絶対に貼り付けないでください（Publicなので誰でも読めてしまい、GitHubに自動で無効化されます）。</p>'+
+  '</div>';
+  $('scrim').classList.add('show'); d.classList.add('show'); d.setAttribute('aria-hidden','false');
+  $('dclose').onclick = closeDrawer;
+  const readForm = () => {
+    const next = Object.assign({}, gh);
+    d.querySelectorAll('[data-gh]').forEach(el => {
+      const k = el.dataset.gh, v = el.value.trim();
+      if(k === 'token'){ if(v) next.token = v; }
+      else if(v) next[k] = v;
+    });
+    return next;
+  };
+  const msg = (text, ok) => {
+    const m = $('ghMsg');
+    m.style.display = 'block';
+    m.style.color = ok ? 'var(--dn)' : 'var(--alert)';
+    m.textContent = text;
+  };
+  $('ghTest').onclick = async () => {
+    const next = readForm();
+    if(!next.token){ msg('トークンが入力されていません。', false); return; }
+    const saved = gh; gh = next;
+    try{
+      const r = await fetchT(apiURL() + '?ref=' + encodeURIComponent(gh.branch) + '&t=' + Date.now(), {headers:ghHeaders(), cache:'no-store'}, 15000);
+      if(!r.ok && r.status !== 404) throw new Error(ghError(r.status));
+      ghSave(gh);
+      msg(r.status === 404
+        ? '接続できました。'+gh.path+' はまだ無いので、最初の保存で新規作成します。'
+        : '接続できました。「GitHubに保存」で保存できます。', true);
+      renderGhButton();
+    }catch(e){
+      gh = saved;
+      const m = String(e.message || e);
+      msg(/fetch|abort|network|Failed/i.test(m) ? 'GitHubに接続できませんでした。通信環境とリポジトリ名を確認してください。' : m, false);
+    }
+  };
+  $('csvOut').onclick = exportCsvFile;
+  $('jsonOut').onclick = exportJsonFile;
+  $('ghClear').onclick = () => {
+    delete gh.token; ghSave(gh); renderGhButton();
+    msg('このブラウザからトークンを削除しました。', true);
+  };
+}
+/* §21 全SKU一覧の操作ボタン（表バーに配置） */
+$('opsCsvOut').addEventListener('click', () => exportCsvFile());
+$('opsCsvIn').addEventListener('click', openCsvModal);
+
+/* §30 CSV取込履歴。誤ったCSVを取り込んだとき、何が変わったか追える。 */
+$('opsHistory').addEventListener('click', () => {
+  const h = Array.isArray(state.csvHistory) ? state.csvHistory : [];
+  const d = $('drawer');
+  const body = h.length ? h.map((r, i) =>
+    '<div class="dsec"><h3>'+esc(r.at)+'　'+esc(r.file)+'</h3>'+
+    '<p class="reason-box">更新 '+r.updated+'件'+(r.added?' / 新規追加 '+r.added+'件':'')+
+      ' / エラー '+r.errors+'件'+(r.warns?' / 警告 '+r.warns+'件':'')+'</p>'+
+    (r.changes && r.changes.length
+      ? '<table class="cpv-table"><thead><tr><th>商品コード</th><th>項目</th><th class="n">変更前</th><th class="n">変更後</th></tr></thead><tbody>'+
+        r.changes.slice(0, 200).map(c => '<tr><td class="code">'+esc(c.code)+'</td><td>'+esc(c.field)+'</td>'+
+          '<td class="n">'+esc(c.before === null || c.before === undefined ? '―' : c.before)+'</td>'+
+          '<td class="n after">'+esc(c.after === null || c.after === undefined ? '―' : c.after)+'</td></tr>').join('')+
+        '</tbody></table>'+(r.changes.length > 200 ? '<p class="cpv-more">ほか '+(r.changes.length-200)+' 項目</p>' : '')
+      : '<p class="cpv-more">変更された項目はありません。</p>')+
+    '</div>').join('')
+    : '<div class="dsec"><p class="cpv-more">まだCSV取込の履歴はありません。</p></div>';
+  d.innerHTML = '<div class="dhead"><div><h2>CSV取込履歴</h2><span class="code">直近20回ぶんを、この端末に保存しています</span></div>'+
+    '<button class="iconbtn" id="dclose" aria-label="閉じる">×</button></div>' + body;
+  $('scrim').classList.add('show'); d.classList.add('show'); d.setAttribute('aria-hidden','false');
+  $('dclose').onclick = closeDrawer;
+});
+
+function renderGhButton(){ $('pushShared').hidden = !ghReady(); }
+$('ghSetup').addEventListener('click', openGhSetup);
+
+function renderHeadToggle(){
+  const on = !!state.hideHead;
+  document.body.classList.toggle('head-hidden', on);
+  document.querySelectorAll('.headtoggle').forEach(b => {
+    b.textContent = on ? 'ヘッダーを表示' : 'ヘッダーを隠す';
+    b.setAttribute('aria-pressed', String(on));
+  });
+}
+document.addEventListener('click', e => {
+  if(e.target.closest && e.target.closest('.headtoggle')){
+    state.hideHead = !state.hideHead;
+    renderHeadToggle(); fitTable(); save();
+  }
+});
+
+$('clearAll').addEventListener('click', () => {
+  if(!state.items.length){ toast('データはすでに空です'); return; }
+  const keep = state.items.length;
+  const canRestore = sharedInfo.status === '読込済' && sharedInfo.count > 0;
+  const msg = 'この端末の商品データ ' + keep.toLocaleString('ja-JP') + ' 件をすべて消去します。よろしいですか？\n\n'
+    + (canRestore
+        ? '共有データ（data.json）に ' + sharedInfo.count.toLocaleString('ja-JP') + ' 件あるので、'
+          + '「共有データを再読み込み」で元に戻せます。'
+        : '⚠ 共有データ（data.json）にデータがないため、元に戻せません。\n'
+          + '消したあとはCSVを取り込み直すことになります。');
+  if(!confirm(msg)) return;
+  state = blankState();
+  $('manualMode').checked = false;
+  renderHeadToggle();
+  render();
+  toast(canRestore
+    ? keep + '件を消去しました。「共有データを再読み込み」で元に戻せます'
+    : keep + '件を消去しました');
+});
+
+/* ============ 起動 ============ */
+(async function boot(){
+  $('ver').textContent = APP_VERSION;
+  renderRules();
+  const saved = load();
+  if(saved){
+    state = Object.assign(blankState(), saved);
+    state.items = (saved.items || []).map(normalize);
+  }
+  $('manualMode').checked = !!state.manualMode;
+  if(!state.filters3) state.filters3 = { q:'', res:'すべて', sta:'すべて', cap:'すべて', buf:'すべて' };
+  if(!Array.isArray(state.csvHistory)) state.csvHistory = [];
+  $('q').value = state.filters.q; $('q2').value = state.filters2.q; $('q3').value = state.filters3.q;
+  renderGhButton();
+  renderHeadToggle();
+  switchTab(state.tab || 'main');
+  render();                                  // まず手元の状態で表示
+
+  const sh = await fetchShared();
+  sharedInfo = { status:sh.status, updatedAt:sh.updatedAt || null, count:(sh.items||[]).length };
+  // 自動で取り込むのは、この端末にデータが一度も無いときだけ。
+  // すでにデータがある場合は勝手に置き換えず、「共有データを再読み込み」を押したときだけ反映する。
+  //
+  // fetchShared() は数秒かかることがある（GitHubに繋がらないとタイムアウト待ちになる）。
+  // その待ち時間のあいだにユーザーがCSVを取り込む・サンプルを入れることがあるので、
+  // 起動時点の saved だけでなく「今この瞬間もまだ空か」も必ず確認する。
+  // これを外すと、取り込んだ直後のデータが空の data.json で消える。
+  if(!saved && sh.status === '読込済' && !state.items.length){
+    adoptShared(sh);
+    switchTab(state.tab || 'main');
+  }
+  render();
+})();
+
+/* ============ 自己検証（仕様書の判定例） ============ */
+(function selfTest(){
+  /* [推奨固定保管, 判定結果, バッファ判定] */
+  const expect = {
+    'ABC-001':['小箱','維持','不要'],        // 定数80 ≦ 小箱上限100
+    'ABC-002':['箱','昇格','使用候補'],      // §13 定数200 ＞ 小箱上限100、箱上限500以内。移動前はフリー在庫150も小箱上限100超
+    'ABC-003':['箱','箱上限超過','使用候補'],// §15 定数800 ＞ 箱上限500。固定コンテナへは昇格させない
+    'ABC-004':['小箱','降格','不要'],        // §14 定数40 ＜ 250 かつ ≦ 100
+    'ABC-005':['箱','維持','不要'],          // 定数200 ＜ 250 だが小箱上限100を超える
+    'ABC-006':['箱','箱上限超過','使用候補'],// 定数700 ＞ 箱上限500
+    'ABC-007':['箱','維持','不要'],          // 定数400 は箱上限の50%以上
+    'ABC-008':['小箱','降格','不要'],
+    'ABC-009':['小箱','維持','使用候補'],    // §16 固定保管は小箱のまま、フリー在庫300が上限超過
+    'CNT-001':['コンテナ','維持','不要'],    // §4 コンテナ固定
+    'SML-011':['小箱','維持','不要'],
+    'SML-012':['箱','昇格','使用候補'],      // 定数120 ＞ 小箱上限30、箱上限150以内。フリー在庫90も小箱上限30超
+    'BOX-021':['箱','箱上限超過','使用候補'],// 箱区分。定数60 ＞ 箱上限40
+    'BOX-022':['箱','維持','使用候補'],      // フリー在庫250 ＞ 箱上限190
+    'NEW-031':[null,'要確認','不要'],        // §35 一度も取得できていない
+    'NG-041' :[null,'要確認','不要']         // 箱区分なのに現在の固定保管が小箱
+  };
+  const base = seed(); const out = [];
+  base.forEach(it => {
+    const e = expect[it.code]; if(!e) return;
+    const j = judge(it);
+    const ok = j.recMain === e[0] && j.result === e[1] && j.buffer === e[2];
+    out.push((ok ? 'PASS ' : 'FAIL ') + it.code + ' → ' + j.recMain + '/' + j.result + '/バッファ' + j.buffer
+             + (ok ? '' : '  期待:' + e.join('/')));
+  });
+  console.log('【判定ロジック自己検証】\n' + out.join('\n'));
+})();
+})();
+</script>
+</body>
+</html>
