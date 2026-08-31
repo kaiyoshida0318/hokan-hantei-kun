@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>保管形式判定くん</title>
-<meta name="description" content="在庫定数とフリー在庫から、主保管（小箱／箱／コンテナ）と予備保管コンテナの要否を自動判定する倉庫向け管理ツール。">
+<meta name="description" content="在庫定数から固定保管（小箱／箱／コンテナ）を自動判定し、フリー在庫から共用コンテナバッファの使用候補を抽出する倉庫向け管理ツール。">
 <style>
 *,*::before,*::after{box-sizing:border-box}
 html{-webkit-text-size-adjust:100%}
@@ -557,6 +557,31 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
 }
 .toast.show{opacity:1;transform:translate(-50%,0)}
 .foot{margin-top:16px;font-family:var(--f-body);font-size:12.5px;color:var(--ink-2);line-height:1.75}
+
+/* ===== 新仕様で追加した見た目 ===== */
+.opsbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px;padding:12px 14px;
+  border:1px solid var(--line);border-radius:10px;background:var(--surface-2)}
+.opsbar .opsnote{font-size:12px;color:var(--ink-2);flex:1 1 240px;line-height:1.55}
+.pill.buf{background:#efe7fb;color:#5b3a99;border:1px solid #d9c8f2}
+:root[data-theme="dark"] .pill.buf,html.dark .pill.buf{background:#3a2c55;color:#d9c6ff;border-color:#523f78}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .pill.buf{background:#3a2c55;color:#d9c6ff;border-color:#523f78}}
+.bufqty{margin-left:5px;font-size:11px;opacity:.85}
+td.over-qty{font-weight:700;color:#7a4fc0}
+select.cell-in.capsel{width:104px}
+.modal-card.wide{max-width:900px;width:min(900px,94vw)}
+.toggle.csvadd{display:flex;align-items:center;gap:7px;margin:10px 0 0;font-size:12.5px;color:var(--ink-2)}
+.csvpreview{margin-top:12px;max-height:44vh;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--surface-2)}
+.cpv-h{margin:10px 0 6px;font-size:12.5px;font-weight:700;color:var(--ink)}
+.cpv-h:first-child{margin-top:0}
+.cpv-h.ng{color:var(--alert)}
+.cpv-list{margin:0 0 6px;padding-left:18px;font-size:12px;color:var(--ink-2);line-height:1.7}
+.cpv-more{margin:6px 0 0;font-size:12px;color:var(--ink-2)}
+.cpv-table{width:100%;border-collapse:collapse;font-size:12px}
+.cpv-table th,.cpv-table td{border:1px solid var(--line);padding:4px 7px;text-align:left;white-space:nowrap}
+.cpv-table th{background:var(--surface);font-weight:700}
+.cpv-table td.n,.cpv-table th.n{text-align:right;font-family:var(--f-num)}
+.cpv-table td.after{font-weight:700;color:var(--brand)}
+.dz-info b.ng{color:var(--alert)}
 </style>
 
   <header class="masthead">
@@ -605,7 +630,7 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
       <span class="flownote" id="flowNote" hidden></span>
     </div>
     <div class="dbactions">
-      <button class="btn btn-sm" id="csvBtn">CSVを取り込む</button>
+      <button class="btn btn-sm" id="csvBtn">CSV取込</button>
       <button class="btn btn-sm btn-primary" id="pushShared" hidden>GitHubに保存</button>
       <button class="btn btn-sm" id="ghSetup">保存設定</button>
       <button class="btn btn-sm ghost" id="clearAll">全消去</button>
@@ -615,15 +640,26 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
   <div class="kpis" id="kpis"></div>
 
   <div class="tabs" role="tablist">
-    <button class="tab" role="tab" aria-selected="true" data-tab="main">メイン一覧</button>
-    <button class="tab" role="tab" aria-selected="false" data-tab="change">変更対象一覧 <span id="changeCount" class="num"></span></button>
+    <button class="tab" role="tab" aria-selected="true" data-tab="main">全SKU一覧</button>
+    <button class="tab" role="tab" aria-selected="false" data-tab="change">保管変更対象 <span id="changeCount" class="num"></span></button>
+    <button class="tab" role="tab" aria-selected="false" data-tab="buffer">バッファ使用候補 <span id="bufferCount" class="num"></span></button>
     <button class="tab" role="tab" aria-selected="false" data-tab="rules">判定ルール</button>
   </div>
 
   <section id="panel-main">
+    <div class="opsbar">
+      <button class="btn btn-primary" id="opsSync">ネクストエンジン同期</button>
+      <button class="btn" id="opsCsvOut">CSVダウンロード</button>
+      <button class="btn" id="opsCsvIn">CSV取込</button>
+      <span class="opsnote">CSVは、SKUごとの小箱上限・箱上限・上限設定状態をまとめて確認・変更するために使います。</span>
+      <button class="btn btn-sm ghost" id="opsHistory">取込履歴</button>
+    </div>
     <div class="panel filters">
       <div class="toolbar">
         <div class="fgroup"><span class="glabel">判定結果</span><span id="resFilters"></span></div>
+        <div class="rowbreak"></div>
+        <div class="fgroup"><span class="glabel">バッファ判定</span><span id="bufFilters"></span></div>
+        <div class="fgroup"><span class="glabel">上限設定状態</span><span id="capFilters"></span></div>
         <div class="rowbreak"></div>
         <div class="fgroup"><span class="glabel">対応状況</span><span id="staFilters"></span></div>
       </div>
@@ -660,6 +696,23 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
     </div>
   </section>
 
+  <section id="panel-buffer" hidden>
+    <div class="panel filters">
+      <div class="toolbar">
+        <div class="fgroup"><span class="glabel">対応状況</span><span id="staFilters3"></span></div>
+        <span class="opsnote">共用コンテナへ一時保管する候補です。<b>固定保管の変更ではありません。</b>超過数量＝フリー在庫 − 現在の固定保管の収納上限。</span>
+      </div>
+    </div>
+    <div class="tablecard">
+      <div class="tablebar">
+        <div class="search"><input type="search" id="q3" placeholder="商品コード・商品名で検索"></div>
+        <button class="btn btn-sm floorbtn" data-sort="floor">階数でソート</button>
+        <button class="btn btn-sm headtoggle" aria-pressed="false">ヘッダーを隠す</button>
+      </div>
+      <div class="tablewrap"><table id="tblBuffer"></table></div>
+    </div>
+  </section>
+
   <section class="panel" id="panel-rules" hidden>
     <div class="rules" id="rulesBody"></div>
   </section>
@@ -668,24 +721,29 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
     ネクストエンジンの在庫定数・フリー在庫は、GitHub Actions（サーバー側）が <code>ne-sync-worker</code> から取得して <code>data.json</code> に書き込みます。
     ブラウザからネクストエンジンを直接呼ぶことはなく、<code>NE_READ_API_TOKEN</code> はこの画面には渡りません。
     毎朝7:00に自動実行され、「NEから最新データ取得」を押すと手動でも実行できます。
-    取得できなかった商品は0で埋めず、前回取得値を残して「前回値」と表示します。
+    取得できなかった商品は0で埋めず、前回取得値を残して「前回値」と表示します。ネクストエンジン同期で、基礎区分・小箱上限・箱上限・上限設定状態・現在の固定保管・対応状況・備考が上書きされることはありません。
   </p>
 </div>
 
 <div class="scrim" id="scrim"></div>
 
 <div class="modal" id="csvModal" hidden>
-  <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="csvTitle">
-    <h2 id="csvTitle">CSVを取り込む</h2>
-    <p class="modal-lead">商品リストのCSVを読み込みます。すでにある商品コードは上書き、無いものは追加されます。</p>
+  <div class="modal-card wide" role="dialog" aria-modal="true" aria-labelledby="csvTitle">
+    <h2 id="csvTitle">CSV取込</h2>
+    <p class="modal-lead">商品コードをキーに照合し、<b>小箱上限・箱上限・上限設定状態</b>を更新します。
+      商品名・在庫定数・フリー在庫はネクストエンジンから取得する情報なので上書きしません。
+      現在の固定保管も、実際の倉庫移動を伴うため一括更新の対象外です。
+      <b>空欄は「今の値を維持」</b>です。値を消したいときだけ半角の <code>-</code> を入れてください。</p>
     <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="CSVファイルを選択">
       <div class="dz-mark">＋</div>
       <div class="dz-main">ここにCSVファイルをドロップ</div>
       <div class="dz-sub">またはクリックしてファイルを選ぶ</div>
     </div>
+    <label class="toggle csvadd"><input type="checkbox" id="csvAllowAdd"> ツールに無い商品コードは新規追加する（初回の商品登録に使います）</label>
     <div class="dz-info" id="csvInfo"></div>
+    <div class="csvpreview" id="csvPreview" hidden></div>
     <div class="modal-actions">
-      <button class="btn btn-primary" id="csvApply" disabled>反映する</button>
+      <button class="btn btn-primary" id="csvApply" disabled>この内容で反映</button>
       <button class="btn" id="csvCancel">キャンセル</button>
     </div>
     <input type="file" id="csvIn" accept=".csv,text/csv" hidden>
@@ -731,8 +789,9 @@ const DEFAULT_KUBUN = '小箱-多収納';
    }; */
 const KUBUN_ALIAS = {};
 
-/* 保管ルートごとの主保管の並び（容量の小さい順）。
-   ここに段階を足せば、判定はそのまま多段階に対応します。 */
+/* 保管ルートごとの固定保管の並び（容量の小さい順）。
+   通常商品のルートは「小箱 ⇔ 箱」だけ。コンテナは共用バッファなので、
+   在庫が増えたことを理由にここへ昇格させることはありません。 */
 const ROUTE_CHAIN = {
   '小箱'   : ['小箱','箱'],
   '箱'     : ['箱'],
@@ -754,25 +813,17 @@ function kubunDef(k){
 const routeOf = k => { const d = kubunDef(k); return d ? d.route : null; };
 const defCaps = k => { const d = kubunDef(k); return d ? {s:d.smallCap, b:d.boxCap} : {s:null, b:null}; };
 const STATUSES = ['未対応','対応済','例外運用'];
-const RESULTS = ['維持','昇格','降格','予備保管追加','予備保管解除','昇格＋予備保管追加','昇格＋予備保管解除','降格＋予備保管解除','降格＋予備保管追加','要確認'];
-const CAT = {
-  '維持':'hold','昇格':'up','予備保管追加':'up','昇格＋予備保管追加':'up','昇格＋予備保管解除':'up',
-  '降格':'dn','予備保管解除':'dn','降格＋予備保管解除':'dn','降格＋予備保管追加':'dn','要確認':'al'
-};
+/* 上限設定状態：その上限が基礎区分の仮の初期値なのか、実際に確認したSKU固有値なのか */
+const CAP_STATES = ['仮設定','SKU確認済'];
+const DEFAULT_CAP_STATE = '仮設定';
+/* 固定保管の判定結果。コンテナへの昇格・予備保管という概念は持たない。 */
+const RESULTS = ['維持','昇格','降格','箱上限超過','要確認'];
+const CAT = { '維持':'hold','昇格':'up','降格':'dn','箱上限超過':'al','要確認':'al' };
+/* 共用コンテナバッファの使用判定。SKUの固定保管場所としては保存しない。 */
+const BUFFERS = ['不要','使用候補'];
 const RANK = {'小箱':0,'箱':1,'コンテナ':2};
-/* 主保管の並び（容量の小さい順）。基礎区分の名称ではなく route で決まる。 */
+/* 固定保管の並び（容量の小さい順）。基礎区分の名称ではなく route で決まる。 */
 function allowedMains(k){ return ROUTE_CHAIN[routeOf(k)] || ['箱']; }
-/* 予備コンテナは、主保管が小箱でも箱でも設定できる（小箱＋コンテナは例外運用として有効）。
-   ただし主保管がコンテナのときは付けられない。 */
-function allowedSubs(k, main){
-  return (routeOf(k) !== 'コンテナ' && main !== 'コンテナ') ? ['なし','コンテナ'] : ['なし'];
-}
-/* 自動判定が推奨として出す予備保管は、そのルートの一番大きい主保管のときだけ。
-   小箱＋コンテナは担当者が選ぶ例外運用なので、ツールからは推奨しない。 */
-function recommendsSub(k, main){
-  const chain = allowedMains(k);
-  return routeOf(k) !== 'コンテナ' && main === chain[chain.length - 1];
-}
 const usesSmall = k => allowedMains(k).includes('小箱');
 const usesBox   = k => allowedMains(k).includes('箱');
 /* SKUごとの収納上限。判定はすべてこの値で行う。 */
@@ -783,13 +834,14 @@ function capOf(it, main){
 }
 const fmt = v => (v === null || v === undefined || v === '') ? '―' : Number(v).toLocaleString('ja-JP');
 
-/* ============ 初期データ（仕様書ケース1〜10を再現＋追加） ============ */
+/* ============ 初期データ（仕様書の例をそのまま再現） ============ */
 function seed(){
-  const S = (code,name,kubun,s,b,main,sub,teisu,free,extra) => Object.assign({
+  const S = (code,name,kubun,s,b,main,teisu,free,extra) => Object.assign({
     code, name, kubun, smallCap:s, boxCap:b,
     smallCapEdited: s !== defCaps(kubun).s,
     boxCapEdited:   b !== defCaps(kubun).b,
-    curMain:main, curSub:sub,
+    capState: DEFAULT_CAP_STATE,
+    curMain:main,
     apiTeisu:teisu, apiFree:free,
     manTeisu:null, manFree:null,
     stale:false, matchError:false,
@@ -797,36 +849,53 @@ function seed(){
     status:'未対応', note:''
   }, extra || {});
   return [
-    S('ABC-001','モバイルバッテリー 5000mAh','小箱-多収納',100,500,'小箱','なし',80,60),
-    S('ABC-002','USB-C ケーブル 1m ブラック','小箱-多収納',100,500,'小箱','なし',200,150),
-    S('ABC-003','ワイヤレスイヤホン 充電ケース付','小箱-多収納',100,500,'小箱','なし',800,600),
-    S('ABC-004','スマホリング スタンド兼用','小箱-多収納',100,500,'箱','なし',40,30),
-    S('ABC-005','レンズクリーナー 30ml','小箱-多収納',100,500,'箱','なし',200,180),
-    S('ABC-006','A4クリアファイル 10枚組','小箱-多収納',100,500,'箱','コンテナ',700,650),
-    S('ABC-007','卓上カレンダー 2027','小箱-多収納',100,500,'箱','コンテナ',400,300,{note:'年末に再入荷予定'}),
-    S('ABC-008','マウスパッド 大判','小箱-多収納',100,500,'箱','コンテナ',40,20),
-    S('ABC-009','名刺ケース アルミ','小箱-多収納',100,500,'小箱','なし',80,300,{note:'セール用の一時入荷（8月末まで）'}),
-    S('CNT-001','折りたたみコンテナ 50L','コンテナ',null,null,'コンテナ','なし',50,30),
-    S('SML-011','アロマオイル 10ml 詰替','小箱-少収納',30,150,'小箱','なし',25,18),
-    S('SML-012','ハンドクリーム 50g','小箱-少収納',30,150,'小箱','なし',120,90),
-    S('BOX-021','ペットフード ドライ 5kg','箱-少収納',null,40,'箱','なし',60,55),
-    S('BOX-022','トイレットペーパー 12ロール','箱-多収納',null,190,'箱','なし',60,50),
-    S('NEW-031','【新規】保冷バッグ Lサイズ','小箱-多収納',150,750,'小箱','なし',null,null),
-    S('NG-041','園芸用プランター 60cm','箱-多収納',null,190,'小箱','なし',35,30)
+    /* §36 維持：在庫定数80 ≦ 小箱上限100 */
+    S('ABC-001','モバイルバッテリー 5000mAh','小箱-多収納',100,500,'小箱',80,60),
+    /* §13 昇格：在庫定数200 ＞ 小箱上限100、かつ箱上限500以内 */
+    S('ABC-002','USB-C ケーブル 1m ブラック','小箱-多収納',100,500,'小箱',200,150),
+    /* §15 箱上限超過：在庫定数800 ＞ 箱上限500。固定コンテナへは昇格させない */
+    S('ABC-003','ワイヤレスイヤホン 充電ケース付','小箱-多収納',100,500,'小箱',800,600),
+    /* §14 降格：在庫定数40 ＜ 箱上限500の50%（250）、かつ小箱上限100以内 */
+    S('ABC-004','スマホリング スタンド兼用','小箱-多収納',100,500,'箱',40,30),
+    /* 降格しない：在庫定数200 は箱上限500の50%（250）未満だが小箱上限100を超える */
+    S('ABC-005','レンズクリーナー 30ml','小箱-多収納',100,500,'箱',200,180),
+    /* 箱上限超過（現在も箱） */
+    S('ABC-006','A4クリアファイル 10枚組','小箱-多収納',100,500,'箱',700,650),
+    /* 維持：在庫定数400 は箱上限500の50%以上 */
+    S('ABC-007','卓上カレンダー 2027','小箱-多収納',100,500,'箱',400,300,{note:'年末に再入荷予定'}),
+    /* 降格：在庫定数40 ＜ 250 かつ ≦ 100 */
+    S('ABC-008','マウスパッド 大判','小箱-多収納',100,500,'箱',40,20),
+    /* §16 維持＋バッファ使用候補：定数80は小箱上限100以内、フリー在庫300が上限超過 */
+    S('ABC-009','名刺ケース アルミ','小箱-多収納',100,500,'小箱',80,300,{note:'セール用の一時入荷（8月末まで）'}),
+    /* §4 コンテナ固定商品：在庫数に関わらずコンテナのまま */
+    S('CNT-001','折りたたみコンテナ 50L','コンテナ',null,null,'コンテナ',50,30),
+    S('SML-011','アロマオイル 10ml 詰替','小箱-少収納',30,150,'小箱',25,18),
+    /* 昇格：定数120 ＞ 小箱上限30、かつ箱上限150以内 */
+    S('SML-012','ハンドクリーム 50g','小箱-少収納',30,150,'小箱',120,90),
+    /* 箱区分＋箱上限超過：定数60 ＞ 箱上限40。小箱は使えないので降格対象外 */
+    S('BOX-021','ペットフード ドライ 5kg','箱-少収納',null,40,'箱',60,55),
+    /* 箱区分の維持＋バッファ使用候補：フリー在庫250 ＞ 箱上限190 */
+    S('BOX-022','トイレットペーパー 12ロール','箱-多収納',null,190,'箱',60,250),
+    /* §35 要確認：一度もNEから取得できていない */
+    S('NEW-031','【新規】保冷バッグ Lサイズ','小箱-多収納',150,750,'小箱',null,null),
+    /* 要確認：箱区分なのに現在の固定保管が小箱になっている */
+    S('NG-041','園芸用プランター 60cm','箱-多収納',null,190,'小箱',35,30)
   ];
 }
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.0027';
+const APP_VERSION = 'v1.1000';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
     items: [],
     sync:{ status:'未同期', at:null, message:'' },
     manualMode:false,
-    filters:{ q:'', res:'すべて', sta:'すべて' },
-    filters2:{ q:'', res:'すべて', sta:'すべて' },
+    filters:{ q:'', res:'すべて', sta:'すべて', cap:'すべて', buf:'すべて' },
+    filters2:{ q:'', res:'すべて', sta:'すべて', cap:'すべて', buf:'すべて' },
+    filters3:{ q:'', res:'すべて', sta:'すべて', cap:'すべて', buf:'すべて' },
+    csvHistory:[],
     tab:'main',
     hideHead:false,
     sort:null,
@@ -848,12 +917,14 @@ function normalize(raw){
   const sc = raw.smallCap === undefined ? def.s : num(raw.smallCap);
   const bc = raw.boxCap === undefined ? def.b : num(raw.boxCap);
   let main = ['小箱','箱','コンテナ'].includes(raw.curMain) ? raw.curMain : allowedMains(kubun)[0];
-  let sub  = raw.curSub === 'コンテナ' ? 'コンテナ' : 'なし';
+  /* 旧仕様の「現在の予備保管＝コンテナ」は固定保管形式として保存しない（共用バッファへ移行）。
+     読み込み時に黙って捨てる。curMain 自体は変えない。 */
   return {
     code:String(raw.code || '').trim(), name:String(raw.name || '').trim(),
     kubun, smallCap:sc, boxCap:bc,
     smallCapEdited: sc !== def.s, boxCapEdited: bc !== def.b,
-    curMain:main, curSub:sub,
+    capState: CAP_STATES.includes(raw.capState) ? raw.capState : DEFAULT_CAP_STATE,
+    curMain:main,
     apiTeisu:num(raw.apiTeisu !== undefined ? raw.apiTeisu : raw.teisu),
     apiFree :num(raw.apiFree  !== undefined ? raw.apiFree  : raw.free),
     manTeisu:num(raw.manTeisu), manFree:num(raw.manFree),
@@ -974,7 +1045,7 @@ function renderShared(){
 }
 
 /* ---- CSV ---- */
-const CSV_COLS = ['商品コード','商品名','画像URL','基礎区分','小箱上限','箱上限','現在の主保管','現在の予備保管','在庫定数','フリー在庫','対応状況','備考'];
+const CSV_COLS = ['商品コード','商品名','画像URL','基礎区分','小箱上限','箱上限','上限設定状態','現在の固定保管','在庫定数','フリー在庫','対応状況','備考'];
 function parseCSV(text){
   const rows = []; let row = [], cur = '', q = false;
   text = text.replace(/^﻿/, '');
@@ -998,46 +1069,129 @@ async function readTextFile(file){
   try{ return new TextDecoder('utf-8', {fatal:true}).decode(buf); }
   catch(e){ return new TextDecoder('shift_jis').decode(buf); }
 }
-function importCSV(text){
+/* ---- CSV取込：商品コードをキーに照合し、変更内容を先に確認してから反映する ---- */
+/* §25 取込で更新できるのは収納上限まわりだけ。商品名・在庫定数・フリー在庫はNEの情報なので上書きしない。
+   現在の固定保管も実移動を伴うため一括更新の対象外。 */
+const CSV_EDITABLE = ['小箱上限','箱上限','上限設定状態'];
+/* §28 空欄は「既存値を維持」。意図して値を消すときだけ、この記号を書く。 */
+const CSV_CLEAR = '-';
+
+function planCSV(text, opts){
+  const allowAdd = !!(opts && opts.allowAdd);
+  const out = { rows:0, changed:0, same:0, errors:[], warns:[], changes:[], adds:[], allowAdd };
   const rows = parseCSV(text);
-  if(!rows.length) return { added:0, updated:0, errors:['ファイルが空です'] };
+  if(rows.length < 2){ out.errors.push({ code:'', msg:'データ行がありません。1行目に見出し、2行目以降に商品を入れてください。' }); return out; }
   const head = rows[0].map(h => h.replace(/\s/g,''));
   const idx = n => head.indexOf(n);
-  if(idx('商品コード') < 0) return { added:0, updated:0, errors:['1行目に「商品コード」の見出しが見つかりません'] };
+  if(idx('商品コード') < 0){ out.errors.push({ code:'', msg:'1行目に「商品コード」の見出しが見つかりません。' }); return out; }
   const get = (r, n) => { const i = idx(n); return i < 0 ? undefined : String(r[i] === undefined ? '' : r[i]).trim(); };
-  let added = 0, updated = 0; const errors = [];
+  const byCode = new Map(state.items.map(x => [x.code, x]));
+  const seen = new Map();
+
   rows.slice(1).forEach((r, i) => {
-    const code = get(r,'商品コード');
-    if(!code) return;
-    const kubunRaw = get(r,'基礎区分');
-    if(kubunRaw && !KUBUN.includes(kubunRaw)){ errors.push((i+2)+'行目：基礎区分「'+kubunRaw+'」は使用できません'); return; }
-    const raw = {
-      code, name:get(r,'商品名') || '', imageUrl:get(r,'画像URL') || undefined, kubun:kubunRaw || undefined,
-      smallCap:get(r,'小箱上限'), boxCap:get(r,'箱上限'),
-      curMain:get(r,'現在の主保管'), curSub:get(r,'現在の予備保管'),
-      teisu:get(r,'在庫定数'), free:get(r,'フリー在庫'),
-      status:get(r,'対応状況'), note:get(r,'備考') || get(r,'備考・例外対応') || ''
+    const line = i + 2;
+    const code = get(r, '商品コード');
+    out.rows++;
+    if(!code){ out.errors.push({ line, code:'', msg:'商品コードが空欄です' }); return; }
+    if(seen.has(code)){ out.errors.push({ line, code, msg:'商品コードがCSV内で重複しています（'+seen.get(code)+'行目と同じ）' }); return; }
+    seen.set(code, line);
+
+    const it = byCode.get(code);
+    if(!it){
+      if(!allowAdd){ out.errors.push({ line, code, msg:'ツールに存在しない商品コードです' }); return; }
+      const kubunRaw = get(r, '基礎区分');
+      if(kubunRaw && !KUBUN.includes(kubunRaw)){ out.errors.push({ line, code, msg:'基礎区分「'+kubunRaw+'」は使用できません' }); return; }
+      out.adds.push({ line, code, raw:{
+        code, name:get(r,'商品名') || '', imageUrl:get(r,'画像URL') || undefined,
+        kubun:kubunRaw || undefined, smallCap:get(r,'小箱上限'), boxCap:get(r,'箱上限'),
+        capState:get(r,'上限設定状態'), curMain:get(r,'現在の固定保管') || get(r,'現在の主保管'),
+        teisu:get(r,'在庫定数'), free:get(r,'フリー在庫'),
+        status:get(r,'対応状況'), note:get(r,'備考') || ''
+      }});
+      return;
+    }
+
+    /* 数値項目：空欄＝維持、CSV_CLEAR＝削除、それ以外は数値でなければエラー */
+    let bad = false;
+    const readCap = (label, cur) => {
+      const v = get(r, label);
+      if(v === undefined || v === '') return { keep:true, value:cur };
+      if(v === CSV_CLEAR) return { keep:false, value:null };
+      if(!/^-?\d+(\.\d+)?$/.test(v)){ out.errors.push({ line, code, msg:label+'「'+v+'」は数値ではありません' }); bad = true; return { keep:true, value:cur }; }
+      const n = Number(v);
+      if(n < 0){ out.errors.push({ line, code, msg:label+'にマイナス値（'+v+'）が入力されています' }); bad = true; return { keep:true, value:cur }; }
+      return { keep:false, value:n };
     };
-    Object.keys(raw).forEach(k => { if(raw[k] === '') delete raw[k]; });
-    const item = normalize(raw);
-    const ex = state.items.findIndex(x => x.code === item.code);
-    if(ex >= 0){
-      const prev = state.items[ex];
-      state.items[ex] = Object.assign({}, prev, item, {
-        note: raw.note !== undefined ? item.note : prev.note,
-        status: raw.status !== undefined ? item.status : prev.status,
-        imageUrl: raw.imageUrl !== undefined ? item.imageUrl : prev.imageUrl
-      });
-      updated++;
-    }else{ state.items.push(item); added++; }
+    const sc = readCap('小箱上限', it.smallCap);
+    const bc = readCap('箱上限',   it.boxCap);
+
+    let cs = it.capState;
+    const csRaw = get(r, '上限設定状態');
+    if(csRaw !== undefined && csRaw !== ''){
+      if(!CAP_STATES.includes(csRaw)){ out.errors.push({ line, code, msg:'上限設定状態「'+csRaw+'」は使用できません（'+CAP_STATES.join(' / ')+'）' }); bad = true; }
+      else cs = csRaw;
+    }
+    if(bad) return;
+
+    if(sc.value !== null && bc.value !== null && sc.value > bc.value){
+      out.errors.push({ line, code, msg:'小箱上限（'+sc.value+'）が箱上限（'+bc.value+'）より大きくなっています' }); return;
+    }
+    const route = routeOf(it.kubun);
+    if(route === 'コンテナ' && (sc.value !== null || bc.value !== null))
+      out.warns.push({ line, code, msg:'コンテナ固定商品ですが、小箱上限・箱上限が入力されています（判定には使いません）' });
+    if(route === '箱' && sc.value !== null)
+      out.warns.push({ line, code, msg:'箱区分の商品ですが、小箱上限が入力されています（この区分は小箱を使いません）' });
+
+    const diff = [];
+    if(sc.value !== it.smallCap) diff.push({ field:'小箱上限', before:it.smallCap, after:sc.value });
+    if(bc.value !== it.boxCap)   diff.push({ field:'箱上限',   before:it.boxCap,   after:bc.value });
+    if(cs !== it.capState)       diff.push({ field:'上限設定状態', before:it.capState, after:cs });
+    if(!diff.length){ out.same++; return; }
+    out.changed++;
+    diff.forEach(d => out.changes.push({ line, code, name:it.name, field:d.field, before:d.before, after:d.after }));
   });
-  if(added || updated) markDirty();
-  return { added, updated, errors };
+  return out;
 }
+
+/* 確認画面で［この内容で反映］を押したときだけ、実際に書き換える */
+function applyCSVPlan(plan, fileName){
+  const byCode = new Map(state.items.map(x => [x.code, x]));
+  const codes = new Set();
+  plan.changes.forEach(c => {
+    const it = byCode.get(c.code);
+    if(!it) return;
+    if(c.field === '小箱上限'){ it.smallCap = c.after; it.smallCapEdited = it.smallCap !== defCaps(it.kubun).s; }
+    else if(c.field === '箱上限'){ it.boxCap = c.after; it.boxCapEdited = it.boxCap !== defCaps(it.kubun).b; }
+    else if(c.field === '上限設定状態'){ it.capState = c.after; }
+    codes.add(c.code);
+  });
+  let added = 0;
+  plan.adds.forEach(a => {
+    const raw = Object.assign({}, a.raw);
+    Object.keys(raw).forEach(k => { if(raw[k] === '') delete raw[k]; });
+    state.items.push(normalize(raw)); added++;
+  });
+  if(codes.size || added) markDirty();
+  pushCsvHistory(fileName, plan, codes.size, added);
+  return { updated:codes.size, added, errors:plan.errors.length };
+}
+
+/* §30 取込履歴。変更前の値も残して、誤った取込を追跡できるようにする。 */
+function pushCsvHistory(fileName, plan, updated, added){
+  if(!Array.isArray(state.csvHistory)) state.csvHistory = [];
+  state.csvHistory.unshift({
+    at: nowStr(), file: fileName || '(名前なし)',
+    updated, added, errors: plan.errors.length, warns: plan.warns.length,
+    changes: plan.changes.slice(0, 2000).map(c => ({ code:c.code, field:c.field, before:c.before, after:c.after }))
+  });
+  state.csvHistory = state.csvHistory.slice(0, 20);   // 直近20回ぶんだけ持つ
+}
+
+/* §22 CSVダウンロード。SKUごとの収納上限をExcel等でまとめて確認・入力するためのもの。 */
 function exportCSV(){
   const lines = [CSV_COLS.join(',')];
   const q = v => { const s = v === null || v === undefined ? '' : String(v); return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
-  state.items.forEach(it => lines.push([it.code,it.name,it.imageUrl,it.kubun,it.smallCap,it.boxCap,it.curMain,it.curSub,
+  state.items.forEach(it => lines.push([it.code,it.name,it.imageUrl,it.kubun,it.smallCap,it.boxCap,it.capState,it.curMain,
     usedTeisu(it),usedFree(it),it.status,it.note].map(q).join(',')));
   return '﻿' + lines.join('\r\n') + '\r\n';
 }
@@ -1050,7 +1204,7 @@ function sharedJSON(){
     items: state.items.map(it => ({
       code:it.code, name:it.name, kubun:it.kubun, smallCap:it.smallCap, boxCap:it.boxCap,
       imageUrl:it.imageUrl || undefined,
-      curMain:it.curMain, curSub:it.curSub, apiTeisu:it.apiTeisu, apiFree:it.apiFree,
+      capState:it.capState, curMain:it.curMain, apiTeisu:it.apiTeisu, apiFree:it.apiFree,
       lastFetch:it.lastFetch, stale:it.stale, matchError:it.matchError,
       neStockFound:it.neStockFound, neGoodsFound:it.neGoodsFound,
       status:it.status, note:it.note
@@ -1094,108 +1248,93 @@ function validate(it){
   [['在庫定数',t],['フリー在庫',f],['小箱上限',it.smallCap],['箱上限',it.boxCap]].forEach(([n,v])=>{
     if(v !== null && v !== undefined && v !== '' && Number(v) < 0) e.push(n+'にマイナス値が入力されています');
   });
-  if(!allowedMains(it.kubun).includes(it.curMain)) e.push('基礎区分「'+it.kubun+'」では現在の主保管に「'+it.curMain+'」を設定できません');
-  if(it.curSub === 'コンテナ' && !allowedSubs(it.kubun, it.curMain).includes('コンテナ'))
-    e.push('主保管が'+it.curMain+'のときは予備保管にコンテナを設定できません');
+  if(!allowedMains(it.kubun).includes(it.curMain)) e.push('基礎区分「'+it.kubun+'」では現在の固定保管に「'+it.curMain+'」を設定できません');
   return e;
 }
 
 function judge(it){
   const errs = validate(it);
   const t = usedTeisu(it), f = usedFree(it);
-  const qty = (t === null || f === null || t === undefined || f === undefined) ? null : Math.max(Number(t), Number(f));
+  const teisu = (t === null || t === undefined || t === '') ? null : Number(t);
+  const free  = (f === null || f === undefined || f === '') ? null : Number(f);
+  /* MAX値は参考情報としてだけ保持する（§12：固定保管判定の主基準にはしない） */
+  const qty = (teisu === null || free === null) ? null : Math.max(teisu, free);
 
   if(errs.length){
-    return { qty, recMain:null, recSub:null, result:'要確認', cat:'al',
+    return { teisu, free, qty, recMain:null, result:'要確認', cat:'al',
+             buffer:'不要', over:0, over1:0,
              reason:'【要確認】'+errs.join(' / ')+'。自動判定は行いません。', need:null, errs };
   }
 
   const k = it.kubun;
-  const chain = allowedMains(k);                 // 容量の小さい順に並んだ主保管
-  const cap = m => capOf(it, m);                 // 判定はすべてSKUごとの上限で行う
-  const curIdx = Math.max(0, chain.indexOf(it.curMain));
-  const curCap = cap(chain[curIdx]);
-  const half = curCap !== null ? curCap * 0.5 : null;
+  const route = routeOf(k);
+  const sCap = capOf(it, '小箱');
+  const bCap = capOf(it, '箱');
+  const canSmall = usesSmall(k);
 
-  const src = Number(f) > Number(t)
-    ? '在庫定数'+fmt(t)+'に対してフリー在庫'+fmt(f)+'のため、判定用在庫数'+fmt(qty)+'を採用。'
-    : '判定用在庫数は在庫定数'+fmt(t)+'とフリー在庫'+fmt(f)+'の大きい方＝'+fmt(qty)+'。';
+  let recMain, result, mainNote;
 
-  let recMain, recSub, mainNote, subNote = '', blocked = false;
-
-  if(routeOf(k) === 'コンテナ'){
-    recMain = 'コンテナ'; recSub = 'なし';
-    mainNote = '基礎区分「'+k+'」はコンテナ保管のため、在庫数に関わらず主保管はコンテナで固定。';
-  }else{
-    // 判定用在庫数を収納できる、いちばん小さい主保管を選ぶ（＝理想状態）
-    let idealIdx = chain.length - 1;
-    for(let i = 0; i < chain.length; i++){
-      const c = cap(chain[i]);
-      if(c !== null && qty <= c){ idealIdx = i; break; }
-    }
-
-    if(idealIdx > curIdx){
-      recMain = chain[idealIdx];
-      mainNote = '判定用在庫数'+fmt(qty)+' ＞ '+chain[curIdx]+'上限'+fmt(curCap)+'のため、主保管を'+chain[curIdx]+'から'+recMain+'へ昇格。';
-    }else if(idealIdx < curIdx){
-      // 降格は ①現在の主保管上限の50%未満 ②降格先に収まる の両方を満たすときだけ
-      const target = chain[idealIdx], targetCap = cap(target);
-      const c1 = half !== null && qty < half;
-      const c2 = targetCap !== null && qty <= targetCap;
-      if(c1 && c2){
-        recMain = target;
-        mainNote = '判定用在庫数'+fmt(qty)+' ＜ '+chain[curIdx]+'上限'+fmt(curCap)+'の50%（'+fmt(half)+'）、かつ'+target+'上限'+fmt(targetCap)+'以内のため、主保管を'+chain[curIdx]+'から'+target+'へ降格。';
-      }else{
-        recMain = chain[curIdx]; blocked = true;
-        mainNote = c1
-          ? '判定用在庫数'+fmt(qty)+' ＜ '+chain[curIdx]+'上限'+fmt(curCap)+'の50%（'+fmt(half)+'）だが、'+target+'上限'+fmt(targetCap)+'を超えているため、主保管は'+chain[curIdx]+'を維持。'
-          : '判定用在庫数'+fmt(qty)+' は'+chain[curIdx]+'上限'+fmt(curCap)+'の50%（'+fmt(half)+'）未満ではないため、主保管は'+chain[curIdx]+'を維持。';
-      }
+  if(route === 'コンテナ'){
+    /* §4 コンテナ固定商品。在庫の増減でコンテナ以外へ自動変更しない。 */
+    recMain = 'コンテナ'; result = '維持';
+    mainNote = '基礎区分「'+k+'」はもともとコンテナ保管が必要な商品のため、在庫定数'+fmt(teisu)+'に関わらず固定保管はコンテナで固定。';
+  }else if(bCap !== null && teisu > bCap){
+    /* §15 箱上限超過。数量を理由にSKU専用の固定コンテナを新設しない。 */
+    recMain = '箱'; result = '箱上限超過';
+    mainNote = '在庫定数'+fmt(teisu)+' ＞ 箱上限'+fmt(bCap)+'。固定コンテナへの自動変更は行わず、箱上限超過として要確認。'
+             + (it.curMain === '小箱' ? '（現在は小箱のため、まず箱への移動が必要です。）' : '');
+  }else if(it.curMain === '小箱'){
+    if(sCap !== null && teisu > sCap){
+      /* §13 昇格：在庫定数 ＞ 小箱上限、かつ箱上限以内 */
+      recMain = '箱'; result = '昇格';
+      mainNote = '在庫定数'+fmt(teisu)+' ＞ 小箱上限'+fmt(sCap)+'のため、小箱から箱への昇格を推奨。（箱上限'+fmt(bCap)+'以内）';
     }else{
-      recMain = chain[curIdx];
-      if(curCap !== null && qty > curCap){
-        mainNote = '判定用在庫数'+fmt(qty)+' ＞ '+recMain+'上限'+fmt(curCap)+'のため、主保管は'+recMain+'のまま。';
-      }else if(curIdx === 0 && chain.length === 1){
-        mainNote = 'この商品は'+recMain+'から保管する設定のため、主保管は'+recMain+'を維持。';
-      }else if(curIdx === 0){
-        mainNote = '判定用在庫数'+fmt(qty)+' ≦ '+recMain+'上限'+fmt(curCap)+'のため、主保管は'+recMain+'を維持。';
+      recMain = '小箱'; result = '維持';
+      mainNote = '在庫定数'+fmt(teisu)+' ≦ 小箱上限'+fmt(sCap)+'のため、小箱を維持。';
+    }
+  }else{
+    /* 現在の固定保管が箱 */
+    const half = bCap !== null ? bCap * 0.5 : null;
+    const c1 = half !== null && teisu < half;              // §14 条件① 50%ちょうどは降格しない
+    const c2 = canSmall && sCap !== null && teisu <= sCap;  // §14 条件②
+    if(c1 && c2){
+      recMain = '小箱'; result = '降格';
+      mainNote = '在庫定数'+fmt(teisu)+' ＜ 箱上限'+fmt(bCap)+'の50%（'+fmt(half)+'）、かつ小箱上限'+fmt(sCap)+'以内のため、箱から小箱への降格を推奨。';
+    }else{
+      recMain = '箱'; result = '維持';
+      if(!canSmall){
+        mainNote = '基礎区分「'+k+'」は小箱を使用しないため、固定保管は箱を維持。在庫定数'+fmt(teisu)+' ≦ 箱上限'+fmt(bCap)+'。';
+      }else if(!c1){
+        mainNote = '在庫定数'+fmt(teisu)+' は箱上限'+fmt(bCap)+'の50%（'+fmt(half)+'）未満ではないため、箱を維持。';
       }else{
-        mainNote = '判定用在庫数'+fmt(qty)+' ≦ '+recMain+'上限'+fmt(curCap)+'、かつ50%（'+fmt(half)+'）以上のため、主保管は'+recMain+'を維持。';
+        mainNote = '在庫定数'+fmt(teisu)+' ＜ 箱上限'+fmt(bCap)+'の50%（'+fmt(half)+'）だが、小箱上限'+fmt(sCap)+'を超えているため、箱を維持。';
       }
     }
-
-    // 予備コンテナは「そのルートの一番大きい主保管でも入りきらない」ときだけ付く
-    const lastCap = cap(chain[chain.length - 1]);
-    recSub = (recommendsSub(k, recMain) && lastCap !== null && qty > lastCap) ? 'コンテナ' : 'なし';
   }
 
-  const recCap = capOf(it, recMain);
-  if(recSub === 'コンテナ' && it.curSub !== 'コンテナ') subNote = '判定用在庫数'+fmt(qty)+' ＞ '+recMain+'上限'+fmt(recCap)+'のため、予備保管としてコンテナを追加。';
-  else if(recSub === 'なし' && it.curSub === 'コンテナ') subNote = '判定用在庫数'+fmt(qty)+' ≦ '+recMain+'上限'+fmt(recCap)+'のため、予備コンテナを解除。';
-  else if(recSub === 'コンテナ' && it.curSub === 'コンテナ') subNote = '判定用在庫数'+fmt(qty)+' ＞ '+recMain+'上限'+fmt(recCap)+'のため、予備コンテナを維持。';
-
-  const mainDelta = RANK[recMain] - RANK[it.curMain];
-  const subDelta = recSub === it.curSub ? 0 : (recSub === 'コンテナ' ? 1 : -1);
-  let result;
-  if(mainDelta > 0 && subDelta > 0) result = '昇格＋予備保管追加';
-  else if(mainDelta > 0 && subDelta < 0) result = '昇格＋予備保管解除';
-  else if(mainDelta < 0 && subDelta < 0) result = '降格＋予備保管解除';
-  else if(mainDelta < 0 && subDelta > 0) result = '降格＋予備保管追加';
-  else if(mainDelta > 0) result = '昇格';
-  else if(mainDelta < 0) result = '降格';
-  else if(subDelta > 0) result = '予備保管追加';
-  else if(subDelta < 0) result = '予備保管解除';
-  else result = '維持';
-
-  if(it.curMain === '小箱' && it.curSub === 'コンテナ' && !(recMain === '小箱' && recSub === 'コンテナ')){
-    subNote += '（小箱でのピッキングを続けたい場合は、小箱＋予備コンテナのまま運用しても構いません。その場合は対応状況を「例外運用」にしてください。）';
+  /* §16 一時バッファ判定。フリー在庫が「現在の」固定保管の収納上限を超えているか。
+     固定保管の昇格・降格とは切り離して判定する。 */
+  const curCap = capOf(it, it.curMain);
+  const over = (curCap !== null && free !== null && free > curCap) ? free - curCap : 0;
+  const buffer = over > 0 ? '使用候補' : '不要';
+  let bufNote;
+  if(route === 'コンテナ'){
+    bufNote = 'コンテナ固定商品のため、共用コンテナバッファの判定は行いません。';
+  }else if(over > 0){
+    bufNote = 'ただしフリー在庫'+fmt(free)+'が'+it.curMain+'上限'+fmt(curCap)+'を超えている（超過'+fmt(over)+'）ため、一時バッファ使用候補。'
+            + 'SKU専用のコンテナは新設せず、共用コンテナへ一時保管します。';
+  }else{
+    bufNote = 'フリー在庫'+fmt(free)+' ≦ '+it.curMain+'上限'+fmt(curCap)+'のため、共用コンテナバッファは不要。';
   }
-  const need = (recMain !== it.curMain || recSub !== it.curSub) ? '要' : '不要';
+
+  const need = recMain !== it.curMain ? '要' : '不要';
   const staleNote = it.stale ? '※在庫数値は前回取得値です。' : '';
+  const head = '固定保管は'+it.curMain+'。';
 
-  return { qty, recMain, recSub, result, cat:CAT[result], need, blocked, errs:[],
-           reason:(staleNote + src + mainNote + subNote) };
+  return { teisu, free, qty, recMain, result, cat:CAT[result], need, buffer, over, errs:[],
+           reason:(staleNote + head + mainNote + bufNote) };
 }
+
 
 
 /* ===== Excel（.xlsx）書き出し：外部ライブラリを使わず、ZIPを自前で組み立てる ===== */
@@ -1326,8 +1465,8 @@ function buildXlsx(sheetRows, opts){
   return zipStore(files);
 }
 
-const XLS_NOTE = '※小箱＋コンテナは、担当者が選ぶ例外運用です。';
-const XLS_HEAD = ['商品コード','商品名','現在の\n主保管','現在の\n予備保管','推奨\n主保管','推奨\n予備保管','判定結果','対応\n可否'];
+const XLS_NOTE = '※コンテナは倉庫全体で使う共用バッファです。SKU専用の固定保管ではありません。';
+const XLS_HEAD = ['商品コード','商品名','現在の\n固定保管','推奨\n固定保管','判定結果','対応\n可否'];
 function exportXlsx(list){
   if(!list.length){ toast('書き出す商品がありません'); return; }
   const rows = [];
@@ -1335,8 +1474,8 @@ function exportXlsx(list){
   rows.push(XLS_HEAD.map(h => ({v:h, s:1})));
   list.forEach(({it,j}) => rows.push([
     {v:it.code, s:2}, {v:String(it.name || ''), s:2},
-    {v:it.curMain, s:5}, {v:it.curSub, s:5},
-    {v:j.recMain || '―', s:3}, {v:j.recSub || '―', s:3},
+    {v:it.curMain, s:5},
+    {v:j.recMain || '―', s:3},
     {v:j.result, s:2}, {v:'', s:2}
   ]));
   // 幅は中身に合わせて詰める（全角は約2文字分）
@@ -1344,7 +1483,7 @@ function exportXlsx(list){
   // 商品名は全文を入れるので、いちばん長い名前に合わせて幅を広げる（全角は約2文字分）
   const wide = s => [...String(s)].reduce((n, c) => n + (/[\x20-\x7E｡-ﾟ]/.test(c) ? 1 : 2), 0);
   const nameW = Math.min(60, Math.max(21, ...list.map(x => wide(x.it.name || ''))) + 2);
-  const bin = buildXlsx(rows, { widths:[codeW, nameW, 8.5, 9.5, 8.5, 9.5, 19, 9] });
+  const bin = buildXlsx(rows, { widths:[codeW, nameW, 11, 11, 15, 9] });
   const p2 = n => String(n).padStart(2,'0');
   const d = new Date();
   const name = '保管形式判定_'+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'_'+p2(d.getHours())+p2(d.getMinutes())+'.xlsx';
@@ -1399,10 +1538,12 @@ function matches(r, f, skip){
   const q = f.q.trim().toLowerCase();
   if(q && !(r.it.code.toLowerCase().includes(q) || r.it.name.toLowerCase().includes(q))) return false;
   if(skip !== 'res' && f.res !== 'すべて' && r.j.result !== f.res) return false;
+  if(skip !== 'cap' && f.cap && f.cap !== 'すべて' && r.it.capState !== f.cap) return false;
+  if(skip !== 'buf' && f.buf && f.buf !== 'すべて' && r.j.buffer !== f.buf) return false;
   if(skip !== 'sta' && f.sta !== 'すべて'){
     if(r.it.status !== f.sta) return false;
     // 「維持」など変更の必要がない商品は、未対応の抽出には出さない
-    if(f.sta === '未対応' && !(r.j.need === '要' || r.j.result === '要確認')) return false;
+    if(f.sta === '未対応' && !needsChange(r.j)) return false;
   }
   return true;
 }
@@ -1418,20 +1559,24 @@ function chipCounts(R, f){
 function renderKpis(){
   const R = rows();
   const c = r => R.filter(r2 => r2.j.result === r).length;
+  const chg = R.filter(x => needsChange(x.j)).length;
+  const buf = R.filter(x => x.j.buffer === '使用候補').length;
   const defs = [
     ['全SKU', R.length, '', 'すべて'],
-    ['変更要', R.filter(x => x.j.need === '要').length, 'up', '__need'],
-    ['昇格', c('昇格') + c('昇格＋予備保管追加'), 'up', '昇格'],
-    ['降格', c('降格') + c('降格＋予備保管解除'), 'dn', '降格'],
-    ['予備保管追加', c('予備保管追加'), 'up', '予備保管追加'],
-    ['予備保管解除', c('予備保管解除'), 'dn', '予備保管解除'],
+    ['変更対象', chg, 'up', '__need'],
+    ['昇格', c('昇格'), 'up', '昇格'],
+    ['降格', c('降格'), 'dn', '降格'],
+    ['箱上限超過', c('箱上限超過'), 'al', '箱上限超過'],
     ['要確認', c('要確認'), 'al', '要確認'],
-    ['未対応', R.filter(x => x.it.status === '未対応' && x.j.need === '要').length, '', '__todo']
+    ['バッファ使用候補', buf, 'cnt', '__buffer'],
+    ['上限未確認', R.filter(x => x.it.capState === '仮設定').length, '', '__cap'],
+    ['未対応', R.filter(x => x.it.status === '未対応' && needsChange(x.j)).length, '', '__todo']
   ];
   $('kpis').innerHTML = defs.map(([k,v,cls,key]) =>
     '<button class="kpi '+cls+'" data-key="'+key+'"><span class="k">'+k+'</span><span class="v num">'+v+'</span></button>'
   ).join('');
-  $('changeCount').textContent = '(' + R.filter(x => x.j.need === '要').length + ')';
+  $('changeCount').textContent = '(' + chg + ')';
+  $('bufferCount').textContent = '(' + buf + ')';
 }
 
 function selCell(value, options, attrs, cls){
@@ -1457,6 +1602,13 @@ function imgCell(it){
          'onerror="this.replaceWith(Object.assign(document.createElement(\'span\'),{className:\'noimg\',textContent:\'×\'}))"></td>';
 }
 function stoPill(v){ const t = v || '―'; return '<span class="spill" data-v="'+esc(t)+'">'+esc(t)+'</span>'; }
+/* 共用コンテナバッファの使用判定。固定保管の変更ではないので、判定結果とは別の色にする。 */
+function bufPill(j){
+  if(j.buffer !== '使用候補') return '<span class="ro">不要</span>';
+  return '<span class="pill buf">使用候補<span class="bufqty num">+'+fmt(j.over)+'</span></span>';
+}
+/* 「保管変更対象」に載る条件：昇格・降格が要るもの、箱上限超過、要確認 */
+function needsChange(j){ return j.need === '要' || j.result === '箱上限超過' || j.result === '要確認'; }
 
 function renderMain(){
   $('tblMain').style.minWidth = state.items.length ? '' : '0';
@@ -1466,13 +1618,13 @@ function renderMain(){
       '<p>商品リストをCSVで取り込むと、その場で保管形式の判定が始まります。</p>'+
       '<ol class="steps">'+
         '<li>下の見出し行をそのまま使ったCSVを用意します（商品コード以外は空欄でも構いません）。</li>'+
-        '<li>上の「CSVを取り込む」で読み込みます。基礎区分を入れておくと収納上限が自動で入ります。</li>'+
+        '<li>上の「CSV取込」で読み込みます（<b>新規追加</b>のチェックを入れてください）。基礎区分を入れておくと収納上限が自動で入ります。</li>'+
         '<li>取り込んだあと「共有用JSONを書き出す」で data.json を作り、リポジトリに置くと全員が同じデータを見られます。</li>'+
       '</ol>'+
-      '<div class="csvspec">商品コード,商品名,基礎区分,小箱上限,箱上限,現在の主保管,現在の予備保管,在庫定数,フリー在庫,対応状況,備考\n'+
-      'ABC-001,USB-C ケーブル 1m,小箱-多収納,100,500,小箱,なし,200,150,未対応,\n'+
-      'BOX-021,ペットフード 5kg,箱-少収納,,40,箱,なし,60,55,未対応,</div>'+
-      '<p style="margin-top:14px">基礎区分は <b>小箱-多収納 / 小箱-少収納 / 箱-多収納 / 箱-少収納 / コンテナ</b>、現在の主保管は <b>小箱 / 箱 / コンテナ</b>、現在の予備保管は <b>なし / コンテナ</b> のいずれかで入力してください。</p>'+
+      '<div class="csvspec">商品コード,商品名,基礎区分,小箱上限,箱上限,上限設定状態,現在の固定保管,在庫定数,フリー在庫,対応状況,備考\n'+
+      'ABC-001,USB-C ケーブル 1m,小箱-多収納,100,500,SKU確認済,小箱,200,150,未対応,\n'+
+      'BOX-021,ペットフード 5kg,箱-少収納,,40,仮設定,箱,60,55,未対応,</div>'+
+      '<p style="margin-top:14px">基礎区分は <b>小箱-多収納 / 小箱-少収納 / 箱-多収納 / 箱-少収納 / コンテナ</b>、現在の固定保管は <b>小箱 / 箱 / コンテナ</b>、上限設定状態は <b>仮設定 / SKU確認済</b> のいずれかで入力してください。</p>'+
       '<p><button class="btn btn-sm" id="loadSample">サンプルデータを入れて試す</button></p>'+
       '</div></td></tr></tbody>';
     const ls = $('loadSample');
@@ -1482,19 +1634,19 @@ function renderMain(){
   const R = sortRows(rows().filter(r => matches(r, state.filters)));
   const head =
     '<thead>'+
-    '<tr class="grouprow"><th colspan="4" class="lead">商品</th><th colspan="2">収納上限</th><th colspan="2" class="b-cur gstart">現在の保管</th>'+
-    '<th colspan="3" class="b-qty gstart">在庫数量</th><th colspan="2" class="b-rec gstart">推奨の保管</th>'+
-    '<th colspan="3" class="gstart">判定</th><th colspan="2">運用</th></tr>'+
+    '<tr class="grouprow"><th colspan="4" class="lead">商品</th><th colspan="3">収納上限</th><th class="b-cur gstart">現在</th>'+
+    '<th colspan="2" class="b-qty gstart">在庫数量</th><th class="b-rec gstart">推奨</th>'+
+    '<th colspan="4" class="gstart">判定</th><th colspan="2">運用</th></tr>'+
     '<tr class="headrow">'+
       '<th class="thumb">画像</th>'+
     '<th class="lead col-code">商品コード<button class="sortbtn'+(state.sort && state.sort.key === 'code' ? ' on' : '')+'" data-sort="code" title="商品コードで並び替え">'+sortMark('code')+'</button><span class="colgrip"></span></th>'+
     '<th class="lead col-name">商品名<span class="colgrip"></span></th><th>基礎区分</th>'+
-      '<th class="n">小箱上限</th><th class="n">箱上限</th>'+
-      '<th class="b-cur gstart">現在の主保管</th><th class="b-cur">現在の予備保管</th>'+
-      '<th class="b-qty n gstart">在庫定数</th><th class="b-qty n">フリー在庫</th><th class="b-qty n">判定用在庫数</th>'+
-      '<th class="b-rec gstart">推奨主保管</th><th class="b-rec">推奨予備保管</th>'+
-      '<th class="gstart">判定結果</th><th>判定理由</th><th>変更要否</th>'+
-      '<th>対応状況</th><th>備考・例外対応</th>'+
+      '<th class="n">小箱上限</th><th class="n">箱上限</th><th>上限設定状態</th>'+
+      '<th class="b-cur gstart">現在の固定保管</th>'+
+      '<th class="b-qty n gstart">在庫定数</th><th class="b-qty n">フリー在庫</th>'+
+      '<th class="b-rec gstart">推奨固定保管</th>'+
+      '<th class="gstart">判定結果</th><th>バッファ判定</th><th>判定理由</th><th>変更要否</th>'+
+      '<th>対応状況</th><th>備考</th>'+
     '</tr></thead>';
 
   const body = R.map(({it,j}) => {
@@ -1509,14 +1661,13 @@ function renderMain(){
       '<td class="kubuncell">'+selCell(it.kubun, KUBUN, 'data-f="kubun" data-code="'+esc(it.code)+'"', 'pillsel kubunsel')+'</td>'+
       '<td class="n">'+(usesSmall(it.kubun) ? '<span class="capcell">'+numCell(it.smallCap,'data-f="smallCap" data-code="'+esc(it.code)+'"')+(it.smallCapEdited?'<span class="tag">個別</span>':'')+'</span>' : '<span class="ro">―</span>')+'</td>'+
       '<td class="n">'+(usesBox(it.kubun) ? '<span class="capcell">'+numCell(it.boxCap,'data-f="boxCap" data-code="'+esc(it.code)+'"')+(it.boxCapEdited?'<span class="tag">個別</span>':'')+'</span>' : '<span class="ro">―</span>')+'</td>'+
+      '<td>'+selCell(it.capState, CAP_STATES, 'data-f="capState" data-code="'+esc(it.code)+'"', 'pillsel capsel')+'</td>'+
       '<td class="b-cur sto gstart">'+selCell(it.curMain, allowedMains(it.kubun).includes(it.curMain) ? allowedMains(it.kubun) : [it.curMain].concat(allowedMains(it.kubun)), 'data-f="curMain" data-code="'+esc(it.code)+'"', 'pillsel')+'</td>'+
-      '<td class="b-cur sto">'+selCell(it.curSub, allowedSubs(it.kubun, it.curMain).includes(it.curSub) ? allowedSubs(it.kubun, it.curMain) : [it.curSub].concat(allowedSubs(it.kubun, it.curMain)), 'data-f="curSub" data-code="'+esc(it.code)+'"', 'pillsel')+'</td>'+
-      '<td class="b-qty n gstart"><span class="capcell">'+(mm ? numCell(t,'data-f="manTeisu" data-code="'+esc(it.code)+'"') : '<span class="num">'+fmt(t)+'</span>')+(manT?'<span class="tag warn">手入力</span>':(it.stale?'<span class="tag warn">前回値</span>':''))+'</span></td>'+
+      '<td class="b-qty n gstart qty-key"><span class="capcell">'+(mm ? numCell(t,'data-f="manTeisu" data-code="'+esc(it.code)+'"') : '<span class="num">'+fmt(t)+'</span>')+(manT?'<span class="tag warn">手入力</span>':(it.stale?'<span class="tag warn">前回値</span>':''))+'</span></td>'+
       '<td class="b-qty n"><span class="capcell">'+(mm ? numCell(f,'data-f="manFree" data-code="'+esc(it.code)+'"') : '<span class="num">'+fmt(f)+'</span>')+(manF?'<span class="tag warn">手入力</span>':'')+'</span></td>'+
-      '<td class="b-qty n qty-key">'+fmt(j.qty)+'</td>'+
       '<td class="b-rec sto gstart">'+stoPill(j.recMain)+'</td>'+
-      '<td class="b-rec sto">'+stoPill(j.recSub)+'</td>'+
       '<td class="gstart">'+pill(j.result, j.cat)+'</td>'+
+      '<td>'+bufPill(j)+'</td>'+
       '<td class="reason">'+esc(j.reason)+'</td>'+
       '<td>'+(j.need ? '<span class="need '+(j.need === '要' ? 'yes' : 'no')+'">'+j.need+'</span>' : '<span class="ro">―</span>')+'</td>'+
       '<td>'+selCell(it.status, STATUSES, 'data-f="status" data-code="'+esc(it.code)+'"', 'pillsel statsel')+'</td>'+
@@ -1525,30 +1676,32 @@ function renderMain(){
   }).join('');
 
   $('tblMain').innerHTML = head + '<tbody>' + body + '</tbody>';
-  if(!R.length) $('tblMain').innerHTML = head + '<tbody><tr><td colspan="17" class="empty">条件に一致する商品はありません。</td></tr></tbody>';
+  if(!R.length) $('tblMain').innerHTML = head + '<tbody><tr><td colspan="16" class="empty">条件に一致する商品はありません。</td></tr></tbody>';
 }
 
 function renderChange(){
   const R = rows()
-    .filter(r => r.j.need === '要' || r.j.result === '要確認')
+    .filter(r => needsChange(r.j))
     .filter(r => state.filters2.sta !== 'すべて' || r.it.status !== '例外運用')   // 例外運用は既定で伏せる
     .filter(r => matches(r, state.filters2));
   const R2 = sortRows(R);
   const head = '<thead><tr class="headrow">'+
     '<th class="thumb">画像</th>'+
     '<th class="lead col-code">商品コード<button class="sortbtn'+(state.sort && state.sort.key === 'code' ? ' on' : '')+'" data-sort="code" title="商品コードで並び替え">'+sortMark('code')+'</button><span class="colgrip"></span></th>'+
-    '<th class="lead col-name">商品名<span class="colgrip"></span></th><th class="n gstart">判定用在庫数</th>'+
-    '<th class="b-cur gstart">現在の主保管</th><th class="b-cur">現在の予備保管</th>'+
-    '<th class="b-rec gstart">推奨主保管</th><th class="b-rec">推奨予備保管</th>'+
+    '<th class="lead col-name">商品名<span class="colgrip"></span></th>'+
+    '<th class="b-cur gstart">現在の固定保管</th>'+
+    '<th class="b-qty n gstart">在庫定数</th><th class="b-qty n">小箱上限</th><th class="b-qty n">箱上限</th>'+
+    '<th class="b-rec gstart">推奨固定保管</th>'+
     '<th class="gstart">判定結果</th><th>判定理由</th><th>対応状況</th><th></th></tr></thead>';
   const body = R2.map(({it,j}) =>
     '<tr data-cat="'+j.cat+'" data-code="'+esc(it.code)+'">'+
     imgCell(it)+
     '<td class="code stripe">'+esc(it.code)+'<span class="colgrip"></span></td>'+
     '<td class="name" data-code="'+esc(it.code)+'" title="ダブルクリックで編集：'+esc(it.name)+'">'+esc(it.name)+'<span class="colgrip"></span></td>'+
-    '<td class="n qty-key gstart">'+fmt(j.qty)+'</td>'+
-    '<td class="b-cur sto gstart">'+stoPill(it.curMain)+'</td><td class="b-cur sto">'+stoPill(it.curSub)+'</td>'+
-    '<td class="b-rec sto gstart">'+stoPill(j.recMain)+'</td><td class="b-rec sto">'+stoPill(j.recSub)+'</td>'+
+    '<td class="b-cur sto gstart">'+stoPill(it.curMain)+'</td>'+
+    '<td class="b-qty n qty-key gstart">'+fmt(j.teisu)+'</td>'+
+    '<td class="b-qty n">'+fmt(it.smallCap)+'</td><td class="b-qty n">'+fmt(it.boxCap)+'</td>'+
+    '<td class="b-rec sto gstart">'+stoPill(j.recMain)+'</td>'+
     '<td class="gstart">'+pill(j.result, j.cat)+'</td>'+
     '<td class="reason">'+esc(j.reason)+'</td>'+
     '<td>'+selCell(it.status, STATUSES, 'data-f="status" data-code="'+esc(it.code)+'"', 'pillsel statsel')+'</td>'+
@@ -1557,20 +1710,51 @@ function renderChange(){
   $('tblChange').innerHTML = head + '<tbody>' + (body || '<tr><td colspan="12" class="empty">変更が必要な商品はありません。今月の移動作業はゼロです。</td></tr>') + '</tbody>';
 }
 
+/* §33 バッファ使用候補一覧。固定保管の変更ではなく、いま入りきらない可能性のあるSKU。 */
+function renderBuffer(){
+  const R = sortRows(rows().filter(r => r.j.buffer === '使用候補').filter(r => matches(r, state.filters3, 'res')));
+  const head = '<thead><tr class="headrow">'+
+    '<th class="thumb">画像</th>'+
+    '<th class="lead col-code">商品コード<button class="sortbtn'+(state.sort && state.sort.key === 'code' ? ' on' : '')+'" data-sort="code" title="商品コードで並び替え">'+sortMark('code')+'</button><span class="colgrip"></span></th>'+
+    '<th class="lead col-name">商品名<span class="colgrip"></span></th>'+
+    '<th class="b-cur gstart">固定保管</th><th class="b-cur n">収納上限</th>'+
+    '<th class="b-qty n gstart">在庫定数</th><th class="b-qty n">フリー在庫</th>'+
+    '<th class="n gstart">超過数量</th><th>対応状況</th><th></th></tr></thead>';
+  const body = R.map(({it,j}) =>
+    '<tr data-code="'+esc(it.code)+'">'+
+    imgCell(it)+
+    '<td class="code stripe">'+esc(it.code)+'<span class="colgrip"></span></td>'+
+    '<td class="name" data-code="'+esc(it.code)+'" title="ダブルクリックで編集：'+esc(it.name)+'">'+esc(it.name)+'<span class="colgrip"></span></td>'+
+    '<td class="b-cur sto gstart">'+stoPill(it.curMain)+'</td>'+
+    '<td class="b-cur n">'+fmt(capOf(it, it.curMain))+'</td>'+
+    '<td class="b-qty n gstart">'+fmt(j.teisu)+'</td><td class="b-qty n">'+fmt(j.free)+'</td>'+
+    '<td class="n gstart over-qty">'+fmt(j.over)+'</td>'+
+    '<td>'+selCell(it.status, STATUSES, 'data-f="status" data-code="'+esc(it.code)+'"', 'pillsel statsel')+'</td>'+
+    '<td><button class="rowbtn" data-open="'+esc(it.code)+'">詳細</button></td></tr>'
+  ).join('');
+  $('tblBuffer').innerHTML = head + '<tbody>' + (body || '<tr><td colspan="10" class="empty">固定保管に入りきらない可能性のある商品はありません。</td></tr>') + '</tbody>';
+}
+
 const STA_CAT = { '未対応':'up', '対応済':'dn', '例外運用':'cnt' };
-function chipCat(v){ return v === 'すべて' ? 'all' : (CAT[v] || STA_CAT[v] || 'hold'); }
+const CAP_CAT = { '仮設定':'al', 'SKU確認済':'dn' };
+const BUF_CAT = { '不要':'hold', '使用候補':'cnt' };
+function chipCat(v){ return v === 'すべて' ? 'all' : (CAT[v] || STA_CAT[v] || CAP_CAT[v] || BUF_CAT[v] || 'hold'); }
 function renderFilters(){
   const mk = (target, cur, list, key, counts) => list.map(v =>
     '<button class="chip" data-cat="'+chipCat(v)+'" data-fk="'+key+'" data-t="'+target+'" data-v="'+esc(v)+'"'
     + (v === '未対応' ? ' title="変更が必要な商品のうち、まだ対応していないものだけを表示します（維持は含みません）"' : '')
+    + (v === '仮設定' ? ' title="収納上限がまだ基礎区分の初期値のままで、実測していないSKUです"' : '')
     + ' aria-pressed="'+(cur === v)+'">'
     + esc(v) + (counts ? '<span class="cnt">('+(counts[v] || 0)+')</span>' : '') + '</button>').join('');
   const R = rows();
-  const R2 = R.filter(r => (r.j.need === '要' || r.j.result === '要確認') && r.it.status !== '例外運用');
+  const R2 = R.filter(r => needsChange(r.j) && r.it.status !== '例外運用');
   $('resFilters').innerHTML  = mk('filters',  state.filters.res,  ['すべて'].concat(RESULTS), 'res', chipCounts(R, state.filters));
   $('staFilters').innerHTML  = mk('filters',  state.filters.sta,  ['すべて'].concat(STATUSES), 'sta');
+  $('capFilters').innerHTML  = mk('filters',  state.filters.cap,  ['すべて'].concat(CAP_STATES), 'cap');
+  $('bufFilters').innerHTML  = mk('filters',  state.filters.buf,  ['すべて'].concat(BUFFERS), 'buf');
   $('resFilters2').innerHTML = mk('filters2', state.filters2.res, ['すべて'].concat(RESULTS), 'res', chipCounts(R2, state.filters2));
   $('staFilters2').innerHTML = mk('filters2', state.filters2.sta, ['すべて'].concat(STATUSES), 'sta');
+  $('staFilters3').innerHTML = mk('filters3', state.filters3.sta, ['すべて'].concat(STATUSES), 'sta');
   document.querySelectorAll('.floorbtn').forEach(b => {
     const on = !!(state.sort && state.sort.key === 'floor');
     b.classList.toggle('on', on);
@@ -1638,7 +1822,7 @@ function applyColWidths(){
 
 function render(){
   applyColWidths();
-  renderKpis(); renderFilters(); renderMain(); renderChange(); renderSync(); renderShared(); save();
+  renderKpis(); renderFilters(); renderMain(); renderChange(); renderBuffer(); renderSync(); renderShared(); save();
   requestAnimationFrame(fitTable);
 }
 
@@ -1649,9 +1833,7 @@ function openDrawer(code){
   if(!it) return;
   const j = judge(it);
   openCode = code;
-  const curChain = allowedMains(it.kubun);
-  const curCap = capOf(it, curChain[Math.max(0, curChain.indexOf(it.curMain))]);
-  const half = curCap !== null ? curCap * 0.5 : null;
+  const half = it.boxCap !== null && it.boxCap !== undefined ? it.boxCap * 0.5 : null;
   const d = $('drawer');
   d.innerHTML =
   '<div class="dhead"><div><span class="code">'+esc(it.code)+'</span><h2>'+esc(it.name)+'</h2>'+
@@ -1660,20 +1842,26 @@ function openDrawer(code){
 
   (it.imageUrl ? '<div class="dsec"><h3>商品画像</h3><img class="zoomimg" src="'+esc(thumbURL(it.imageUrl, 400))+'" alt=""></div>' : '')+
   '<div class="dsec"><h3>現在 → 推奨</h3><div class="transit">'+
-    '<div class="state"><span class="lbl">現在</span><span class="v">主：'+esc(it.curMain)+'</span><br><span class="v">予備：'+esc(it.curSub)+'</span></div>'+
+    '<div class="state"><span class="lbl">現在の固定保管</span><span class="v">'+esc(it.curMain)+'</span></div>'+
     '<span class="bigarrow">→</span>'+
-    '<div class="state rec"><span class="lbl">推奨</span><span class="v">主：'+esc(j.recMain || '―')+'</span><br><span class="v">予備：'+esc(j.recSub || '―')+'</span></div>'+
-  '</div></div>'+
+    '<div class="state rec"><span class="lbl">推奨固定保管</span><span class="v">'+esc(j.recMain || '―')+'</span></div>'+
+  '</div>'+
+  '<p class="reason-box" style="margin-top:10px">共用コンテナバッファ：<b>'+esc(j.buffer)+'</b>'+
+  (j.buffer === '使用候補' ? '（超過数量 '+fmt(j.over)+'）　一時的にコンテナへ置く候補です。固定保管は変えません。' : '')+'</p></div>'+
 
   '<div class="dsec"><h3>判定に使った数値</h3><dl class="kv">'+
     '<dt>在庫定数（NE取得）</dt><dd>'+fmt(it.apiTeisu)+'</dd>'+
     '<dt>フリー在庫（NE取得）</dt><dd>'+fmt(it.apiFree)+'</dd>'+
     (it.manTeisu !== null && it.manTeisu !== undefined ? '<dt>在庫定数（手入力値）</dt><dd>'+fmt(it.manTeisu)+'</dd>' : '')+
     (it.manFree !== null && it.manFree !== undefined ? '<dt>フリー在庫（手入力値）</dt><dd>'+fmt(it.manFree)+'</dd>' : '')+
-    '<dt><b>判定に使用中：判定用在庫数</b></dt><dd><b>'+fmt(j.qty)+'</b></dd>'+
+    '<dt><b>固定保管の判定に使用中：在庫定数</b></dt><dd><b>'+fmt(j.teisu)+'</b></dd>'+
+    '<dt>バッファ判定に使用中：フリー在庫</dt><dd>'+fmt(j.free)+'</dd>'+
+    '<dt>MAX（在庫定数, フリー在庫）※参考</dt><dd>'+fmt(j.qty)+'</dd>'+
     '<dt>小箱上限</dt><dd>'+fmt(it.smallCap)+(it.smallCapEdited?'（SKU個別）':'')+'</dd>'+
     '<dt>箱上限</dt><dd>'+fmt(it.boxCap)+(it.boxCapEdited?'（SKU個別）':'')+'</dd>'+
-    '<dt>現在の主保管上限の50%（降格しきい値）</dt><dd>'+fmt(half)+'</dd>'+
+    '<dt>上限設定状態</dt><dd>'+esc(it.capState)+'</dd>'+
+    '<dt>箱上限の50%（降格しきい値）</dt><dd>'+fmt(half)+'</dd>'+
+    '<dt>現在の固定保管の収納上限（バッファ判定の基準）</dt><dd>'+fmt(capOf(it, it.curMain))+'</dd>'+
     '<dt>NEからの最終取得日時</dt><dd>'+esc(jstStr(it.lastFetch) || '未取得')+'</dd>'+
     (it.matchError ? '<dt>NE照合</dt><dd>商品コード未検出</dd>' : '')+
   '</dl></div>'+
@@ -1691,12 +1879,12 @@ function openDrawer(code){
       '<div class="field"><label>箱上限</label><input type="number" min="0" data-df="boxCap" value="'+(it.boxCap===null?'':it.boxCap)+'"'+(usesBox(it.kubun)?'':' disabled')+'></div>'+
     '</div>'+
     '<div class="grid2">'+
-      '<div class="field"><label>現在の主保管（実移動後に更新）</label><select data-df="curMain">'+allowedMains(it.kubun).map(m=>'<option'+(m===it.curMain?' selected':'')+'>'+m+'</option>').join('')+(allowedMains(it.kubun).includes(it.curMain)?'':'<option selected>'+esc(it.curMain)+'</option>')+'</select></div>'+
-      '<div class="field"><label>現在の予備保管</label><select data-df="curSub">'+allowedSubs(it.kubun, it.curMain).map(m=>'<option'+(m===it.curSub?' selected':'')+'>'+m+'</option>').join('')+(allowedSubs(it.kubun,it.curMain).includes(it.curSub)?'':'<option selected>'+esc(it.curSub)+'</option>')+'</select></div>'+
+      '<div class="field"><label>上限設定状態</label><select data-df="capState">'+CAP_STATES.map(m=>'<option'+(m===it.capState?' selected':'')+'>'+m+'</option>').join('')+'</select></div>'+
+      '<div class="field"><label>現在の固定保管（実移動後に更新）</label><select data-df="curMain">'+allowedMains(it.kubun).map(m=>'<option'+(m===it.curMain?' selected':'')+'>'+m+'</option>').join('')+(allowedMains(it.kubun).includes(it.curMain)?'':'<option selected>'+esc(it.curMain)+'</option>')+'</select></div>'+
     '</div>'+
     '<div class="field"><label>対応状況</label><select data-df="status"><option'+(it.status==='未対応'?' selected':'')+'>未対応</option><option'+(it.status==='対応済'?' selected':'')+'>対応済</option></select></div>'+
     '<div class="field"><label>備考・例外対応（自動判定は残ります）</label><textarea data-df="note" placeholder="例：セール前の一時入荷。9月に通常水準へ戻る見込み">'+esc(it.note)+'</textarea></div>'+
-    '<button class="btn btn-sm" id="applyRec">推奨どおりに移動完了として反映（現在の保管を更新＋対応済）</button>'+
+    '<button class="btn btn-sm" id="applyRec">推奨どおりに移動完了として反映（現在の固定保管を更新＋対応済）</button>'+
   '</div>';
 
   $('scrim').classList.add('show');
@@ -1705,8 +1893,8 @@ function openDrawer(code){
   const ar = $('applyRec');
   if(ar) ar.onclick = () => {
     if(!j.recMain){ toast('要確認のSKUは反映できません'); return; }
-    it.curMain = j.recMain; it.curSub = j.recSub; it.status = '対応済'; markDirty();
-    render(); openDrawer(code); toast(it.code+' の現在の保管を更新しました');
+    it.curMain = j.recMain; it.status = '対応済'; markDirty();
+    render(); openDrawer(code); toast(it.code+' の現在の固定保管を更新しました');
   };
   d.querySelectorAll('[data-df]').forEach(el => {
     el.addEventListener('change', e => {
@@ -1731,18 +1919,15 @@ function applyField(it, field, value){
     it.kubun = value;
     const d = defCaps(value);
     it.smallCap = d.s; it.boxCap = d.b; it.smallCapEdited = false; it.boxCapEdited = false;
+    it.capState = DEFAULT_CAP_STATE;   // 初期値に戻したので「仮設定」へ
     const am = allowedMains(value);
-    if(!am.includes(it.curMain)){ it.curMain = am[0]; toast('基礎区分に合わせて現在の主保管を「'+am[0]+'」に補正し、収納上限を初期値に戻しました'); }
-    else toast('収納上限を基礎区分の初期値に戻しました');
-    if(!allowedSubs(it.kubun, it.curMain).includes(it.curSub)) it.curSub = 'なし';
+    if(!am.includes(it.curMain)){ it.curMain = am[0]; toast('基礎区分に合わせて現在の固定保管を「'+am[0]+'」に補正し、収納上限を初期値に戻しました'); }
+    else toast('収納上限を基礎区分の初期値に戻しました（上限設定状態は「仮設定」に戻ります）');
   }
   else if(field === 'smallCap'){ it.smallCap = numify(value); it.smallCapEdited = it.smallCap !== defCaps(it.kubun).s; }
   else if(field === 'boxCap'){ it.boxCap = numify(value); it.boxCapEdited = it.boxCap !== defCaps(it.kubun).b; }
-  else if(field === 'curMain'){
-    it.curMain = value;
-    if(!allowedSubs(it.kubun, value).includes(it.curSub)){ it.curSub = 'なし'; toast('主保管が'+value+'のため、予備保管を「なし」にしました'); }
-  }
-  else if(field === 'curSub'){ it.curSub = value; }
+  else if(field === 'curMain'){ it.curMain = value; }
+  else if(field === 'capState'){ it.capState = CAP_STATES.includes(value) ? value : DEFAULT_CAP_STATE; }
   else if(field === 'status'){ it.status = value; }
   else if(field === 'note'){ it.note = value; }
   else if(field === 'manTeisu'){ it.manTeisu = numify(value); }
@@ -1883,7 +2068,7 @@ function toast(msg){
 function switchTab(name){
   state.tab = name;
   document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
-  ['main','change','rules'].forEach(n => { $('panel-'+n).hidden = (n !== name); });
+  ['main','change','buffer','rules'].forEach(n => { $('panel-'+n).hidden = (n !== name); });
   requestAnimationFrame(fitTable);
   save();
 }
@@ -1891,55 +2076,67 @@ function switchTab(name){
 function renderRules(){
   const capRows = KUBUN.map(k => '<tr><td>'+k+'</td><td class="num">'+(defCaps(k).s ?? '―')+'</td><td class="num">'+(defCaps(k).b ?? '―')+'</td></tr>').join('');
   $('rulesBody').innerHTML =
-  '<h2>判定用在庫数</h2>'+
-  '<p><code>判定用在庫数 ＝ MAX（在庫定数, フリー在庫）</code>　通常持っておきたい数量と、実際に場所を取っている数量のうち多い方で判定します。</p>'+
+  '<h2>固定保管と共用コンテナバッファ</h2>'+
+  '<p>保管方法は2つに分けて考えます。</p>'+
+  '<p><b>① 固定保管</b>：SKUごとに通常使用する固定の保管場所（小箱 / 箱 / コンテナ）。判定の対象はこちらです。</p>'+
+  '<p><b>② 共用コンテナバッファ</b>：入庫直後などに固定保管へ入りきらない分を、倉庫全体で流動的に使うコンテナへ一時保管する状態。'+
+  '<b>SKUの固定保管場所としては保存しません。</b>商品Aの在庫が減れば同じコンテナを商品Bが使います。</p>'+
 
-  '<h2>基礎区分ごとの保管ルート</h2><div class="routes">'+
-    Object.keys(ROUTE_CHAIN).map(r => {
-      const names = KUBUN_DEFS.filter(d => d.route === r).map(d => d.name);
-      if(!names.length) return '';
-      const chain = ROUTE_CHAIN[r];
-      const steps = chain.map(m => '<span class="step">主：'+m+'</span>');
-      if(r !== 'コンテナ') steps.push('<span class="step">主：'+chain[chain.length-1]+'＋予備：コンテナ</span>');
-      return '<div class="route"><span class="rk">'+names.join('<br>')+'</span>'+
-             steps.join('<span class="arrow">→</span>')+'</div>';
-    }).join('')+
+  '<h2>固定保管の判定は在庫定数で行う</h2>'+
+  '<p><b>在庫定数</b>＝そのSKUについて通常時に保有しておきたい数量。<b>フリー在庫</b>＝いま実際に倉庫にあり、場所を取っている数量。</p>'+
+  '<p>固定保管の昇格・降格は<b>在庫定数</b>だけで判定します。入庫直後にフリー在庫が一時的に増えただけで固定保管を変えると、'+
+  '必要以上に大きな場所をSKU専用に確保し続けることになるためです。フリー在庫は、いま入りきらないかどうか（バッファ判定）にだけ使います。</p>'+
+
+  '<h2>保管ルート</h2><div class="routes">'+
+    '<div class="route"><span class="rk">小箱-多収納<br>小箱-少収納</span>'+
+      '<span class="step">小箱</span><span class="arrow">⇔</span><span class="step">箱</span></div>'+
+    '<div class="route"><span class="rk">箱-多収納<br>箱-少収納</span><span class="step">箱</span></div>'+
+    '<div class="route"><span class="rk">コンテナ</span><span class="step">コンテナ（固定）</span></div>'+
   '</div>'+
+  '<p>通常商品のルートは<b>小箱 ⇔ 箱</b>だけです。在庫が増えたことを理由に、小箱→箱→固定コンテナと昇格させることはしません。'+
+  'コンテナを固定保管にするのは、商品サイズなどの理由でもともとコンテナ保管が必要な商品だけです。</p>'+
   '<p><b>「多収納 / 少収納」は収納上限の初期値を決めるための暫定的な分類です。</b>'+
   '判定そのものはこの名称を見ず、使える保管ルートと、SKUごとの小箱上限・箱上限だけで行います。'+
   'そのため、将来この分類を「小箱 / 箱 / コンテナ」の3つへ統合しても、判定結果は変わりません。</p>'+
 
-  '<h2>昇格・降格・予備保管</h2>'+
-  '<p><b>昇格</b>：判定用在庫数 ＞ 現在の主保管上限。ちょうど100%は維持。1段階ずつではなく、適切な主保管＋予備保管まで一気に判定します。</p>'+
-  '<p><b>降格</b>：①判定用在庫数 ＜ 現在の主保管上限×50% ②判定用在庫数 ≦ 降格先の上限　の両方を満たす場合のみ。ちょうど50%は維持。降格先に入らなければ降格しません。</p>'+
-  '<p><b>予備コンテナ追加</b>：主保管が箱で 判定用在庫数 ＞ 箱上限。<b>解除</b>：判定用在庫数 ≦ 箱上限。いずれも主保管は変えません。</p>'+
+  '<h2>昇格・降格・箱上限超過</h2>'+
+  '<p><b>昇格（小箱→箱）</b>：在庫定数 ＞ 小箱上限。ちょうど100%は維持。</p>'+
+  '<p><b>降格（箱→小箱）</b>：①在庫定数 ＜ 箱上限×50% ②在庫定数 ≦ 小箱上限　の<b>両方</b>を満たす場合のみ。ちょうど50%は降格しません。</p>'+
+  '<p><b>箱上限超過</b>：在庫定数 ＞ 箱上限。この場合も<b>固定コンテナへ自動昇格させません</b>。推奨固定保管は箱のままにして「箱上限超過」と表示し、'+
+  '箱上限そのものが適切か・在庫定数が適切か・倉庫運用上の別対応が要るかを担当者が確認します。</p>'+
+  '<p><b>コンテナ固定商品</b>：在庫定数やフリー在庫の増減でコンテナ以外へ自動変更しません。</p>'+
 
-  '<h2>収納上限の初期値</h2>'+
+  '<h2>バッファ判定</h2>'+
+  '<p><b>使用候補</b>：フリー在庫 ＞ 現在の固定保管の収納上限。<b>不要</b>：それ以外。'+
+  '超過数量 ＝ MAX（フリー在庫 − 現在の固定保管の収納上限, 0）。</p>'+
+  '<p>これは固定保管の変更ではありません。SKU専用のコンテナを新設せず、共用コンテナへ一時保管する候補という意味です。</p>'+
+
+  '<h2>収納上限の初期値と上限設定状態</h2>'+
   '<table class="rtable"><thead><tr><th>基礎区分</th><th>小箱上限</th><th>箱上限</th></tr></thead><tbody>'+capRows+'</tbody></table>'+
-  '<p>初期値は基礎区分ごとに自動設定され、SKU単位で上書きできます。上書きしたSKUには「個別」タグが付き、以降はそのSKUの値を使用します。'+
-  '<b>最終的な判定に使われるのは、この欄に入っているSKUごとの数値です。</b></p>'+
+  '<p>初期値は基礎区分ごとに自動設定され、SKU単位で上書きできます。<b>最終的な判定に使われるのは、SKUごとの数値です。</b></p>'+
+  '<p><b>上限設定状態</b>は、その上限が基礎区分の仮の初期値なのか、実際に確認した値なのかを表します。'+
+  '<b>仮設定</b>＝まだ実測していない／<b>SKU確認済</b>＝実際の収納上限を確認済み。'+
+  '「上限設定状態＝仮設定」で絞り込むと、これから調査すべきSKUだけを抽出できます。</p>'+
+  '<p>収納上限とは、通常の倉庫作業でその保管場所へ<b>現実的に</b>収納できる最大数量です。物理的に無理やり詰め込める最大数量ではありません。</p>'+
 
-  '<h2>有効な保管の組み合わせ</h2>'+
-  '<table class="rtable"><thead><tr><th>主保管</th><th>予備保管</th><th>有効</th></tr></thead><tbody>'+
-    '<tr><td>小箱</td><td>なし</td><td class="ok">○</td></tr>'+
-    '<tr><td>箱</td><td>なし</td><td class="ok">○</td></tr>'+
-    '<tr><td>箱</td><td>コンテナ</td><td class="ok">○</td></tr>'+
-    '<tr><td>コンテナ</td><td>なし</td><td class="ok">○</td></tr>'+
-    '<tr><td>小箱</td><td>コンテナ</td><td class="ok">○</td></tr>'+
-    '<tr><td>コンテナ</td><td>コンテナ</td><td class="ng">×</td></tr>'+
-  '</tbody></table>'+
-
-  '<p><b>小箱＋コンテナは、担当者が選ぶ例外運用です。</b>'+
-  '自動判定は通常「小箱上限を超えたら主保管を箱へ」と推奨します。予備保管はピッキング動線から外れる補助置き場で、'+
-  '小箱は上限が小さいぶんあふれる量が大きく、コンテナから小箱への補充が頻発するためです。'+
-  'ただし、箱ロケーションに空きがない、少量ずつ頻繁に出るので小箱ピッキングを崩したくない、'+
-  'セール前の一時入荷で恒久的に移すほどではない、といった場合は小箱＋コンテナのままで構いません。'+
-  'その場合は<b>対応状況を「例外運用」</b>にしてください。判定結果は残したまま、変更対象一覧から伏せられます。</p>'+
   '<h2>要確認になる条件</h2>'+
-  '<p>在庫定数・フリー在庫の未取得、必要な収納上限の未入力、小箱上限＞箱上限、マイナス値、基礎区分と現在の主保管の矛盾、無効な主保管＋予備保管の組み合わせ、API商品照合エラー。これらは自動判定を行わず「要確認」と表示します（不足データを0として扱いません）。</p>'+
+  '<p>在庫定数・フリー在庫の未取得、必要な収納上限の未入力、小箱上限＞箱上限、マイナス値、基礎区分と現在の固定保管の矛盾、API商品照合エラー。'+
+  'これらは自動判定を行わず「要確認」と表示します（不足データを0として扱いません）。'+
+  'API取得に失敗しても前回正常取得値は削除せず、「前回値」と表示して判定を続けます。</p>'+
+
+  '<h2>現在の固定保管は自動で書き換えない</h2>'+
+  '<p>推奨固定保管が出ても、現在の固定保管は自動更新しません。倉庫担当者が実際に商品を移動したあとで、'+
+  '「現在の固定保管」を更新し、対応状況を「対応済」にしてください。システム上だけ変わって現物が動いていない状態を防ぐためです。</p>'+
 
   '<h2>月次の運用フロー</h2>'+
-  '<p>① 「NEから最新データ取得」を押す → ② 判定用在庫数と推奨保管が自動再計算される → ③ 変更対象一覧を確認する → ④ 倉庫で移動する → ⑤ 現在の主保管・予備保管を更新し、対応済にする。</p>';
+  '<p>① ネクストエンジン同期 → ② 推奨固定保管・判定結果・判定理由・バッファ判定が自動再計算される → ③「保管変更対象」で移動が要るSKUを確認 → '+
+  '④「バッファ使用候補」で一時的に入りきらないSKUを確認 → ⑤ 倉庫で作業する → ⑥ 現在の固定保管を更新し、対応済にする。</p>'+
+
+  '<h2>SKU別収納上限の整備</h2>'+
+  '<p>① 全SKU一覧で「上限設定状態＝仮設定」に絞る → ②［CSVダウンロード］→ ③ Excel等で小箱上限・箱上限を入力し、上限設定状態を「SKU確認済」にする → '+
+  '④［CSV取込］→ ⑤ 変更内容を確認して［この内容で反映］→ ⑥ 対象SKUの判定が自動で計算し直される。</p>'+
+  '<p>CSV取込で更新できるのは<b>小箱上限・箱上限・上限設定状態</b>だけです。商品名・在庫定数・フリー在庫はNEから取得する情報なので上書きしません。'+
+  '<b>空欄は「今の値を維持」</b>です（Excel編集時の空欄で上限が消える事故を防ぐため）。値を消したいときだけ半角の <code>-</code> を入れてください。</p>';
 }
 
 /* ============ イベント ============ */
@@ -1958,7 +2155,7 @@ document.addEventListener('click', e => {
   if(t.dataset && t.dataset.xls){
     const R = rows();
     const list = t.dataset.xls === 'filters2'
-      ? sortRows(R.filter(r => (r.j.need === '要' || r.j.result === '要確認'))
+      ? sortRows(R.filter(r => needsChange(r.j))
                   .filter(r => state.filters2.sta !== 'すべて' || r.it.status !== '例外運用')
                   .filter(r => matches(r, state.filters2)))
       : sortRows(R.filter(r => matches(r, state.filters)));
@@ -1981,12 +2178,15 @@ document.addEventListener('click', e => {
     const k = t.dataset.key;
     if(k === '__need'){ state.filters2.res = 'すべて'; state.filters2.sta = 'すべて'; switchTab('change'); }
     else if(k === '__todo'){ state.filters2.res = 'すべて'; state.filters2.sta = '未対応'; switchTab('change'); }
-    else { state.filters.res = k; switchTab('main'); }
+    else if(k === '__buffer'){ state.filters3.sta = 'すべて'; switchTab('buffer'); }
+    else if(k === '__cap'){ state.filters.res = 'すべて'; state.filters.buf = 'すべて'; state.filters.cap = '仮設定'; switchTab('main'); }
+    else { state.filters.res = k; state.filters.cap = 'すべて'; state.filters.buf = 'すべて'; switchTab('main'); }
     render();
   }
 });
 $('q').addEventListener('input', e => { state.filters.q = e.target.value; renderMain(); });
 $('q2').addEventListener('input', e => { state.filters2.q = e.target.value; renderChange(); });
+$('q3').addEventListener('input', e => { state.filters3.q = e.target.value; renderBuffer(); });
 $('manualMode').addEventListener('change', e => {
   state.manualMode = e.target.checked;
   toast(state.manualMode ? '手動入力モード：在庫定数・フリー在庫を編集できます（通常運用ではAPI取得値を優先）' : '通常モード：API取得値で判定します');
@@ -1996,11 +2196,11 @@ $('syncBtn').addEventListener('click', sync);
 $('scrim').addEventListener('click', () => { closeDrawer(); closeCsvModal(); });
 document.addEventListener('keydown', e => { if(e.key === 'Escape'){ closeDrawer(); closeCsvModal(); } });
 $('copyBtn').addEventListener('click', () => {
-  const R = rows().filter(r => (r.j.need === '要' || r.j.result === '要確認') && r.it.status !== '例外運用');
-  const head = ['商品コード','商品名','判定用在庫数','現在の主保管','現在の予備保管','推奨主保管','推奨予備保管','判定結果','判定理由','対応状況'].join('\t');
-  const body = R.map(({it,j}) => [it.code,it.name,j.qty,it.curMain,it.curSub,j.recMain||'―',j.recSub||'―',j.result,j.reason,it.status].join('\t')).join('\n');
+  const R = rows().filter(r => needsChange(r.j) && r.it.status !== '例外運用');
+  const head = ['商品コード','商品名','現在の固定保管','在庫定数','小箱上限','箱上限','推奨固定保管','判定結果','判定理由','対応状況'].join('\t');
+  const body = R.map(({it,j}) => [it.code,it.name,it.curMain,j.teisu,it.smallCap,it.boxCap,j.recMain||'―',j.result,j.reason,it.status].join('\t')).join('\n');
   const d = $('drawer');
-  d.innerHTML = '<div class="dhead"><div><h2>変更対象一覧（'+R.length+'件）</h2><span class="code">選択してコピーし、Excel等に貼り付けてください</span></div><button class="iconbtn" id="dclose" aria-label="閉じる">×</button></div>'+
+  d.innerHTML = '<div class="dhead"><div><h2>保管変更対象（'+R.length+'件）</h2><span class="code">選択してコピーし、Excel等に貼り付けてください</span></div><button class="iconbtn" id="dclose" aria-label="閉じる">×</button></div>'+
     '<div class="dsec"><textarea style="width:100%;min-height:60vh;font-family:var(--f-num);font-size:11px;border:1px solid var(--line-strong);border-radius:6px;padding:10px;background:var(--surface-2)">'+esc(head+'\n'+body)+'</textarea></div>';
   $('scrim').classList.add('show'); d.classList.add('show'); d.setAttribute('aria-hidden','false');
   $('dclose').onclick = closeDrawer;
@@ -2026,7 +2226,9 @@ $('reloadShared').addEventListener('click', async () => {
 let pendingCSV = null;
 
 function openCsvModal(){
-  pendingCSV = null;
+  pendingCSV = null; pendingPlan = null; pendingText = null; pendingName = '';
+  $('csvPreview').hidden = true;
+  $('csvAllowAdd').checked = false;
   $('csvInfo').textContent = '';
   $('csvInfo').classList.remove('err');
   $('csvApply').disabled = true;
@@ -2038,42 +2240,75 @@ function openCsvModal(){
 function closeCsvModal(){
   $('csvModal').hidden = true;
   if(!$('drawer').classList.contains('show')) $('scrim').classList.remove('show');
-  pendingCSV = null;
+  pendingCSV = null; pendingPlan = null; pendingText = null;
 }
 function csvInfo(html, isErr){
   const el = $('csvInfo');
   el.innerHTML = html;
   el.classList.toggle('err', !!isErr);
 }
+let pendingPlan = null, pendingName = '';
 async function acceptCsvFile(file){
   if(!file) return;
+  pendingPlan = null; pendingName = file.name;
+  $('csvApply').disabled = true;
+  $('csvPreview').hidden = true;
   if(!/\.csv$/i.test(file.name) && file.type && !/csv|text/.test(file.type)){
-    pendingCSV = null; $('csvApply').disabled = true;
     csvInfo('CSVファイルを選んでください（選ばれたファイル：' + esc(file.name) + '）', true);
     return;
   }
   const text = await readTextFile(file);
-  const rows = parseCSV(text);
-  if(rows.length < 2){
-    pendingCSV = null; $('csvApply').disabled = true;
-    csvInfo('データ行がありません。1行目に見出し、2行目以降に商品を入れてください。', true);
-    return;
+  buildCsvPreview(text);
+}
+let pendingText = null;
+function buildCsvPreview(text){
+  if(text !== undefined) pendingText = text;
+  if(pendingText === null) return;
+  const plan = planCSV(pendingText, { allowAdd: $('csvAllowAdd').checked });
+  pendingPlan = plan;
+  const n = v => Number(v).toLocaleString('ja-JP');
+  const hasWork = plan.changed > 0 || plan.adds.length > 0;
+  csvInfo(esc(pendingName) + '<br>'
+    + '対象SKU：<b>' + n(plan.rows) + '</b> 件　'
+    + '変更あり：<b>' + n(plan.changed) + '</b> 件　'
+    + '変更なし：<b>' + n(plan.same) + '</b> 件'
+    + (plan.adds.length ? '　新規追加：<b>' + n(plan.adds.length) + '</b> 件' : '')
+    + '　エラー：<b class="' + (plan.errors.length ? 'ng' : '') + '">' + n(plan.errors.length) + '</b> 件'
+    + (plan.warns.length ? '　警告：<b>' + n(plan.warns.length) + '</b> 件' : ''),
+    plan.errors.length > 0 && !hasWork);
+  $('csvApply').disabled = !hasWork;
+
+  const CAPROWS = 300;
+  const fv = v => (v === null || v === undefined || v === '') ? '―' : String(v);
+  let html = '';
+  if(plan.errors.length){
+    html += '<h3 class="cpv-h ng">エラー（この行は反映しません）</h3><ul class="cpv-list">'
+      + plan.errors.slice(0, CAPROWS).map(e =>
+          '<li>' + (e.line ? e.line + '行目 ' : '') + (e.code ? '<b>' + esc(e.code) + '</b>：' : '') + esc(e.msg) + '</li>').join('')
+      + '</ul>'
+      + (plan.errors.length > CAPROWS ? '<p class="cpv-more">ほか ' + n(plan.errors.length - CAPROWS) + ' 件</p>' : '');
   }
-  const head = rows[0].map(h => h.replace(/\s/g,''));
-  if(head.indexOf('商品コード') < 0){
-    pendingCSV = null; $('csvApply').disabled = true;
-    csvInfo('1行目に「商品コード」の見出しが見つかりません。', true);
-    return;
+  if(plan.warns.length){
+    html += '<h3 class="cpv-h">警告（反映はします）</h3><ul class="cpv-list">'
+      + plan.warns.slice(0, 50).map(e => '<li>' + e.line + '行目 <b>' + esc(e.code) + '</b>：' + esc(e.msg) + '</li>').join('')
+      + '</ul>';
   }
-  const ci = head.indexOf('商品コード');
-  const codes = rows.slice(1).map(r => String(r[ci] || '').trim()).filter(Boolean);
-  const have = new Set(state.items.map(x => x.code));
-  const upd = codes.filter(c => have.has(c)).length;
-  pendingCSV = text;
-  $('csvApply').disabled = false;
-  csvInfo(esc(file.name) + '<br>データ <b>' + codes.length.toLocaleString('ja-JP') + '</b> 件'
-        + '（新しく追加 <b>' + (codes.length - upd).toLocaleString('ja-JP') + '</b> 件 / '
-        + '上書き <b>' + upd.toLocaleString('ja-JP') + '</b> 件）');
+  if(plan.changes.length){
+    html += '<h3 class="cpv-h">変更される内容（' + n(plan.changes.length) + ' 項目）</h3>'
+      + '<table class="cpv-table"><thead><tr><th>商品コード</th><th>商品名</th><th>項目</th><th class="n">現在値</th><th class="n">取込後</th></tr></thead><tbody>'
+      + plan.changes.slice(0, CAPROWS).map(c =>
+          '<tr><td class="code">' + esc(c.code) + '</td><td>' + esc(String(c.name).slice(0, 20)) + '</td><td>' + esc(c.field) + '</td>'
+          + '<td class="n">' + esc(fv(c.before)) + '</td><td class="n after">' + esc(fv(c.after)) + '</td></tr>').join('')
+      + '</tbody></table>'
+      + (plan.changes.length > CAPROWS ? '<p class="cpv-more">ほか ' + n(plan.changes.length - CAPROWS) + ' 項目（反映はすべてに行われます）</p>' : '');
+  }
+  if(plan.adds.length){
+    html += '<h3 class="cpv-h">新規追加される商品コード（' + n(plan.adds.length) + ' 件）</h3>'
+      + '<p class="cpv-more">' + esc(plan.adds.slice(0, 60).map(a => a.code).join('、')) + (plan.adds.length > 60 ? ' ほか' : '') + '</p>';
+  }
+  if(!html) html = '<p class="cpv-more">変更される項目はありません。</p>';
+  $('csvPreview').innerHTML = html;
+  $('csvPreview').hidden = false;
 }
 
 /* 商品名はダブルクリックで編集 */
@@ -2123,13 +2358,13 @@ $('dropzone').addEventListener('drop', async e => {
 ['dragover','drop'].forEach(ev => document.addEventListener(ev, e => {
   if(!e.target.closest || !e.target.closest('#dropzone')) e.preventDefault();
 }));
+$('csvAllowAdd').addEventListener('change', () => buildCsvPreview());
 $('csvApply').addEventListener('click', () => {
-  if(!pendingCSV) return;
-  const r = importCSV(pendingCSV);
+  if(!pendingPlan) return;
+  const r = applyCSVPlan(pendingPlan, pendingName);
   closeCsvModal();
-  render();
-  if(r.errors.length) showText('CSV取込の結果', '追加 '+r.added+'件 / 更新 '+r.updated+'件\n\n取り込めなかった行:\n'+r.errors.join('\n'), '');
-  else toast('CSVを取り込みました（追加 '+r.added+'件 / 更新 '+r.updated+'件）');
+  render();   // §29 上限が変わったSKUはこの再描画でそのまま再判定される
+  toast('CSVを反映しました（更新 '+r.updated+'件'+(r.added?' / 新規追加 '+r.added+'件':'')+(r.errors?' / エラー '+r.errors+'件':'')+'）。判定は自動で計算し直しました');
 });
 function exportCsvFile(){
   if(!state.items.length){ toast('書き出す商品がありません'); return; }
@@ -2242,6 +2477,34 @@ function openGhSetup(){
     msg('このブラウザからトークンを削除しました。', true);
   };
 }
+/* §21 全SKU一覧の操作エリア */
+$('opsSync').addEventListener('click', sync);
+$('opsCsvOut').addEventListener('click', () => exportCsvFile());
+$('opsCsvIn').addEventListener('click', openCsvModal);
+
+/* §30 CSV取込履歴。誤ったCSVを取り込んだとき、何が変わったか追える。 */
+$('opsHistory').addEventListener('click', () => {
+  const h = Array.isArray(state.csvHistory) ? state.csvHistory : [];
+  const d = $('drawer');
+  const body = h.length ? h.map((r, i) =>
+    '<div class="dsec"><h3>'+esc(r.at)+'　'+esc(r.file)+'</h3>'+
+    '<p class="reason-box">更新 '+r.updated+'件'+(r.added?' / 新規追加 '+r.added+'件':'')+
+      ' / エラー '+r.errors+'件'+(r.warns?' / 警告 '+r.warns+'件':'')+'</p>'+
+    (r.changes && r.changes.length
+      ? '<table class="cpv-table"><thead><tr><th>商品コード</th><th>項目</th><th class="n">変更前</th><th class="n">変更後</th></tr></thead><tbody>'+
+        r.changes.slice(0, 200).map(c => '<tr><td class="code">'+esc(c.code)+'</td><td>'+esc(c.field)+'</td>'+
+          '<td class="n">'+esc(c.before === null || c.before === undefined ? '―' : c.before)+'</td>'+
+          '<td class="n after">'+esc(c.after === null || c.after === undefined ? '―' : c.after)+'</td></tr>').join('')+
+        '</tbody></table>'+(r.changes.length > 200 ? '<p class="cpv-more">ほか '+(r.changes.length-200)+' 項目</p>' : '')
+      : '<p class="cpv-more">変更された項目はありません。</p>')+
+    '</div>').join('')
+    : '<div class="dsec"><p class="cpv-more">まだCSV取込の履歴はありません。</p></div>';
+  d.innerHTML = '<div class="dhead"><div><h2>CSV取込履歴</h2><span class="code">直近20回ぶんを、この端末に保存しています</span></div>'+
+    '<button class="iconbtn" id="dclose" aria-label="閉じる">×</button></div>' + body;
+  $('scrim').classList.add('show'); d.classList.add('show'); d.setAttribute('aria-hidden','false');
+  $('dclose').onclick = closeDrawer;
+});
+
 function renderGhButton(){ $('pushShared').hidden = !ghReady(); }
 $('ghSetup').addEventListener('click', openGhSetup);
 
@@ -2290,7 +2553,9 @@ $('clearAll').addEventListener('click', () => {
     state.items = (saved.items || []).map(normalize);
   }
   $('manualMode').checked = !!state.manualMode;
-  $('q').value = state.filters.q; $('q2').value = state.filters2.q;
+  if(!state.filters3) state.filters3 = { q:'', res:'すべて', sta:'すべて', cap:'すべて', buf:'すべて' };
+  if(!Array.isArray(state.csvHistory)) state.csvHistory = [];
+  $('q').value = state.filters.q; $('q2').value = state.filters2.q; $('q3').value = state.filters3.q;
   renderGhButton();
   renderHeadToggle();
   switchTab(state.tab || 'main');
@@ -2307,21 +2572,34 @@ $('clearAll').addEventListener('click', () => {
   render();
 })();
 
-/* ============ 自己検証（仕様書ケース1〜10） ============ */
+/* ============ 自己検証（仕様書の判定例） ============ */
 (function selfTest(){
+  /* [推奨固定保管, 判定結果, バッファ判定] */
   const expect = {
-    'ABC-001':['小箱','なし','維持'], 'ABC-002':['箱','なし','昇格'], 'ABC-003':['箱','コンテナ','昇格＋予備保管追加'],
-    'ABC-004':['小箱','なし','降格'], 'ABC-005':['箱','なし','維持'], 'ABC-006':['箱','コンテナ','維持'],
-    'ABC-007':['箱','なし','予備保管解除'], 'ABC-008':['小箱','なし','降格＋予備保管解除'],
-    'ABC-009':['箱','なし','昇格'], 'CNT-001':['コンテナ','なし','維持'],
-    'BOX-021':['箱','コンテナ','予備保管追加'], 'BOX-022':['箱','なし','維持'], 'NG-041':[null,null,'要確認'], 'NEW-031':[null,null,'要確認']
+    'ABC-001':['小箱','維持','不要'],        // 定数80 ≦ 小箱上限100
+    'ABC-002':['箱','昇格','使用候補'],      // §13 定数200 ＞ 小箱上限100、箱上限500以内。移動前はフリー在庫150も小箱上限100超
+    'ABC-003':['箱','箱上限超過','使用候補'],// §15 定数800 ＞ 箱上限500。固定コンテナへは昇格させない
+    'ABC-004':['小箱','降格','不要'],        // §14 定数40 ＜ 250 かつ ≦ 100
+    'ABC-005':['箱','維持','不要'],          // 定数200 ＜ 250 だが小箱上限100を超える
+    'ABC-006':['箱','箱上限超過','使用候補'],// 定数700 ＞ 箱上限500
+    'ABC-007':['箱','維持','不要'],          // 定数400 は箱上限の50%以上
+    'ABC-008':['小箱','降格','不要'],
+    'ABC-009':['小箱','維持','使用候補'],    // §16 固定保管は小箱のまま、フリー在庫300が上限超過
+    'CNT-001':['コンテナ','維持','不要'],    // §4 コンテナ固定
+    'SML-011':['小箱','維持','不要'],
+    'SML-012':['箱','昇格','使用候補'],      // 定数120 ＞ 小箱上限30、箱上限150以内。フリー在庫90も小箱上限30超
+    'BOX-021':['箱','箱上限超過','使用候補'],// 箱区分。定数60 ＞ 箱上限40
+    'BOX-022':['箱','維持','使用候補'],      // フリー在庫250 ＞ 箱上限190
+    'NEW-031':[null,'要確認','不要'],        // §35 一度も取得できていない
+    'NG-041' :[null,'要確認','不要']         // 箱区分なのに現在の固定保管が小箱
   };
   const base = seed(); const out = [];
   base.forEach(it => {
     const e = expect[it.code]; if(!e) return;
     const j = judge(it);
-    const ok = j.recMain === e[0] && j.recSub === e[1] && j.result === e[2];
-    out.push((ok ? 'PASS ' : 'FAIL ') + it.code + ' → ' + j.recMain + '/' + j.recSub + '/' + j.result + (ok ? '' : '  期待:' + e.join('/')));
+    const ok = j.recMain === e[0] && j.result === e[1] && j.buffer === e[2];
+    out.push((ok ? 'PASS ' : 'FAIL ') + it.code + ' → ' + j.recMain + '/' + j.result + '/バッファ' + j.buffer
+             + (ok ? '' : '  期待:' + e.join('/')));
   });
   console.log('【判定ロジック自己検証】\n' + out.join('\n'));
 })();
