@@ -151,7 +151,15 @@ button,input,select,textarea{font:inherit;color:inherit}
   margin:0;font-size:27px;font-weight:700;letter-spacing:.02em;line-height:1.15;white-space:nowrap;
 }
 .brand h1 .hl{color:var(--brand)}
-.ver{font-family:var(--f-num);font-size:11.5px;color:var(--ink-3);letter-spacing:.02em;align-self:flex-end;padding-bottom:4px}
+.ver{
+  font-family:var(--f-num);font-size:11.5px;color:var(--ink-3);letter-spacing:.02em;
+  align-self:flex-end;margin-bottom:2px;cursor:pointer;
+  border:1px solid transparent;border-radius:5px;background:transparent;padding:2px 6px
+}
+.ver:hover{border-color:var(--line-strong);color:var(--ink-2);background:var(--surface-2)}
+.ver:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.chg-old{margin-left:6px;font-size:11px;color:var(--ink-3)}
+.chg-date{float:right;font-family:var(--f-num);font-size:11.5px;color:var(--ink-3)}
 
 /* sync panel */
 .sync{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
@@ -657,7 +665,7 @@ select.cell-in.capsel{width:104px}
         </g>
       </svg>
       <h1>保管形式<span class="hl">判定</span>くん</h1>
-      <span class="ver" id="ver"></span>
+      <button class="ver" id="ver" type="button" title="変更履歴を見る"></button>
     </div>
   </div>
   <div class="sync">
@@ -996,8 +1004,59 @@ function seed(){
 }
 
 /* ============ 状態 ============ */
-/* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.4000';
+/* ===== バージョンと変更履歴 =====
+   形式は v メジャー.マイナー.パッチ。
+     マイナー … 仕様が変わったとき（v1.4.x → v1.5.0）
+     パッチ   … 修正・調整・見た目の変更（v1.4.0 → v1.4.1）
+   **変更1件ごとに1つ増やすこと。** 1回の納品に3件の変更があれば番号も3つ進める。
+   増やしたら必ず CHANGELOG の先頭に、その番号で何を変えたかを1行足すこと。
+   （画面右上のバージョンを押すと、この CHANGELOG が表示される）
+   v1.4.0 より前は v1.4000 のような4桁形式だった。履歴では旧番号を併記している。 */
+const CHANGELOG = [
+  { v:'v1.4.1', d:'2026-08-31', items:[
+    'バージョン番号を v1.4.1 の3桁形式に変更し、変更1件ごとに1つ増やす運用にした',
+    '画面右上のバージョンを押すと、この変更履歴が見られるようにした' ] },
+  { v:'v1.4.0', d:'2026-08-31', old:'v1.4000', items:[
+    '固定保管を5区分に拡張（小箱／箱／小箱＋コンテナ固定／箱＋コンテナ固定／コンテナ固定）',
+    '「＋コンテナ固定」は担当者が手で選ぶ区分とし、数量では自動昇格しないようにした',
+    'すでに＋コンテナ固定のSKUは在庫が減っても維持。大きく減ったときだけ「固定コンテナ解除検討」を通知',
+    '「バッファ」の呼び名を「一時保管／コンテナ一時使用候補」に統一し、恒常と一時を明確に分けた',
+    '固定保管理由の項目を追加（＋コンテナ固定にした理由を残せる）' ] },
+  { v:'v1.3.2', d:'2026-08-31', old:'v1.3002', items:[
+    '基礎区分をコンテナに変えると現在の固定保管まで勝手に変わり、移動前に作業リストから消えていた不具合を修正',
+    '対応状況「例外運用」の説明を判定ルールに戻した' ] },
+  { v:'v1.3.0', d:'2026-08-31', old:'v1.3000', items:[
+    '商品名の末尾が (out) の商品を「終売」として、固定保管も一時保管も判定しないようにした' ] },
+  { v:'v1.2.5', d:'2026-08-31', old:'v1.2005', items:[
+    '判定理由の列を既定で閉じ、見出しの＋で開けるようにした' ] },
+  { v:'v1.2.3', d:'2026-08-31', old:'v1.2003', items:[
+    '現場チェック用Excelの対応状況に今の値を入れ、備考列を追加した' ] },
+  { v:'v1.2.1', d:'2026-08-31', old:'v1.2001〜1.2002', items:[
+    'Excel出力を「一括更新用」と「現場チェック用」の2種類に分けた',
+    'A4に列が収まる印刷設定を入れた（一括更新用は横、現場チェック用は縦）',
+    'Excel取込で対応状況も更新できるようにした' ] },
+  { v:'v1.2.0', d:'2026-08-31', old:'v1.2000', items:[
+    'CSVを廃止してExcel（.xlsx）の出力・取込に一本化した',
+    '商品コードが日付に化ける事故と、文字コードによる文字化けがなくなった' ] },
+  { v:'v1.1.8', d:'2026-08-31', old:'v1.1008〜1.1012', items:[
+    '商品コード選択（コードの頭でまとめて絞り込む）を追加',
+    '絞り込みチップを大きく濃くして見やすくした',
+    'Excelから画像URL列を外した' ] },
+  { v:'v1.1.5', d:'2026-08-31', old:'v1.1005', items:[
+    '起動直後にCSVを取り込むと、遅れて届いた空の共有データに上書きされて消える不具合を修正' ] },
+  { v:'v1.1.4', d:'2026-08-31', old:'v1.1004', items:[
+    'KPI行を削除し、件数はタブと絞り込みチップに集約',
+    'すべての絞り込みチップに件数を表示' ] },
+  { v:'v1.1.0', d:'2026-08-31', old:'v1.1000', items:[
+    '判定の基準をMAX（在庫定数, フリー在庫）から在庫定数だけに変更',
+    '予備保管コンテナを廃止し、共用コンテナの一時使用として分離',
+    '上限設定状態（仮設定／SKU確認済）を追加',
+    'CSV取込に確認画面・エラーチェック・取込履歴を追加' ] },
+  { v:'v1.0.25', d:'2026-08-28', old:'v1.0025〜1.0027', items:[
+    'Excel出力の書式調整（注意書き20pt、本文10pt、商品名を全文出力）' ] }
+];
+/* 画面右上に出すバージョン。CHANGELOG の先頭と必ず一致させること。 */
+const APP_VERSION = CHANGELOG[0].v;
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
@@ -2998,6 +3057,21 @@ $('opsHistory').addEventListener('click', () => {
     : '<div class="dsec"><p class="cpv-more">まだCSV取込の履歴はありません。</p></div>';
   d.innerHTML = '<div class="dhead"><div><h2>Excel取込履歴</h2><span class="code">直近20回ぶんを、この端末に保存しています</span></div>'+
     '<button class="iconbtn" id="dclose" aria-label="閉じる">×</button></div>' + body;
+  $('scrim').classList.add('show'); d.classList.add('show'); d.setAttribute('aria-hidden','false');
+  $('dclose').onclick = closeDrawer;
+});
+
+/* バージョンを押すと変更履歴を出す。何が変わったのかをスタッフが自分で確かめられるように。 */
+$('ver').addEventListener('click', () => {
+  const d = $('drawer');
+  d.innerHTML = '<div class="dhead"><div><h2>変更履歴</h2>'+
+    '<span class="code">新しいものが上です。'+CHANGELOG.length+'件</span></div>'+
+    '<button class="iconbtn" id="dclose" aria-label="閉じる">×</button></div>'+
+    CHANGELOG.map(c => '<div class="dsec"><h3>'+esc(c.v)+
+      (c.old ? '<span class="chg-old">（旧 '+esc(c.old)+'）</span>' : '')+
+      '<span class="chg-date">'+esc(c.d)+'</span></h3>'+
+      '<ul class="errlist" style="color:var(--ink-2)">'+
+      c.items.map(t => '<li>'+esc(t)+'</li>').join('')+'</ul></div>').join('');
   $('scrim').classList.add('show'); d.classList.add('show'); d.setAttribute('aria-hidden','false');
   $('dclose').onclick = closeDrawer;
 });
