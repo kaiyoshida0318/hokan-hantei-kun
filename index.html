@@ -137,7 +137,7 @@ button,input,select,textarea{font:inherit;color:inherit}
 .num{font-family:var(--f-num);font-variant-numeric:tabular-nums}
 
 /* ---------- shell ---------- */
-.wrap{max-width:none;margin:0;padding:0 16px 72px}
+.wrap{max-width:none;margin:0;padding:0 16px 8px}
 
 .masthead{
   display:flex;flex-wrap:wrap;gap:20px 24px;align-items:flex-start;justify-content:space-between;
@@ -334,7 +334,7 @@ section[hidden]{display:none}
 .toggle input{accent-color:var(--accent);width:15px;height:15px}
 
 /* ---------- table ---------- */
-.tablewrap{overflow:auto;max-height:min(72vh,780px)}
+.tablewrap{overflow:auto;max-height:min(72vh,780px)}   /* JSの fitTable() が起動後に実寸へ上書きする */
 /* 横スクロールバーを掴みやすく */
 .tablewrap::-webkit-scrollbar{height:13px;width:13px}
 .tablewrap::-webkit-scrollbar-track{background:var(--surface-2)}
@@ -556,7 +556,6 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
   transition:opacity .18s,transform .18s;box-shadow:var(--shadow);
 }
 .toast.show{opacity:1;transform:translate(-50%,0)}
-.foot{margin-top:16px;font-family:var(--f-body);font-size:12.5px;color:var(--ink-2);line-height:1.75}
 
 /* ===== 新仕様で追加した見た目 ===== */
 .opsbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px;padding:12px 14px;
@@ -657,7 +656,6 @@ select.cell-in.capsel{width:104px}
     <div class="panel filters">
       <div class="toolbar">
         <div class="fgroup"><span class="glabel">判定結果</span><span id="resFilters"></span></div>
-        <div class="rowbreak"></div>
         <div class="fgroup"><span class="glabel">バッファ判定</span><span id="bufFilters"></span></div>
         <div class="fgroup"><span class="glabel">上限設定状態</span><span id="capFilters"></span></div>
         <div class="rowbreak"></div>
@@ -717,12 +715,6 @@ select.cell-in.capsel{width:104px}
     <div class="rules" id="rulesBody"></div>
   </section>
 
-  <p class="foot">
-    ネクストエンジンの在庫定数・フリー在庫は、GitHub Actions（サーバー側）が <code>ne-sync-worker</code> から取得して <code>data.json</code> に書き込みます。
-    ブラウザからネクストエンジンを直接呼ぶことはなく、<code>NE_READ_API_TOKEN</code> はこの画面には渡りません。
-    毎朝7:00に自動実行され、「NEから最新データ取得」を押すと手動でも実行できます。
-    取得できなかった商品は0で埋めず、前回取得値を残して「前回値」と表示します。ネクストエンジン同期で、基礎区分・小箱上限・箱上限・上限設定状態・現在の固定保管・対応状況・備考が上書きされることはありません。
-  </p>
 </div>
 
 <div class="scrim" id="scrim"></div>
@@ -885,7 +877,7 @@ function seed(){
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.1000';
+const APP_VERSION = 'v1.1003';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
@@ -1776,8 +1768,12 @@ function renderSync(){
 /* 表の高さを画面の残りに合わせる（横スクロールバーが常に画面内に出るように） */
 function fitTable(){
   document.querySelectorAll('.tablewrap').forEach(el => {
+    // ページ先頭からこの表までの距離を引いた残り全部を表の高さにする。
+    // getBoundingClientRect().top は「今スクロールしている位置からの距離」なので、
+    // scrollY を足してページ先頭からの絶対位置に直す。これをしないと、
+    // 少しでもページがスクロールしていると表が画面をはみ出して収束しなくなる。
     const top = el.getBoundingClientRect().top + window.scrollY;
-    const h = window.innerHeight - top - 10;
+    const h = window.innerHeight - top - 12;   // 12px はカード下端の余白
     el.style.maxHeight = Math.max(260, h) + 'px';
   });
 }
