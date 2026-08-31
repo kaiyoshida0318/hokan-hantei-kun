@@ -664,7 +664,7 @@ select.cell-in.capsel{width:104px}
       <span class="flownote" id="flowNote" hidden></span>
     </div>
     <div class="dbactions">
-      <button class="btn btn-sm" id="csvBtn">CSV取込</button>
+      <button class="btn btn-sm" id="csvBtn">Excel取込</button>
       <button class="btn btn-sm btn-primary" id="pushShared" hidden>GitHubに保存</button>
       <button class="btn btn-sm" id="ghSetup">保存設定</button>
       <button class="btn btn-sm ghost" id="clearAll">全消去</button>
@@ -693,9 +693,8 @@ select.cell-in.capsel{width:104px}
         <div class="search"><input type="search" id="q" placeholder="商品コード・商品名で検索"></div>
         <button class="btn btn-sm codebtn" data-codepick="filters">商品コード選択</button>
         <button class="btn btn-sm floorbtn" data-sort="floor">階数でソート</button>
-        <button class="btn btn-sm" id="opsCsvOut" title="SKUごとの小箱上限・箱上限・上限設定状態をまとめて確認・変更するためのCSVを書き出します">CSVダウンロード</button>
-        <button class="btn btn-sm" id="opsCsvIn" title="商品コードをキーに、小箱上限・箱上限・上限設定状態を更新します">CSV取込</button>
-        <button class="btn btn-sm" data-xls="filters">Excel出力</button>
+        <button class="btn btn-sm" id="opsCsvOut" title="SKUごとの小箱上限・箱上限・上限設定状態をまとめて確認・変更するためのExcelを書き出します（絞り込み中はその分だけ）">Excel出力</button>
+        <button class="btn btn-sm" id="opsCsvIn" title="商品コードをキーに、小箱上限・箱上限・上限設定状態を更新します">Excel取込</button>
         <label class="toggle"><input type="checkbox" id="manualMode"> 管理者：手動入力モード</label>
         <button class="btn btn-sm ghost histbtn" id="opsHistory">取込履歴</button>
         <button class="btn btn-sm headtoggle" aria-pressed="false">ヘッダーを隠す</button>
@@ -717,7 +716,6 @@ select.cell-in.capsel{width:104px}
         <div class="search"><input type="search" id="q2" placeholder="商品コード・商品名で検索"></div>
         <button class="btn btn-sm codebtn" data-codepick="filters2">商品コード選択</button>
         <button class="btn btn-sm floorbtn" data-sort="floor">階数でソート</button>
-        <button class="btn btn-sm" data-xls="filters2">Excel出力</button>
         <button class="btn btn-sm" id="copyBtn">一覧をテキストで表示</button>
         <button class="btn btn-sm headtoggle" aria-pressed="false">ヘッダーを隠す</button>
       </div>
@@ -753,26 +751,27 @@ select.cell-in.capsel{width:104px}
 
 <div class="modal" id="csvModal" hidden>
   <div class="modal-card wide" role="dialog" aria-modal="true" aria-labelledby="csvTitle">
-    <h2 id="csvTitle">CSV取込</h2>
+    <h2 id="csvTitle">Excel取込</h2>
     <p class="modal-lead">商品コードをキーに照合し、<b>小箱上限・箱上限・上限設定状態</b>を更新します。
       商品名・在庫定数・フリー在庫はネクストエンジンから取得する情報なので上書きしません。
       現在の固定保管も、実際の倉庫移動を伴うため一括更新の対象外です。
       <b>空欄は「今の値を維持」</b>です。値を消したいときだけ半角の <code>-</code> を入れてください。</p>
-    <p class="modal-lead">書き出したCSVの収納上限欄は、<b><code>対象外</code></b>＝その基礎区分ではその保管形式を使わないので入力不要、
+    <p class="modal-lead">書き出したExcelの収納上限欄は、<b><code>対象外</code></b>＝その基礎区分ではその保管形式を使わないので入力不要、
       <b>空欄</b>＝入力が必要なのにまだ値が入っていない、という意味です。<code>対象外</code> はそのまま取り込んでも何も変わりません。</p>
-    <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="CSVファイルを選択">
+    <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Excelファイルを選択">
       <div class="dz-mark">＋</div>
-      <div class="dz-main">ここにCSVファイルをドロップ</div>
+      <div class="dz-main">ここに Excel ファイル（.xlsx）をドロップ</div>
       <div class="dz-sub">またはクリックしてファイルを選ぶ</div>
     </div>
     <label class="toggle csvadd"><input type="checkbox" id="csvAllowAdd"> ツールに無い商品コードは新規追加する（初回の商品登録に使います）</label>
+    <p class="modal-lead" id="xlsxWarn" hidden></p>
     <div class="dz-info" id="csvInfo"></div>
     <div class="csvpreview" id="csvPreview" hidden></div>
     <div class="modal-actions">
       <button class="btn btn-primary" id="csvApply" disabled>この内容で反映</button>
       <button class="btn" id="csvCancel">キャンセル</button>
     </div>
-    <input type="file" id="csvIn" accept=".csv,text/csv" hidden>
+    <input type="file" id="csvIn" accept=".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
   </div>
 </div>
 <div class="codepop" id="codePop" hidden role="dialog" aria-label="商品コードで絞り込む"></div>
@@ -912,7 +911,7 @@ function seed(){
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.1011';
+const APP_VERSION = 'v1.2000';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
@@ -1072,30 +1071,6 @@ function renderShared(){
 }
 
 /* ---- CSV ---- */
-const CSV_COLS = ['商品コード','商品名','画像URL','基礎区分','小箱上限','箱上限','上限設定状態','現在の固定保管','在庫定数','フリー在庫','対応状況','備考'];
-function parseCSV(text){
-  const rows = []; let row = [], cur = '', q = false;
-  text = text.replace(/^﻿/, '');
-  for(let i = 0; i < text.length; i++){
-    const c = text[i];
-    if(q){
-      if(c === '"'){ if(text[i+1] === '"'){ cur += '"'; i++; } else q = false; }
-      else cur += c;
-    }else{
-      if(c === '"') q = true;
-      else if(c === ','){ row.push(cur); cur = ''; }
-      else if(c === '\n'){ row.push(cur); rows.push(row); row = []; cur = ''; }
-      else if(c !== '\r') cur += c;
-    }
-  }
-  if(cur !== '' || row.length){ row.push(cur); rows.push(row); }
-  return rows.filter(r => r.some(v => String(v).trim() !== ''));
-}
-async function readTextFile(file){
-  const buf = await file.arrayBuffer();
-  try{ return new TextDecoder('utf-8', {fatal:true}).decode(buf); }
-  catch(e){ return new TextDecoder('shift_jis').decode(buf); }
-}
 /* ---- CSV取込：商品コードをキーに照合し、変更内容を先に確認してから反映する ---- */
 /* §25 取込で更新できるのは収納上限まわりだけ。商品名・在庫定数・フリー在庫はNEの情報なので上書きしない。
    現在の固定保管も実移動を伴うため一括更新の対象外。 */
@@ -1107,20 +1082,29 @@ const CSV_CLEAR = '-';
 const CSV_NA = '対象外';
 const CSV_NA_ALIASES = ['対象外','―','—','–','n/a','N/A'];
 
-function planCSV(text, opts){
+/* 見出し行を探す。1行目に注記を入れているので、決め打ちにしない。
+   利用者が上に行を足していても動くよう、先頭20行から「商品コード」を探す。 */
+function findHeadRow(rows){
+  for(let i = 0; i < Math.min(rows.length, 20); i++){
+    if((rows[i] || []).some(c => String(c === null || c === undefined ? '' : c).replace(/\s/g,'') === '商品コード')) return i;
+  }
+  return -1;
+}
+
+function planRows(rows, opts){
   const allowAdd = !!(opts && opts.allowAdd);
   const out = { rows:0, changed:0, same:0, errors:[], warns:[], changes:[], adds:[], allowAdd };
-  const rows = parseCSV(text);
-  if(rows.length < 2){ out.errors.push({ code:'', msg:'データ行がありません。1行目に見出し、2行目以降に商品を入れてください。' }); return out; }
-  const head = rows[0].map(h => h.replace(/\s/g,''));
+  const h = findHeadRow(rows);
+  if(h < 0){ out.errors.push({ code:'', msg:'見出しに「商品コード」が見つかりません。ツールから書き出したExcelをそのままお使いください。' }); return out; }
+  if(rows.length <= h + 1){ out.errors.push({ code:'', msg:'データ行がありません。見出しの下に商品の行を入れてください。' }); return out; }
+  const head = rows[h].map(c => String(c === null || c === undefined ? '' : c).replace(/\s/g,''));
   const idx = n => head.indexOf(n);
-  if(idx('商品コード') < 0){ out.errors.push({ code:'', msg:'1行目に「商品コード」の見出しが見つかりません。' }); return out; }
-  const get = (r, n) => { const i = idx(n); return i < 0 ? undefined : String(r[i] === undefined ? '' : r[i]).trim(); };
+  const get = (r, n) => { const i = idx(n); return i < 0 ? undefined : String(r[i] === undefined || r[i] === null ? '' : r[i]).trim(); };
   const byCode = new Map(state.items.map(x => [x.code, x]));
   const seen = new Map();
 
-  rows.slice(1).forEach((r, i) => {
-    const line = i + 2;
+  rows.slice(h + 1).forEach((r, i) => {
+    const line = h + i + 2;
     const code = get(r, '商品コード');
     out.rows++;
     if(!code){ out.errors.push({ line, code:'', msg:'商品コードが空欄です' }); return; }
@@ -1186,7 +1170,7 @@ function planCSV(text, opts){
 }
 
 /* 確認画面で［この内容で反映］を押したときだけ、実際に書き換える */
-function applyCSVPlan(plan, fileName){
+function applyPlan(plan, fileName){
   const byCode = new Map(state.items.map(x => [x.code, x]));
   const codes = new Set();
   plan.changes.forEach(c => {
@@ -1204,12 +1188,12 @@ function applyCSVPlan(plan, fileName){
     state.items.push(normalize(raw)); added++;
   });
   if(codes.size || added) markDirty();
-  pushCsvHistory(fileName, plan, codes.size, added);
+  pushImportHistory(fileName, plan, codes.size, added);
   return { updated:codes.size, added, errors:plan.errors.length };
 }
 
 /* §30 取込履歴。変更前の値も残して、誤った取込を追跡できるようにする。 */
-function pushCsvHistory(fileName, plan, updated, added){
+function pushImportHistory(fileName, plan, updated, added){
   if(!Array.isArray(state.csvHistory)) state.csvHistory = [];
   state.csvHistory.unshift({
     at: nowStr(), file: fileName || '(名前なし)',
@@ -1219,24 +1203,6 @@ function pushCsvHistory(fileName, plan, updated, added){
   state.csvHistory = state.csvHistory.slice(0, 20);   // 直近20回ぶんだけ持つ
 }
 
-/* §22 CSVダウンロード。SKUごとの収納上限をExcel等でまとめて確認・入力するためのもの。 */
-function exportCSV(){
-  const lines = [CSV_COLS.join(',')];
-  const q = v => { const s = v === null || v === undefined ? '' : String(v); return /[",\n]/.test(s) ? '"'+s.replace(/"/g,'""')+'"' : s; };
-  /* 空欄の意味をはっきりさせる：
-       「対象外」… その基礎区分ではその保管形式を使わないので、入力しなくてよい
-       空欄      … 入力が必要なのに、まだ値が入っていない（これから実測して入れる） */
-  const capOut = (it, kind) => {
-    const uses = kind === 'small' ? usesSmall(it.kubun) : usesBox(it.kubun);
-    if(!uses) return CSV_NA;
-    const v = kind === 'small' ? it.smallCap : it.boxCap;
-    return (v === null || v === undefined || v === '') ? '' : v;
-  };
-  state.items.forEach(it => lines.push([it.code,it.name,it.imageUrl,it.kubun,
-    capOut(it,'small'),capOut(it,'box'),it.capState,it.curMain,
-    usedTeisu(it),usedFree(it),it.status,it.note].map(q).join(',')));
-  return '﻿' + lines.join('\r\n') + '\r\n';
-}
 function sharedJSON(){
   const p = n => String(n).padStart(2,'0');
   const d = new Date();
@@ -1424,14 +1390,22 @@ const xe = v => String(v === null || v === undefined ? '' : v)
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 const colLetter = i => String.fromCharCode(65 + i);
 
-/* rows: [[{v, s}, ...], ...]  s = セル書式番号 */
+/* rows: [[{v, s, n}, ...], ...]
+     s = セル書式番号
+     n = true なら数値セルとして書く（Excelで「数値が文字列として保存されています」の警告が出ない）
+   商品コードなどは必ず文字列で書くこと。数値にするとExcelが日付や指数表記に変えてしまう。 */
 function buildXlsx(sheetRows, opts){
   const o = opts || {};
   const body = sheetRows.map((cells, r) => {
-    const cs = cells.map((c, i) => c === null || c === undefined ? '' :
-      '<c r="'+colLetter(i)+(r+1)+'"'+(c.s ? ' s="'+c.s+'"' : '')+' t="inlineStr"><is><t xml:space="preserve">'
-      + xe(c.v) + '</t></is></c>').join('');
-    const ht = r === 0 ? ' ht="28" customHeight="1"' : (r === 1 ? ' ht="34" customHeight="1"' : '');
+    const cs = cells.map((c, i) => {
+      if(c === null || c === undefined) return '';
+      const ref = colLetter(i)+(r+1);
+      const st = c.s ? ' s="'+c.s+'"' : '';
+      if(c.n && c.v !== '' && c.v !== null && c.v !== undefined && isFinite(Number(c.v)))
+        return '<c r="'+ref+'"'+st+'><v>'+Number(c.v)+'</v></c>';
+      return '<c r="'+ref+'"'+st+' t="inlineStr"><is><t xml:space="preserve">'+ xe(c.v) + '</t></is></c>';
+    }).join('');
+    const ht = r === 0 ? ' ht="'+(o.noteHt || 28)+'" customHeight="1"' : (r === 1 ? ' ht="34" customHeight="1"' : '');
     return '<row r="'+(r+1)+'"'+ht+'>'+cs+'</row>';
   }).join('');
   const cols = (o.widths || []).map((w, i) =>
@@ -1452,10 +1426,11 @@ function buildXlsx(sheetRows, opts){
   const styles =
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
     '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+
-    '<fonts count="3">'+
+    '<fonts count="4">'+
       '<font><sz val="10"/><name val="Yu Gothic"/></font>'+
       '<font><b/><sz val="10"/><name val="Yu Gothic"/></font>'+
       '<font><sz val="20"/><color rgb="FF000000"/><name val="Yu Gothic"/></font>'+
+      '<font><sz val="10"/><color rgb="FF000000"/><name val="Yu Gothic"/></font>'+
     '</fonts>'+
     '<fills count="4">'+
       '<fill><patternFill patternType="none"/></fill>'+
@@ -1468,13 +1443,14 @@ function buildXlsx(sheetRows, opts){
       '<top style="thin"><color rgb="FFC9CFD8"/></top><bottom style="thin"><color rgb="FFC9CFD8"/></bottom></border>'+
     '</borders>'+
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'+
-    '<cellXfs count="6">'+
+    '<cellXfs count="7">'+
       '<xf xfId="0"/>'+
       '<xf xfId="0" fontId="1" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'+
       '<xf xfId="0" borderId="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>'+
       '<xf xfId="0" fillId="3" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'+
       '<xf xfId="0" fontId="2" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>'+
       '<xf xfId="0" borderId="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'+
+      '<xf xfId="0" fontId="3" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>'+
     '</cellXfs>'+
     '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'+
     '<dxfs count="0"/>'+
@@ -1507,25 +1483,45 @@ function buildXlsx(sheetRows, opts){
   return zipStore(files);
 }
 
-const XLS_NOTE = '※コンテナは倉庫全体で使う共用バッファです。SKU専用の固定保管ではありません。';
-const XLS_HEAD = ['商品コード','商品名','現在の\n固定保管','推奨\n固定保管','判定結果','対応\n可否'];
+/* Excel出力の列。取込で更新できるのは「小箱上限 / 箱上限 / 上限設定状態」の3つだけで、
+   その3列にはうっすら色を付けて編集対象だと分かるようにしている。 */
+const XLS_HEAD = ['商品コード','商品名','基礎区分','小箱上限','箱上限','上限設定状態','現在の\n固定保管',
+                  '在庫定数','フリー在庫','推奨\n固定保管','判定結果','バッファ\n判定','対応状況','備考'];
+const XLS_EDITABLE = [3, 4, 5];   // 色を付ける列（0始まり）
+const XLS_WIDTHS   = [null, null, 13, 9.5, 9.5, 12, 10, 9.5, 10, 10, 14, 11, 10, 26];
+
 function exportXlsx(list){
   if(!list.length){ toast('書き出す商品がありません'); return; }
+  const filtered = list.length !== state.items.length;
+  const note = '編集できるのは 小箱上限 / 箱上限 / 上限設定状態 の3列だけです。'
+    + '「対象外」＝その基礎区分では使わないので入力不要、空欄＝入力が必要だがまだ未入力。'
+    + (filtered ? '　※この表は絞り込み後の ' + list.length.toLocaleString('ja-JP') + ' 件だけです（全 '
+                  + state.items.length.toLocaleString('ja-JP') + ' 件中）。' : '');
+  const capOut = (it, kind) => {
+    const uses = kind === 'small' ? usesSmall(it.kubun) : usesBox(it.kubun);
+    if(!uses) return CSV_NA;
+    const v = kind === 'small' ? it.smallCap : it.boxCap;
+    return (v === null || v === undefined || v === '') ? '' : v;
+  };
   const rows = [];
-  rows.push([{v:XLS_NOTE, s:4}]);
+  rows.push([{v:note, s:6}]);
   rows.push(XLS_HEAD.map(h => ({v:h, s:1})));
-  list.forEach(({it,j}) => rows.push([
-    {v:it.code, s:2}, {v:String(it.name || ''), s:2},
-    {v:it.curMain, s:5},
-    {v:j.recMain || '―', s:3},
-    {v:j.result, s:2}, {v:'', s:2}
-  ]));
-  // 幅は中身に合わせて詰める（全角は約2文字分）
-  const codeW = Math.min(34, Math.max(12, ...list.map(x => String(x.it.code).length)) + 1);
-  // 商品名は全文を入れるので、いちばん長い名前に合わせて幅を広げる（全角は約2文字分）
-  const wide = s => [...String(s)].reduce((n, c) => n + (/[\x20-\x7E｡-ﾟ]/.test(c) ? 1 : 2), 0);
-  const nameW = Math.min(60, Math.max(21, ...list.map(x => wide(x.it.name || ''))) + 2);
-  const bin = buildXlsx(rows, { widths:[codeW, nameW, 11, 11, 15, 9] });
+  list.forEach(({it,j}) => {
+    const cells = [
+      {v:it.code, s:2}, {v:String(it.name || ''), s:2}, {v:it.kubun, s:2},
+      {v:capOut(it,'small'), s:3, n:true}, {v:capOut(it,'box'), s:3, n:true}, {v:it.capState, s:3},
+      {v:it.curMain, s:5},
+      {v:fmtPlain(usedTeisu(it)), s:5, n:true}, {v:fmtPlain(usedFree(it)), s:5, n:true},
+      {v:j.recMain || '―', s:5}, {v:j.result, s:5}, {v:j.buffer, s:5},
+      {v:it.status, s:5}, {v:String(it.note || ''), s:2}
+    ];
+    rows.push(cells);
+  });
+  const wide = t => [...String(t)].reduce((n, c) => n + (/[\x20-\x7E｡-ﾟ]/.test(c) ? 1 : 2), 0);
+  const widths = XLS_WIDTHS.slice();
+  widths[0] = Math.min(34, Math.max(12, ...list.map(x => String(x.it.code).length)) + 1);
+  widths[1] = Math.min(60, Math.max(21, ...list.map(x => wide(x.it.name || ''))) + 2);
+  const bin = buildXlsx(rows, { widths, noteHt:18 });
   const p2 = n => String(n).padStart(2,'0');
   const d = new Date();
   const name = '保管形式判定_'+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'_'+p2(d.getHours())+p2(d.getMinutes())+'.xlsx';
@@ -1534,10 +1530,96 @@ function exportXlsx(list){
     const a = document.createElement('a');
     a.href = url; a.download = name; document.body.appendChild(a); a.click();
     setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
-    toast('Excelを書き出しました（'+list.length.toLocaleString('ja-JP')+'件）');
+    toast('Excelを書き出しました（'+list.length.toLocaleString('ja-JP')+'件）'+(filtered ? '※絞り込み後の分だけです' : ''));
   }catch(e){
     toast('Excelの書き出しに失敗しました');
   }
+}
+const fmtPlain = v => (v === null || v === undefined || v === '') ? '' : String(v);
+
+/* ===== Excel（.xlsx）読み込み：外部ライブラリを使わず、ZIPをその場で展開する =====
+   ブラウザの DecompressionStream で解凍し、DOMParser でシートを読む。
+   ・本物のExcelが使う sharedStrings 形式と、inlineStr 形式の両方に対応
+   ・Excelは空セルを書き出さないので、セル番地（A1形式）を見て列位置を復元する
+   ・CSVと違って文字コードの指定が要らず、商品コードがExcelで日付に化ける事故も起きない */
+const XLSX_READ_OK = (typeof DecompressionStream !== 'undefined');
+
+async function readXlsx(file){
+  if(!XLSX_READ_OK) throw new Error('このブラウザはExcelの読み込みに対応していません。Chrome か Edge の新しい版でお試しください。');
+  const bin = new Uint8Array(await file.arrayBuffer());
+  const dv = new DataView(bin.buffer, bin.byteOffset, bin.byteLength);
+
+  /* ZIPの目次（セントラルディレクトリ）を末尾から探す */
+  let eocd = -1;
+  for(let i = bin.length - 22; i >= 0 && i > bin.length - 66000; i--){
+    if(dv.getUint32(i, true) === 0x06054b50){ eocd = i; break; }
+  }
+  if(eocd < 0) throw new Error('Excelファイルとして読めませんでした。.xlsx 形式で保存し直してください（.xls や .csv は読めません）。');
+  const count = dv.getUint16(eocd + 10, true);
+  let off = dv.getUint32(eocd + 16, true);
+  const entries = new Map();
+  for(let i = 0; i < count; i++){
+    if(dv.getUint32(off, true) !== 0x02014b50) break;
+    const method = dv.getUint16(off + 10, true);
+    const csize  = dv.getUint32(off + 20, true);
+    const nameLen = dv.getUint16(off + 28, true);
+    const extraLen = dv.getUint16(off + 30, true);
+    const cmtLen  = dv.getUint16(off + 32, true);
+    const lho = dv.getUint32(off + 42, true);
+    const name = new TextDecoder().decode(bin.subarray(off + 46, off + 46 + nameLen));
+    entries.set(name, { method, csize, lho });
+    off += 46 + nameLen + extraLen + cmtLen;
+  }
+  const readPart = async (name) => {
+    const e = entries.get(name);
+    if(!e) return null;
+    const nl = dv.getUint16(e.lho + 26, true), el = dv.getUint16(e.lho + 28, true);
+    const start = e.lho + 30 + nl + el;
+    const raw = bin.subarray(start, start + e.csize);
+    if(e.method === 0) return new TextDecoder().decode(raw);
+    if(e.method !== 8) throw new Error('この圧縮方式のExcelファイルは読めません。Excelで開いて .xlsx で保存し直してください。');
+    const st = new Blob([raw]).stream().pipeThrough(new DecompressionStream('deflate-raw'));
+    return new TextDecoder().decode(await new Response(st).arrayBuffer());
+  };
+
+  const parseXml = t => new DOMParser().parseFromString(t, 'application/xml');
+  const ssXml = await readPart('xl/sharedStrings.xml');
+  const shared = ssXml
+    ? [...parseXml(ssXml).getElementsByTagName('si')].map(si =>
+        [...si.getElementsByTagName('t')].map(t => t.textContent).join(''))
+    : [];
+
+  /* 最初のシートを読む（ワークブックの並び順で1枚目） */
+  let sheetPath = 'xl/worksheets/sheet1.xml';
+  if(!entries.has(sheetPath)){
+    const found = [...entries.keys()].filter(n => /^xl\/worksheets\/sheet\d+\.xml$/.test(n)).sort();
+    if(!found.length) throw new Error('Excelファイルの中にシートが見つかりませんでした。');
+    sheetPath = found[0];
+  }
+  const sheet = parseXml(await readPart(sheetPath));
+  const colIndex = ref => {
+    let n = 0;
+    for(const ch of String(ref).replace(/[^A-Za-z]/g, '')) n = n * 26 + (ch.toUpperCase().charCodeAt(0) - 64);
+    return n - 1;
+  };
+  return [...sheet.getElementsByTagName('row')].map(r => {
+    const arr = [];
+    [...r.getElementsByTagName('c')].forEach(c => {
+      const t = c.getAttribute('t');
+      let v = '';
+      if(t === 'inlineStr'){
+        v = [...c.getElementsByTagName('t')].map(x => x.textContent).join('');
+      }else{
+        const vn = c.getElementsByTagName('v')[0];
+        v = vn ? vn.textContent : '';
+        if(t === 's') v = shared[Number(v)] !== undefined ? shared[Number(v)] : '';
+      }
+      const i = colIndex(c.getAttribute('r') || '');
+      if(i >= 0) arr[i] = v;
+    });
+    for(let i = 0; i < arr.length; i++) if(arr[i] === undefined) arr[i] = '';
+    return arr;
+  });
 }
 
 /* ============ 描画 ============ */
@@ -1657,15 +1739,15 @@ function renderMain(){
   if(!state.items.length){
     $('tblMain').innerHTML = '<tbody><tr><td><div class="intro">'+
       '<h2>まだ商品が登録されていません</h2>'+
-      '<p>商品リストをCSVで取り込むと、その場で保管形式の判定が始まります。</p>'+
+      '<p>商品リストのExcelを取り込むと、その場で保管形式の判定が始まります。</p>'+
       '<ol class="steps">'+
-        '<li>下の見出し行をそのまま使ったCSVを用意します（商品コード以外は空欄でも構いません）。</li>'+
-        '<li>上の「CSV取込」で読み込みます（<b>新規追加</b>のチェックを入れてください）。基礎区分を入れておくと収納上限が自動で入ります。</li>'+
+        '<li>下の見出しを1行目に入れたExcel（.xlsx）を用意します（商品コード以外は空欄でも構いません）。</li>'+
+        '<li>上の「Excel取込」で読み込みます（<b>新規追加</b>のチェックを入れてください）。基礎区分を入れておくと収納上限が自動で入ります。</li>'+
         '<li>取り込んだあと「共有用JSONを書き出す」で data.json を作り、リポジトリに置くと全員が同じデータを見られます。</li>'+
       '</ol>'+
-      '<div class="csvspec">商品コード,商品名,基礎区分,小箱上限,箱上限,上限設定状態,現在の固定保管,在庫定数,フリー在庫,対応状況,備考\n'+
-      'ABC-001,USB-C ケーブル 1m,小箱-多収納,100,500,SKU確認済,小箱,200,150,未対応,\n'+
-      'BOX-021,ペットフード 5kg,箱-少収納,対象外,40,仮設定,箱,60,55,未対応,</div>'+
+      '<div class="csvspec">商品コード／商品名／基礎区分／小箱上限／箱上限／上限設定状態／現在の固定保管／在庫定数／フリー在庫／対応状況／備考\n\n'+
+      'ABC-001　USB-C ケーブル 1m　小箱-多収納　100　500　SKU確認済　小箱　200　150　未対応\n'+
+      'BOX-021　ペットフード 5kg　箱-少収納　対象外　40　仮設定　箱　60　55　未対応</div>'+
       '<p style="margin-top:14px">基礎区分は <b>小箱-多収納 / 小箱-少収納 / 箱-多収納 / 箱-少収納 / コンテナ</b>、現在の固定保管は <b>小箱 / 箱 / コンテナ</b>、上限設定状態は <b>仮設定 / SKU確認済</b> のいずれかで入力してください。</p>'+
       '<p><button class="btn btn-sm" id="loadSample">サンプルデータを入れて試す</button></p>'+
       '</div></td></tr></tbody>';
@@ -2276,20 +2358,10 @@ document.addEventListener('click', e => {
 window.addEventListener('resize', () => { if(codePopTarget) closeCodePop(); });
 
 document.addEventListener('click', e => {
-  const t = e.target.closest('[data-open], [data-sort], [data-xls], .chip, .tab');
+  const t = e.target.closest('[data-open], [data-sort], .chip, .tab');
   if(!t) return;
   if(t.dataset.open){ openDrawer(t.dataset.open); return; }
   if(t.classList.contains('tab')){ switchTab(t.dataset.tab); return; }
-  if(t.dataset && t.dataset.xls){
-    const R = rows();
-    const list = t.dataset.xls === 'filters2'
-      ? sortRows(R.filter(r => needsChange(r.j))
-                  .filter(r => state.filters2.sta !== 'すべて' || r.it.status !== '例外運用')
-                  .filter(r => matches(r, state.filters2)))
-      : sortRows(R.filter(r => matches(r, state.filters)));
-    exportXlsx(list);
-    return;
-  }
   if(t.dataset && t.dataset.sort){
     const k = t.dataset.sort;
     const cur = state.sort;
@@ -2341,13 +2413,16 @@ $('reloadShared').addEventListener('click', async () => {
     toast('共有データを読み込みました（'+sh.items.length+'件）');
   }else{ renderShared(); toast('共有データを読み込めませんでした：'+sh.status); }
 });
-/* ---- CSV取り込みモーダル ---- */
-let pendingCSV = null;
+/* ---- Excel取込モーダル ---- */
 
 function openCsvModal(){
-  pendingCSV = null; pendingPlan = null; pendingText = null; pendingName = '';
+  pendingPlan = null; pendingRows = null; pendingName = '';
   $('csvPreview').hidden = true;
   $('csvAllowAdd').checked = false;
+  const w = $('xlsxWarn');
+  w.hidden = XLSX_READ_OK;
+  if(!XLSX_READ_OK) w.innerHTML = '<b>このブラウザではExcel取込を使えません。</b>'+
+    'Chrome / Edge（新しい版）、Safari 16.4以降、Firefox 113以降でお試しください。';
   $('csvInfo').textContent = '';
   $('csvInfo').classList.remove('err');
   $('csvApply').disabled = true;
@@ -2359,7 +2434,7 @@ function openCsvModal(){
 function closeCsvModal(){
   $('csvModal').hidden = true;
   if(!$('drawer').classList.contains('show')) $('scrim').classList.remove('show');
-  pendingCSV = null; pendingPlan = null; pendingText = null;
+  pendingPlan = null; pendingRows = null;
 }
 function csvInfo(html, isErr){
   const el = $('csvInfo');
@@ -2372,18 +2447,26 @@ async function acceptCsvFile(file){
   pendingPlan = null; pendingName = file.name;
   $('csvApply').disabled = true;
   $('csvPreview').hidden = true;
-  if(!/\.csv$/i.test(file.name) && file.type && !/csv|text/.test(file.type)){
-    csvInfo('CSVファイルを選んでください（選ばれたファイル：' + esc(file.name) + '）', true);
+  if(/\.xls$/i.test(file.name)){
+    csvInfo('古い形式（.xls）は読めません。Excelで開いて「Excel ブック（.xlsx）」で保存し直してください。', true);
     return;
   }
-  const text = await readTextFile(file);
-  buildCsvPreview(text);
+  if(!/\.xlsx$/i.test(file.name)){
+    csvInfo('Excelファイル（.xlsx）を選んでください（選ばれたファイル：' + esc(file.name) + '）', true);
+    return;
+  }
+  try{
+    buildCsvPreview(await readXlsx(file));
+  }catch(e){
+    pendingRows = null;
+    csvInfo(esc(String(e.message || e)), true);
+  }
 }
-let pendingText = null;
-function buildCsvPreview(text){
-  if(text !== undefined) pendingText = text;
-  if(pendingText === null) return;
-  const plan = planCSV(pendingText, { allowAdd: $('csvAllowAdd').checked });
+let pendingRows = null;
+function buildCsvPreview(rows){
+  if(rows !== undefined) pendingRows = rows;
+  if(pendingRows === null) return;
+  const plan = planRows(pendingRows, { allowAdd: $('csvAllowAdd').checked });
   pendingPlan = plan;
   const n = v => Number(v).toLocaleString('ja-JP');
   const hasWork = plan.changed > 0 || plan.adds.length > 0;
@@ -2480,15 +2563,11 @@ $('dropzone').addEventListener('drop', async e => {
 $('csvAllowAdd').addEventListener('change', () => buildCsvPreview());
 $('csvApply').addEventListener('click', () => {
   if(!pendingPlan) return;
-  const r = applyCSVPlan(pendingPlan, pendingName);
+  const r = applyPlan(pendingPlan, pendingName);
   closeCsvModal();
   render();   // §29 上限が変わったSKUはこの再描画でそのまま再判定される
-  toast('CSVを反映しました（更新 '+r.updated+'件'+(r.added?' / 新規追加 '+r.added+'件':'')+(r.errors?' / エラー '+r.errors+'件':'')+'）。判定は自動で計算し直しました');
+  toast('Excelを反映しました（更新 '+r.updated+'件'+(r.added?' / 新規追加 '+r.added+'件':'')+(r.errors?' / エラー '+r.errors+'件':'')+'）。判定は自動で計算し直しました');
 });
-function exportCsvFile(){
-  if(!state.items.length){ toast('書き出す商品がありません'); return; }
-  offerFile('保管形式判定くん.csv', exportCSV(), 'text/csv');
-}
 function exportJsonFile(){
   if(!state.items.length){ toast('書き出す商品がありません'); return; }
   offerFile('data.json', sharedJSON(), 'application/json');
@@ -2538,11 +2617,10 @@ function openGhSetup(){
   '</div>'+
   '<div class="dsec"><h3>その他の書き出し</h3>'+
     '<div style="display:flex;gap:8px;flex-wrap:wrap">'+
-      '<button class="btn btn-sm" id="csvOut">CSVを書き出す</button>'+
       '<button class="btn btn-sm" id="jsonOut">共有用JSONを書き出す</button>'+
     '</div>'+
     '<p class="reason-box" style="margin-top:11px">共有用JSONは、トークンを使わずに GitHub の data.json を差し替えたいときに使います。'+
-    '商品一覧そのものを配りたいときはCSVを書き出してください（表の見た目のままExcelで見たい場合は、一覧側のExcel出力を使います）。</p>'+
+    '商品一覧そのものを配りたいときは、全SKU一覧の「Excel出力」を使ってください。</p>'+
   '</div>'+
   '<div class="dsec"><h3>トークンの作り方</h3>'+
     '<ol class="errlist" style="color:var(--ink-2)">'+
@@ -2589,7 +2667,6 @@ function openGhSetup(){
       msg(/fetch|abort|network|Failed/i.test(m) ? 'GitHubに接続できませんでした。通信環境とリポジトリ名を確認してください。' : m, false);
     }
   };
-  $('csvOut').onclick = exportCsvFile;
   $('jsonOut').onclick = exportJsonFile;
   $('ghClear').onclick = () => {
     delete gh.token; ghSave(gh); renderGhButton();
@@ -2597,7 +2674,7 @@ function openGhSetup(){
   };
 }
 /* §21 全SKU一覧の操作ボタン（表バーに配置） */
-$('opsCsvOut').addEventListener('click', () => exportCsvFile());
+$('opsCsvOut').addEventListener('click', () => exportXlsx(sortRows(rows().filter(r => matches(r, state.filters)))));
 $('opsCsvIn').addEventListener('click', openCsvModal);
 
 /* §30 CSV取込履歴。誤ったCSVを取り込んだとき、何が変わったか追える。 */
@@ -2617,7 +2694,7 @@ $('opsHistory').addEventListener('click', () => {
       : '<p class="cpv-more">変更された項目はありません。</p>')+
     '</div>').join('')
     : '<div class="dsec"><p class="cpv-more">まだCSV取込の履歴はありません。</p></div>';
-  d.innerHTML = '<div class="dhead"><div><h2>CSV取込履歴</h2><span class="code">直近20回ぶんを、この端末に保存しています</span></div>'+
+  d.innerHTML = '<div class="dhead"><div><h2>Excel取込履歴</h2><span class="code">直近20回ぶんを、この端末に保存しています</span></div>'+
     '<button class="iconbtn" id="dclose" aria-label="閉じる">×</button></div>' + body;
   $('scrim').classList.add('show'); d.classList.add('show'); d.setAttribute('aria-hidden','false');
   $('dclose').onclick = closeDrawer;
