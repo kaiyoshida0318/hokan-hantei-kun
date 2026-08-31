@@ -324,6 +324,7 @@ section[hidden]{display:none}
 .chip[data-cat="dn"]   {color:var(--dn);    border-color:var(--dn-line)}
 .chip[data-cat="al"]   {color:var(--alert); border-color:var(--alert-line)}
 .chip[data-cat="cnt"]  {color:var(--c-cnt); border-color:var(--c-cnt-line)}
+.chip[data-cat="end"]  {color:var(--ink-3); border-color:var(--line-strong)}
 .chip[aria-pressed="true"]{color:var(--on-accent);font-weight:700}
 .chip[data-cat="all"][aria-pressed="true"] {background:var(--accent); border-color:var(--accent)}
 .chip[data-cat="hold"][aria-pressed="true"]{background:var(--hold);   border-color:var(--hold)}
@@ -331,6 +332,7 @@ section[hidden]{display:none}
 .chip[data-cat="dn"][aria-pressed="true"]  {background:var(--dn);     border-color:var(--dn)}
 .chip[data-cat="al"][aria-pressed="true"]  {background:var(--alert);  border-color:var(--alert)}
 .chip[data-cat="cnt"][aria-pressed="true"] {background:var(--c-cnt);  border-color:var(--c-cnt)}
+.chip[data-cat="end"][aria-pressed="true"] {background:var(--ink-3);   border-color:var(--ink-3)}
 
 /* 未選択のチップは白地＋淡い枠線でぼやけて見えたので、
    枠線を濃くし、地にもうっすら色を敷いて1つずつの輪郭をはっきりさせる。
@@ -490,6 +492,8 @@ select.cell-in[data-f="curMain"],select.cell-in[data-f="curSub"],select.cell-in[
 .pill.up{background:var(--up-bg);color:var(--up);border-color:var(--up-line)}
 .pill.dn{background:var(--dn-bg);color:var(--dn);border-color:var(--dn-line)}
 .pill.al{background:var(--alert-bg);color:var(--alert);border-color:var(--alert-line)}
+/* 終売：作業対象ではないので、目を引かない落ち着いた灰色にする */
+.pill.end{background:transparent;color:var(--ink-3);border-color:var(--line-strong);border-style:dashed}
 .need{font-weight:600}
 .need.yes{color:var(--up)} .need.no{color:var(--ink-3);font-weight:400}
 .tag{
@@ -858,8 +862,15 @@ const STATUSES = ['未対応','対応済','例外運用'];
 const CAP_STATES = ['仮設定','SKU確認済'];
 const DEFAULT_CAP_STATE = '仮設定';
 /* 固定保管の判定結果。コンテナへの昇格・予備保管という概念は持たない。 */
-const RESULTS = ['維持','昇格','降格','箱上限超過','要確認'];
-const CAT = { '維持':'hold','昇格':'up','降格':'dn','箱上限超過':'al','要確認':'al' };
+const RESULTS = ['維持','昇格','降格','箱上限超過','要確認','終売'];
+const CAT = { '維持':'hold','昇格':'up','降格':'dn','箱上限超過':'al','要確認':'al','終売':'end' };
+
+/* 商品名の末尾が (out) / （out） の商品は、もう仕入れず在庫がなくなり次第の終売予定。
+   恒常的な保管能力を最適化する意味がないので、固定保管もバッファも判定しない。
+   判定の材料は商品名だけなので、ネクストエンジン側で (out) を付け外しすれば自動で切り替わる。
+   将来「終売」「廃番」なども拾いたくなったら、この正規表現に足すだけでよい。 */
+const END_RE = /[（(]\s*out\s*[)）]\s*$/i;
+const isDiscontinued = name => END_RE.test(String(name === null || name === undefined ? '' : name).trim());
 /* 共用コンテナバッファの使用判定。SKUの固定保管場所としては保存しない。 */
 const BUFFERS = ['不要','使用候補'];
 const RANK = {'小箱':0,'箱':1,'コンテナ':2};
@@ -920,13 +931,19 @@ function seed(){
     /* §35 要確認：一度もNEから取得できていない */
     S('NEW-031','【新規】保冷バッグ Lサイズ','小箱-多収納',150,750,'小箱',null,null),
     /* 要確認：箱区分なのに現在の固定保管が小箱になっている */
-    S('NG-041','園芸用プランター 60cm','箱-多収納',null,190,'小箱',35,30)
+    S('NG-041','園芸用プランター 60cm','箱-多収納',null,190,'小箱',35,30),
+    /* 終売：商品名の末尾が (out)。本来なら昇格＋バッファ使用候補だが、いずれも判定しない */
+    S('END-051','旧型スマホケース iPhone13用 (out)','小箱-多収納',100,500,'小箱',300,400),
+    /* 終売：全角括弧。データが欠けていても「要確認」にせず終売にする */
+    S('END-052','季節限定タンブラー 保冷（out）','小箱-多収納',100,500,'小箱',null,null),
+    /* 終売ではない：末尾が (out) ではない（誤検出しないことの確認） */
+    S('OUT-061','アウトドアチェア 折りたたみ out door','小箱-多収納',100,500,'小箱',50,40)
   ];
 }
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.2005';
+const APP_VERSION = 'v1.3000';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
@@ -1293,6 +1310,15 @@ function judge(it){
   const free  = (f === null || f === undefined || f === '') ? null : Number(f);
   /* MAX値は参考情報としてだけ保持する（§12：固定保管判定の主基準にはしない） */
   const qty = (teisu === null || free === null) ? null : Math.max(teisu, free);
+
+  /* 終売予定は、データが欠けていても「要確認」にしない（もう対応しないため）。
+     必ず errs の判定より前に返すこと。 */
+  if(isDiscontinued(it.name)){
+    return { teisu, free, qty, recMain:null, result:'終売', cat:CAT['終売'],
+             buffer:'不要', over:0, need:'不要', errs:[],
+             reason:'商品名が「(out)」で終わるため、仕入れをせず在庫がなくなり次第の終売予定と判断しました。'
+                  + '固定保管の変更も共用コンテナバッファの判定も行いません。在庫がはけるまで現状のまま置いてください。' };
+  }
 
   if(errs.length){
     return { teisu, free, qty, recMain:null, result:'要確認', cat:'al',
@@ -2403,6 +2429,15 @@ function renderRules(){
   '「上限設定状態＝仮設定」で絞り込むと、これから調査すべきSKUだけを抽出できます。</p>'+
   '<p>収納上限とは、通常の倉庫作業でその保管場所へ<b>現実的に</b>収納できる最大数量です。物理的に無理やり詰め込める最大数量ではありません。</p>'+
 
+  '<h2>終売予定の商品</h2>'+
+  '<p><b>商品名の末尾が <code>(out)</code> または <code>（out）</code> の商品</b>は、もう仕入れをせず'+
+  '在庫がなくなり次第の終売予定として扱い、<b>固定保管の判定も共用コンテナバッファの判定も行いません</b>。'+
+  '判定結果は「終売」になり、保管変更対象には出てきません。在庫がはけるまで現状のまま置いてください。</p>'+
+  '<p>判定の材料は商品名だけなので、ネクストエンジン側で <code>(out)</code> を付ければ次の同期で自動的に終売扱いになり、'+
+  '外せば通常の判定に戻ります。<b>ツール側で操作する必要はありません。</b>'+
+  '半角・全角の括弧、大文字小文字、括弧の前後の空白はどれでも構いません。'+
+  'ただし<b>末尾だけ</b>を見るので、商品名の途中に out があっても終売にはなりません。</p>'+
+
   '<h2>要確認になる条件</h2>'+
   '<p>在庫定数・フリー在庫の未取得、必要な収納上限の未入力、小箱上限＞箱上限、マイナス値、基礎区分と現在の固定保管の矛盾、API商品照合エラー。'+
   'これらは自動判定を行わず「要確認」と表示します（不足データを0として扱いません）。'+
@@ -2906,7 +2941,10 @@ $('clearAll').addEventListener('click', () => {
     'BOX-021':['箱','箱上限超過','使用候補'],// 箱区分。定数60 ＞ 箱上限40
     'BOX-022':['箱','維持','使用候補'],      // フリー在庫250 ＞ 箱上限190
     'NEW-031':[null,'要確認','不要'],        // §35 一度も取得できていない
-    'NG-041' :[null,'要確認','不要']         // 箱区分なのに現在の固定保管が小箱
+    'NG-041' :[null,'要確認','不要'],        // 箱区分なのに現在の固定保管が小箱
+    'END-051':[null,'終売','不要'],          // 末尾(out)。昇格条件を満たすが判定しない
+    'END-052':[null,'終売','不要'],          // 全角（out）。データ欠損でも要確認にしない
+    'OUT-061':['小箱','維持','不要']         // 末尾が(out)ではないので通常判定
   };
   const base = seed(); const out = [];
   base.forEach(it => {
