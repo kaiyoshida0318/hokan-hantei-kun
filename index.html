@@ -693,8 +693,9 @@ select.cell-in.capsel{width:104px}
         <div class="search"><input type="search" id="q" placeholder="商品コード・商品名で検索"></div>
         <button class="btn btn-sm codebtn" data-codepick="filters">商品コード選択</button>
         <button class="btn btn-sm floorbtn" data-sort="floor">階数でソート</button>
-        <button class="btn btn-sm" id="opsCsvOut" title="SKUごとの小箱上限・箱上限・上限設定状態をまとめて確認・変更するためのExcelを書き出します（絞り込み中はその分だけ）">Excel出力</button>
-        <button class="btn btn-sm" id="opsCsvIn" title="商品コードをキーに、小箱上限・箱上限・上限設定状態を更新します">Excel取込</button>
+        <button class="btn btn-sm" id="opsCsvOut" title="収納上限をまとめて直して取り込み直すためのExcel。横向き・A4に列が収まるよう設定済み（絞り込み中はその分だけ）">一括更新用Excel</button>
+        <button class="btn btn-sm" id="opsCheckOut" title="倉庫へ持ち歩いて対応要否を判断するためのExcel。対応状況は空欄。縦向き・A4に列が収まるよう設定済み（絞り込み中はその分だけ）">現場チェック用Excel</button>
+        <button class="btn btn-sm" id="opsCsvIn" title="商品コードをキーに、小箱上限・箱上限・上限設定状態・対応状況を更新します">Excel取込</button>
         <label class="toggle"><input type="checkbox" id="manualMode"> 管理者：手動入力モード</label>
         <button class="btn btn-sm ghost histbtn" id="opsHistory">取込履歴</button>
         <button class="btn btn-sm headtoggle" aria-pressed="false">ヘッダーを隠す</button>
@@ -752,7 +753,8 @@ select.cell-in.capsel{width:104px}
 <div class="modal" id="csvModal" hidden>
   <div class="modal-card wide" role="dialog" aria-modal="true" aria-labelledby="csvTitle">
     <h2 id="csvTitle">Excel取込</h2>
-    <p class="modal-lead">商品コードをキーに照合し、<b>小箱上限・箱上限・上限設定状態</b>を更新します。
+    <p class="modal-lead">商品コードをキーに照合し、<b>小箱上限・箱上限・上限設定状態・対応状況</b>を更新します。
+      一括更新用・現場チェック用のどちらのExcelでも、そのまま読み込めます。
       商品名・在庫定数・フリー在庫はネクストエンジンから取得する情報なので上書きしません。
       現在の固定保管も、実際の倉庫移動を伴うため一括更新の対象外です。
       <b>空欄は「今の値を維持」</b>です。値を消したいときだけ半角の <code>-</code> を入れてください。</p>
@@ -911,7 +913,7 @@ function seed(){
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.2000';
+const APP_VERSION = 'v1.2002';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
@@ -1072,9 +1074,10 @@ function renderShared(){
 
 /* ---- CSV ---- */
 /* ---- CSV取込：商品コードをキーに照合し、変更内容を先に確認してから反映する ---- */
-/* §25 取込で更新できるのは収納上限まわりだけ。商品名・在庫定数・フリー在庫はNEの情報なので上書きしない。
-   現在の固定保管も実移動を伴うため一括更新の対象外。 */
-const CSV_EDITABLE = ['小箱上限','箱上限','上限設定状態'];
+/* 取込で更新できる列。商品名・在庫定数・フリー在庫はNEの情報なので上書きしない。
+   現在の固定保管も実移動を伴うため一括更新の対象外（§25）。
+   対応状況は、現場チェック用Excelに書いて戻してもらうため v1.2001 で追加した。 */
+const CSV_EDITABLE = ['小箱上限','箱上限','上限設定状態','対応状況'];
 /* §28 空欄は「既存値を維持」。意図して値を消すときだけ、この記号を書く。 */
 const CSV_CLEAR = '-';
 /* 収納上限の空欄が「まだ入れていない」のか「その区分では使わない」のか区別できるよう、
@@ -1147,6 +1150,13 @@ function planRows(rows, opts){
       if(!CAP_STATES.includes(csRaw)){ out.errors.push({ line, code, msg:'上限設定状態「'+csRaw+'」は使用できません（'+CAP_STATES.join(' / ')+'）' }); bad = true; }
       else cs = csRaw;
     }
+    /* 対応状況。現場チェック用Excelでは空欄で配るので、空欄＝今のまま。 */
+    let st = it.status;
+    const stRaw = get(r, '対応状況');
+    if(stRaw !== undefined && stRaw !== ''){
+      if(!STATUSES.includes(stRaw)){ out.errors.push({ line, code, msg:'対応状況「'+stRaw+'」は使用できません（'+STATUSES.join(' / ')+'）' }); bad = true; }
+      else st = stRaw;
+    }
     if(bad) return;
 
     if(sc.value !== null && bc.value !== null && sc.value > bc.value){
@@ -1162,6 +1172,7 @@ function planRows(rows, opts){
     if(sc.value !== it.smallCap) diff.push({ field:'小箱上限', before:it.smallCap, after:sc.value });
     if(bc.value !== it.boxCap)   diff.push({ field:'箱上限',   before:it.boxCap,   after:bc.value });
     if(cs !== it.capState)       diff.push({ field:'上限設定状態', before:it.capState, after:cs });
+    if(st !== it.status)         diff.push({ field:'対応状況',   before:it.status,   after:st });
     if(!diff.length){ out.same++; return; }
     out.changed++;
     diff.forEach(d => out.changes.push({ line, code, name:it.name, field:d.field, before:d.before, after:d.after }));
@@ -1179,6 +1190,7 @@ function applyPlan(plan, fileName){
     if(c.field === '小箱上限'){ it.smallCap = c.after; it.smallCapEdited = it.smallCap !== defCaps(it.kubun).s; }
     else if(c.field === '箱上限'){ it.boxCap = c.after; it.boxCapEdited = it.boxCap !== defCaps(it.kubun).b; }
     else if(c.field === '上限設定状態'){ it.capState = c.after; }
+    else if(c.field === '対応状況'){ it.status = c.after; }
     codes.add(c.code);
   });
   let added = 0;
@@ -1411,9 +1423,13 @@ function buildXlsx(sheetRows, opts){
   const cols = (o.widths || []).map((w, i) =>
     '<col min="'+(i+1)+'" max="'+(i+1)+'" width="'+w+'" customWidth="1"/>').join('');
   const last = colLetter((o.widths || []).length - 1);
+  /* 印刷設定。要素の順番はOOXMLのスキーマで決まっていて、入れ替えるとExcelが
+     「読み取れない内容」と言って開けなくなる。sheetPr は必ず先頭、
+     printOptions → pageMargins → pageSetup → headerFooter はこの順で sheetData より後ろ。 */
   const sheet =
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
     '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'+
+    '<sheetPr><pageSetUpPr fitToPage="1"/></sheetPr>'+
     '<sheetViews><sheetView workbookViewId="0">'+
     '<pane ySplit="2" topLeftCell="A3" activePane="bottomLeft" state="frozen"/>'+
     '</sheetView></sheetViews>'+
@@ -1422,6 +1438,14 @@ function buildXlsx(sheetRows, opts){
     '<sheetData>'+body+'</sheetData>'+
     '<autoFilter ref="A2:'+last+sheetRows.length+'"/>'+
     '<mergeCells count="1"><mergeCell ref="A1:'+last+'1"/></mergeCells>'+
+    '<printOptions horizontalCentered="1"/>'+
+    '<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.55" header="0.3" footer="0.3"/>'+
+    /* fitToWidth="1" fitToHeight="0" ＝ 横は必ず1ページに収め、縦は何ページでもよい。
+       これで「列が切れて見えない」印刷事故が起きない。paperSize 9 は A4。 */
+    '<pageSetup paperSize="9" orientation="'+(o.orientation || 'portrait')+'" '+
+      'fitToWidth="1" fitToHeight="0" horizontalDpi="300" verticalDpi="300"/>'+
+    '<headerFooter><oddHeader>&amp;L'+xe(o.printTitle || '')+'&amp;R&amp;D</oddHeader>'+
+      '<oddFooter>&amp;C&amp;P / &amp;N</oddFooter></headerFooter>'+
     '</worksheet>';
   const styles =
     '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
@@ -1443,14 +1467,15 @@ function buildXlsx(sheetRows, opts){
       '<top style="thin"><color rgb="FFC9CFD8"/></top><bottom style="thin"><color rgb="FFC9CFD8"/></bottom></border>'+
     '</borders>'+
     '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'+
-    '<cellXfs count="7">'+
+    '<cellXfs count="8">'+
       '<xf xfId="0"/>'+
       '<xf xfId="0" fontId="1" fillId="2" borderId="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center" wrapText="1"/></xf>'+
       '<xf xfId="0" borderId="1" applyBorder="1" applyAlignment="1"><alignment vertical="center"/></xf>'+
       '<xf xfId="0" fillId="3" borderId="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'+
       '<xf xfId="0" fontId="2" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>'+
       '<xf xfId="0" borderId="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>'+
-      '<xf xfId="0" fontId="3" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>'+
+      '<xf xfId="0" fontId="3" applyFont="1" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>'+
+      '<xf xfId="0" borderId="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>'+
     '</cellXfs>'+
     '<cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>'+
     '<dxfs count="0"/>'+
@@ -1471,7 +1496,11 @@ function buildXlsx(sheetRows, opts){
     { name:'xl/workbook.xml', data: enc('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
       '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" '+
       'xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">'+
-      '<sheets><sheet name="保管形式判定" sheetId="1" r:id="rId1"/></sheets></workbook>') },
+      '<sheets><sheet name="'+xe(o.sheetName || '保管形式判定')+'" sheetId="1" r:id="rId1"/></sheets>'+
+      /* 2ページ目以降にも見出し行(1〜2行目)を出す。これが無いと2枚目から何の列か分からなくなる。 */
+      '<definedNames><definedName name="_xlnm.Print_Titles" localSheetId="0">'+
+      xe("'"+(o.sheetName || '保管形式判定')+"'")+'!$1:$2</definedName></definedNames>'+
+      '</workbook>') },
     { name:'xl/_rels/workbook.xml.rels', data: enc('<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
       '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'+
       '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>'+
@@ -1483,58 +1512,105 @@ function buildXlsx(sheetRows, opts){
   return zipStore(files);
 }
 
-/* Excel出力の列。取込で更新できるのは「小箱上限 / 箱上限 / 上限設定状態」の3つだけで、
-   その3列にはうっすら色を付けて編集対象だと分かるようにしている。 */
+/* ===== Excel出力（2種類） =====
+   ① 一括更新用：収納上限をまとめて直して取り込み直すための表（列が多い＝横向き）
+   ② 現場チェック用：倉庫へ持ち歩いて対応要否を判断し、対応状況を手書きするための表（列が少ない＝縦向き）
+   どちらも Excel取込 で読み込める。取込は列名で見ているので、列が違っても同じ処理で通る。 */
+
+/* ① 一括更新用。取込で更新できる 小箱上限 / 箱上限 / 上限設定状態 にはうっすら色を付ける。 */
 const XLS_HEAD = ['商品コード','商品名','基礎区分','小箱上限','箱上限','上限設定状態','現在の\n固定保管',
                   '在庫定数','フリー在庫','推奨\n固定保管','判定結果','バッファ\n判定','対応状況','備考'];
-const XLS_EDITABLE = [3, 4, 5];   // 色を付ける列（0始まり）
-const XLS_WIDTHS   = [null, null, 13, 9.5, 9.5, 12, 10, 9.5, 10, 10, 14, 11, 10, 26];
+const XLS_WIDTHS = [null, null, 13, 9.5, 9.5, 12, 10, 9.5, 10, 10, 14, 11, 10, 26];
+
+/* ② 現場チェック用。対応状況は空欄にして、倉庫で手書きしてもらう。 */
+const CHK_HEAD   = ['商品コード','商品名','現在の\n固定保管','推奨\n固定保管','判定結果','対応状況'];
+const CHK_WIDTHS = [null, null, 11, 11, 15, 12];
+
+/* 商品コード列・商品名列の幅を中身に合わせる（全角は約2文字分） */
+function autoWidths(list, widths){
+  const wide = t => [...String(t)].reduce((n, c) => n + (/[\x20-\x7E｡-ﾟ]/.test(c) ? 1 : 2), 0);
+  const w = widths.slice();
+  w[0] = Math.min(34, Math.max(12, ...list.map(x => String(x.it.code).length)) + 1);
+  w[1] = Math.min(46, Math.max(21, ...list.map(x => wide(x.it.name || ''))) + 2);
+  return w;
+}
+function saveXlsx(bin, name){
+  try{
+    const url = URL.createObjectURL(new Blob([bin], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+    const a = document.createElement('a');
+    a.href = url; a.download = name; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
+    return true;
+  }catch(e){ toast('Excelの書き出しに失敗しました'); return false; }
+}
+function xlsxName(kind){
+  const p2 = n => String(n).padStart(2,'0');
+  const d = new Date();
+  return '保管形式判定_'+kind+'_'+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'_'+p2(d.getHours())+p2(d.getMinutes())+'.xlsx';
+}
+/* 1行目の注記は結合セルなので、Excelが高さを自動調整してくれない。
+   文字数と表の総幅から必要な行数を出して、切れないように高さを決める。 */
+function noteHeight(note, widths){
+  const wide = t => [...String(t)].reduce((n, c) => n + (/[\x20-\x7E｡-ﾟ]/.test(c) ? 1 : 2), 0);
+  const total = widths.reduce((n, w) => n + (Number(w) || 0), 0);
+  const lines = Math.max(1, Math.ceil(wide(note) / Math.max(20, total - 2)));
+  return Math.min(90, 15 * lines + 4);
+}
+function filterNote(list){
+  return list.length !== state.items.length
+    ? '　※この表は絞り込み後の ' + list.length.toLocaleString('ja-JP') + ' 件だけです（全 '
+      + state.items.length.toLocaleString('ja-JP') + ' 件中）。' : '';
+}
 
 function exportXlsx(list){
   if(!list.length){ toast('書き出す商品がありません'); return; }
-  const filtered = list.length !== state.items.length;
-  const note = '編集できるのは 小箱上限 / 箱上限 / 上限設定状態 の3列だけです。'
-    + '「対象外」＝その基礎区分では使わないので入力不要、空欄＝入力が必要だがまだ未入力。'
-    + (filtered ? '　※この表は絞り込み後の ' + list.length.toLocaleString('ja-JP') + ' 件だけです（全 '
-                  + state.items.length.toLocaleString('ja-JP') + ' 件中）。' : '');
+  const note = '編集できるのは 小箱上限 / 箱上限 / 上限設定状態 / 対応状況 の4列だけです。'
+    + '「対象外」＝その基礎区分では使わないので入力不要、空欄＝入力が必要だがまだ未入力。' + filterNote(list);
   const capOut = (it, kind) => {
     const uses = kind === 'small' ? usesSmall(it.kubun) : usesBox(it.kubun);
     if(!uses) return CSV_NA;
     const v = kind === 'small' ? it.smallCap : it.boxCap;
     return (v === null || v === undefined || v === '') ? '' : v;
   };
-  const rows = [];
-  rows.push([{v:note, s:6}]);
-  rows.push(XLS_HEAD.map(h => ({v:h, s:1})));
-  list.forEach(({it,j}) => {
-    const cells = [
-      {v:it.code, s:2}, {v:String(it.name || ''), s:2}, {v:it.kubun, s:2},
-      {v:capOut(it,'small'), s:3, n:true}, {v:capOut(it,'box'), s:3, n:true}, {v:it.capState, s:3},
-      {v:it.curMain, s:5},
-      {v:fmtPlain(usedTeisu(it)), s:5, n:true}, {v:fmtPlain(usedFree(it)), s:5, n:true},
-      {v:j.recMain || '―', s:5}, {v:j.result, s:5}, {v:j.buffer, s:5},
-      {v:it.status, s:5}, {v:String(it.note || ''), s:2}
-    ];
-    rows.push(cells);
+  const rows = [[{v:note, s:6}], XLS_HEAD.map(h => ({v:h, s:1}))];
+  list.forEach(({it,j}) => rows.push([
+    {v:it.code, s:2}, {v:String(it.name || ''), s:7}, {v:it.kubun, s:2},
+    {v:capOut(it,'small'), s:3, n:true}, {v:capOut(it,'box'), s:3, n:true}, {v:it.capState, s:3},
+    {v:it.curMain, s:5},
+    {v:fmtPlain(usedTeisu(it)), s:5, n:true}, {v:fmtPlain(usedFree(it)), s:5, n:true},
+    {v:j.recMain || '―', s:5}, {v:j.result, s:5}, {v:j.buffer, s:5},
+    {v:it.status, s:3}, {v:String(it.note || ''), s:7}
+  ]));
+  const w = autoWidths(list, XLS_WIDTHS);
+  const bin = buildXlsx(rows, {
+    widths: w, noteHt: noteHeight(note, w),
+    orientation:'landscape',            // 14列あるので横向き
+    sheetName:'収納上限の一括更新',
+    printTitle:'保管形式判定くん／収納上限の一括更新'
   });
-  const wide = t => [...String(t)].reduce((n, c) => n + (/[\x20-\x7E｡-ﾟ]/.test(c) ? 1 : 2), 0);
-  const widths = XLS_WIDTHS.slice();
-  widths[0] = Math.min(34, Math.max(12, ...list.map(x => String(x.it.code).length)) + 1);
-  widths[1] = Math.min(60, Math.max(21, ...list.map(x => wide(x.it.name || ''))) + 2);
-  const bin = buildXlsx(rows, { widths, noteHt:18 });
-  const p2 = n => String(n).padStart(2,'0');
-  const d = new Date();
-  const name = '保管形式判定_'+d.getFullYear()+p2(d.getMonth()+1)+p2(d.getDate())+'_'+p2(d.getHours())+p2(d.getMinutes())+'.xlsx';
-  try{
-    const url = URL.createObjectURL(new Blob([bin], {type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
-    const a = document.createElement('a');
-    a.href = url; a.download = name; document.body.appendChild(a); a.click();
-    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 1000);
-    toast('Excelを書き出しました（'+list.length.toLocaleString('ja-JP')+'件）'+(filtered ? '※絞り込み後の分だけです' : ''));
-  }catch(e){
-    toast('Excelの書き出しに失敗しました');
-  }
+  if(saveXlsx(bin, xlsxName('一括更新'))) toast('一括更新用のExcelを書き出しました（'+list.length.toLocaleString('ja-JP')+'件）');
 }
+
+function exportCheckXlsx(list){
+  if(!list.length){ toast('書き出す商品がありません'); return; }
+  const note = '倉庫で現物を見て対応要否を判断し、いちばん右の「対応状況」に 未対応 / 対応済 / 例外運用 を書いてください。'
+    + 'そのままExcel取込に読み込めば、対応状況だけが更新されます。' + filterNote(list);
+  const rows = [[{v:note, s:6}], CHK_HEAD.map(h => ({v:h, s:1}))];
+  list.forEach(({it,j}) => rows.push([
+    {v:it.code, s:2}, {v:String(it.name || ''), s:7},
+    {v:it.curMain, s:5}, {v:j.recMain || '―', s:5}, {v:j.result, s:5},
+    {v:'', s:3}                          // 対応状況は空欄（手書き用）
+  ]));
+  const w = autoWidths(list, CHK_WIDTHS);
+  const bin = buildXlsx(rows, {
+    widths: w, noteHt: noteHeight(note, w),
+    orientation:'portrait',             // 6列なので縦向き
+    sheetName:'現場チェック',
+    printTitle:'保管形式判定くん／現場チェック'
+  });
+  if(saveXlsx(bin, xlsxName('現場チェック'))) toast('現場チェック用のExcelを書き出しました（'+list.length.toLocaleString('ja-JP')+'件）');
+}
+
 const fmtPlain = v => (v === null || v === undefined || v === '') ? '' : String(v);
 
 /* ===== Excel（.xlsx）読み込み：外部ライブラリを使わず、ZIPをその場で展開する =====
@@ -2674,7 +2750,9 @@ function openGhSetup(){
   };
 }
 /* §21 全SKU一覧の操作ボタン（表バーに配置） */
-$('opsCsvOut').addEventListener('click', () => exportXlsx(sortRows(rows().filter(r => matches(r, state.filters)))));
+const currentList = () => sortRows(rows().filter(r => matches(r, state.filters)));
+$('opsCsvOut').addEventListener('click', () => exportXlsx(currentList()));
+$('opsCheckOut').addEventListener('click', () => exportCheckXlsx(currentList()));
 $('opsCsvIn').addEventListener('click', openCsvModal);
 
 /* §30 CSV取込履歴。誤ったCSVを取り込んだとき、何が変わったか追える。 */
