@@ -913,7 +913,7 @@ function seed(){
 
 /* ============ 状態 ============ */
 /* 画面右上に出すバージョン。index.html を更新するたびに数字を1つ増やす。 */
-const APP_VERSION = 'v1.2002';
+const APP_VERSION = 'v1.2003';
 const LS = 'hokan-hantei-kun-v2';
 function blankState(){
   return {
@@ -1522,16 +1522,16 @@ const XLS_HEAD = ['商品コード','商品名','基礎区分','小箱上限','�
                   '在庫定数','フリー在庫','推奨\n固定保管','判定結果','バッファ\n判定','対応状況','備考'];
 const XLS_WIDTHS = [null, null, 13, 9.5, 9.5, 12, 10, 9.5, 10, 10, 14, 11, 10, 26];
 
-/* ② 現場チェック用。対応状況は空欄にして、倉庫で手書きしてもらう。 */
-const CHK_HEAD   = ['商品コード','商品名','現在の\n固定保管','推奨\n固定保管','判定結果','対応状況'];
-const CHK_WIDTHS = [null, null, 11, 11, 15, 12];
+/* ② 現場チェック用。対応状況・備考は今の値をそのまま入れて、倉庫で見ながら直してもらう。 */
+const CHK_HEAD   = ['商品コード','商品名','現在の\n固定保管','推奨\n固定保管','判定結果','対応状況','備考'];
+const CHK_WIDTHS = [null, null, 10, 10, 14, 11, 24];
 
 /* 商品コード列・商品名列の幅を中身に合わせる（全角は約2文字分） */
-function autoWidths(list, widths){
+function autoWidths(list, widths, maxName){
   const wide = t => [...String(t)].reduce((n, c) => n + (/[\x20-\x7E｡-ﾟ]/.test(c) ? 1 : 2), 0);
   const w = widths.slice();
   w[0] = Math.min(34, Math.max(12, ...list.map(x => String(x.it.code).length)) + 1);
-  w[1] = Math.min(46, Math.max(21, ...list.map(x => wide(x.it.name || ''))) + 2);
+  w[1] = Math.min(maxName || 46, Math.max(21, ...list.map(x => wide(x.it.name || ''))) + 2);
   return w;
 }
 function saveXlsx(bin, name){
@@ -1593,15 +1593,16 @@ function exportXlsx(list){
 
 function exportCheckXlsx(list){
   if(!list.length){ toast('書き出す商品がありません'); return; }
-  const note = '倉庫で現物を見て対応要否を判断し、いちばん右の「対応状況」に 未対応 / 対応済 / 例外運用 を書いてください。'
+  const note = '倉庫で現物を見て対応要否を判断し、「対応状況」を 未対応 / 対応済 / 例外運用 に直してください（今の値が入っています）。'
     + 'そのままExcel取込に読み込めば、対応状況だけが更新されます。' + filterNote(list);
   const rows = [[{v:note, s:6}], CHK_HEAD.map(h => ({v:h, s:1}))];
   list.forEach(({it,j}) => rows.push([
     {v:it.code, s:2}, {v:String(it.name || ''), s:7},
     {v:it.curMain, s:5}, {v:j.recMain || '―', s:5}, {v:j.result, s:5},
-    {v:'', s:3}                          // 対応状況は空欄（手書き用）
+    {v:it.status, s:3},                  // 今の対応状況をそのまま入れる
+    {v:String(it.note || ''), s:7}       // 備考も今の値をそのまま
   ]));
-  const w = autoWidths(list, CHK_WIDTHS);
+  const w = autoWidths(list, CHK_WIDTHS, 34);
   const bin = buildXlsx(rows, {
     widths: w, noteHt: noteHeight(note, w),
     orientation:'portrait',             // 6列なので縦向き
