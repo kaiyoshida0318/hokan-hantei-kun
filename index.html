@@ -436,6 +436,12 @@ select.pillsel:hover{filter:brightness(.97)}
 :root[data-theme="dark"] select.pillsel:hover{filter:brightness(1.15)}
 /* 並び替え */
 .rowbreak{flex-basis:100%;height:0}
+/* 絞り込みをまとめて外すボタン。何も絞り込んでいないときは押せないようにして、
+   いま絞り込みが掛かっているかどうかが一目で分かるようにする。 */
+.clearbtn{margin-left:auto}
+.clearbtn:disabled{opacity:.4;cursor:default}
+.clearbtn:not(:disabled){border-color:var(--alert-line);color:var(--alert)}
+.clearbtn:not(:disabled):hover{border-color:var(--alert);background:var(--alert-bg)}
 .sortbtn{
   border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-3);
   border-radius:4px;font-family:var(--f-num);font-size:11px;line-height:1;
@@ -603,23 +609,32 @@ select.cell-in[data-f="status"]{width:96px}
 
 /* ===== 商品コード選択 ===== */
 .codebtn.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600}
+/* 画面中央に出す大きめのモーダル。inset:0 + margin:auto で天地左右の中央に置く。 */
 .codepop{
-  position:fixed;z-index:60;width:min(560px,92vw);overflow:auto;
-  background:var(--surface);border:1px solid var(--line-strong);border-radius:10px;
-  box-shadow:0 14px 40px rgba(15,23,42,.18);padding:12px 14px 14px
+  position:fixed;z-index:60;inset:0;margin:auto;
+  width:min(560px,94vw);max-height:86vh;height:max-content;overflow:auto;
+  background:var(--surface);border:1px solid var(--line-strong);border-radius:12px;
+  box-shadow:0 22px 60px rgba(15,23,42,.28);padding:20px 22px 22px
 }
-.cp-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:9px}
-.cp-head b{font-size:13.5px}
-.cp-sub{display:block;margin-top:3px;font-size:11.5px;color:var(--ink-3);line-height:1.5}
-.cp-list{display:flex;flex-wrap:wrap;gap:7px;margin-top:2px}
+.cp-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-bottom:14px}
+.cp-head b{font-size:16px}
+.cp-sub{display:block;margin-top:5px;font-size:12.5px;color:var(--ink-2);line-height:1.6}
+/* 目線が上から下に流れるよう段組みにする。1段目を上から下まで読んでから2段目へ。
+   件数が多いときは段が縦に伸びて、モーダルごと下へスクロールする。 */
+/* 段数は件数から決める。少ないときに段が散らばって読みにくくなるのを防ぐ。 */
+.cp-list{column-gap:16px}
 .cp-chip{
-  font:inherit;font-size:13px;font-weight:600;font-family:var(--f-num);cursor:pointer;
-  padding:6px 12px;border:1.5px solid var(--line-strong);border-radius:999px;
-  background:var(--surface);color:var(--ink)
+  display:flex;align-items:center;justify-content:space-between;gap:8px;
+  width:100%;margin:0 0 7px;padding:9px 13px;text-align:left;
+  font:inherit;font-size:14px;font-weight:600;font-family:var(--f-num);cursor:pointer;
+  border:1.5px solid var(--line-strong);border-radius:8px;
+  background:var(--surface);color:var(--ink);
 }
-.cp-chip:hover{border-color:var(--accent);color:var(--accent)}
-.cp-chip.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
-.cp-chip .cnt{margin-left:5px;font-size:11.5px;opacity:.9}
+.cp-chip:hover{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
+.cp-chip.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.cp-chip .cnt{font-size:12.5px;opacity:.8;font-weight:500}
+.cp-chip.on .cnt{opacity:.95}
+.cp-all{margin-bottom:12px}
 .cp-empty{margin:12px 2px 2px;font-size:12.5px;color:var(--ink-3)}
 
 /* ===== 新仕様で追加した見た目 ===== */
@@ -631,6 +646,9 @@ select.cell-in[data-f="status"]{width:96px}
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .pill.buf{background:#3a2c55;color:#d9c6ff;border-color:#523f78}}
 .bufqty{margin-left:5px;font-size:11px;opacity:.85}
 td.over-qty{font-weight:700;color:#7a4fc0}
+/* いま編集して、絞り込み条件から外れても残している行 */
+tr.sticky-row > td{background:var(--up-bg)}
+tr.sticky-row > td.stripe{box-shadow:inset 3px 0 0 var(--up)}
 select.cell-in.capsel{width:104px}
 .modal-card.wide{max-width:900px;width:min(900px,94vw)}
 .toggle.csvadd{display:flex;align-items:center;gap:7px;margin:10px 0 0;font-size:12.5px;color:var(--ink-2)}
@@ -716,6 +734,7 @@ select.cell-in.capsel{width:104px}
         <div class="fgroup"><span class="glabel">上限設定状態</span><span id="capFilters"></span></div>
         <div class="rowbreak"></div>
         <div class="fgroup"><span class="glabel">対応状況</span><span id="staFilters"></span></div>
+        <button class="btn btn-sm clearbtn" data-clear="filters" type="button">選択をクリア</button>
       </div>
     </div>
     <div class="tablecard">
@@ -740,6 +759,7 @@ select.cell-in.capsel{width:104px}
         <div class="fgroup"><span class="glabel">判定結果</span><span id="resFilters2"></span></div>
         <div class="rowbreak"></div>
         <div class="fgroup"><span class="glabel">対応状況</span><span id="staFilters2"></span></div>
+        <button class="btn btn-sm clearbtn" data-clear="filters2" type="button">選択をクリア</button>
       </div>
     </div>
     <div class="tablecard">
@@ -758,6 +778,7 @@ select.cell-in.capsel{width:104px}
     <div class="panel filters">
       <div class="toolbar">
         <div class="fgroup"><span class="glabel">対応状況</span><span id="staFilters3"></span></div>
+        <button class="btn btn-sm clearbtn" data-clear="filters3" type="button">選択をクリア</button>
         <span class="opsnote">倉庫全体で使い回すコンテナへ<b>一時的に</b>置く候補です。<b>固定保管の変更ではなく、SKU専用のコンテナを持つ「＋コンテナ固定」とも別物です。</b>超過数量＝フリー在庫 − 現在の固定保管の収納上限。</span>
       </div>
     </div>
@@ -1013,6 +1034,16 @@ function seed(){
    （画面右上のバージョンを押すと、この CHANGELOG が表示される）
    v1.4.0 より前は v1.4000 のような4桁形式だった。履歴では旧番号を併記している。 */
 const CHANGELOG = [
+  { v:'v1.4.6', d:'2026-08-31', items:[
+    'ドロップダウンを変えた行が、絞り込み条件から外れてもその場に残るようにした（タブを移動するか絞り込みを変えるまで表示）' ] },
+  { v:'v1.4.5', d:'2026-08-31', items:[
+    '商品コード選択を1列の縦並び（昇順）にした' ] },
+  { v:'v1.4.4', d:'2026-08-31', items:[
+    '絞り込み欄の右端に「選択をクリア」を追加。検索・絞り込み・商品コード選択をまとめて解除できる' ] },
+  { v:'v1.4.3', d:'2026-08-31', items:[
+    '選択中の絞り込みボタンをもう一度押すと解除され、「すべて」に戻るようにした' ] },
+  { v:'v1.4.2', d:'2026-08-31', items:[
+    '商品コード選択を画面中央の大きなモーダルにし、上から下へ読める並びに変えた' ] },
   { v:'v1.4.1', d:'2026-08-31', items:[
     'バージョン番号を v1.4.1 の3桁形式に変更し、変更1件ごとに1つ増やす運用にした',
     '画面右上のバージョンを押すと、この変更履歴が見られるようにした' ] },
@@ -1937,6 +1968,20 @@ function sortMark(key){
   return s.dir === 'asc' ? '↑' : '↓';
 }
 
+/* ドロップダウンを変えた直後に、その行が絞り込み条件から外れて画面から消えてしまうと
+   「今どれを触ったのか」が分からなくなる。編集した行はその場に残し、
+   タブを移動するか絞り込みを変えるまで表示し続ける。（保存はしない。再読み込みで消える） */
+let stickyCodes = new Set();
+const isSticky = r => stickyCodes.has(r.it.code);
+function keepRow(code){ if(code) stickyCodes.add(String(code)); }
+/* 残していた行を解除する。解除するものがあった場合だけ true を返すので、
+   呼び出し側は必要なときだけ描画し直せばよい。 */
+function clearSticky(){
+  if(!stickyCodes.size) return false;
+  stickyCodes.clear();
+  return true;
+}
+
 function matches(r, f, skip){
   const q = f.q.trim().toLowerCase();
   if(q && !(r.it.code.toLowerCase().includes(q) || r.it.name.toLowerCase().includes(q))) return false;
@@ -2029,7 +2074,8 @@ function renderMain(){
     if(ls) ls.onclick = () => { state.items = seed(); markDirty(); render(); toast('サンプル16件を読み込みました'); };
     return;
   }
-  const R = sortRows(rows().filter(r => matches(r, state.filters)));
+  /* 編集した行は、条件から外れても並び順そのままの位置に残す */
+  const R = sortRows(rows().filter(r => matches(r, state.filters) || isSticky(r)));
   const head =
     '<thead>'+
     '<tr class="grouprow"><th colspan="3" class="lead">商品</th><th colspan="3">収納上限</th><th colspan="2" class="b-cur gstart">現在</th>'+
@@ -2052,7 +2098,8 @@ function renderMain(){
     const t = usedTeisu(it), f = usedFree(it);
     const manT = mm && it.manTeisu !== null && it.manTeisu !== undefined;
     const manF = mm && it.manFree !== null && it.manFree !== undefined;
-    return '<tr data-cat="'+j.cat+'" data-code="'+esc(it.code)+'">'+
+    return '<tr data-cat="'+j.cat+'" data-code="'+esc(it.code)+'"'+
+      (isSticky({it}) ? ' class="sticky-row" title="この行はいま編集したため、絞り込み条件から外れても表示したままにしています"' : '')+'>'+
     '<td class="code stripe">'+esc(it.code)+'<span class="colgrip"></span></td>'+
       '<td class="name" data-code="'+esc(it.code)+'" title="ダブルクリックで編集：'+esc(it.name)+'">'+esc(it.name)+'<span class="colgrip"></span></td>'+
       '<td class="kubuncell">'+selCell(it.kubun, KUBUN, 'data-f="kubun" data-code="'+esc(it.code)+'"', 'pillsel kubunsel')+'</td>'+
@@ -2080,10 +2127,10 @@ function renderMain(){
 }
 
 function renderChange(){
-  const R = rows()
-    .filter(r => needsChange(r.j))
-    .filter(r => state.filters2.sta !== 'すべて' || r.it.status !== '例外運用')   // 例外運用は既定で伏せる
-    .filter(r => matches(r, state.filters2));
+  const R = rows().filter(r => isSticky(r) || (
+       needsChange(r.j)
+    && (state.filters2.sta !== 'すべて' || r.it.status !== '例外運用')   // 例外運用は既定で伏せる
+    && matches(r, state.filters2)));
   const R2 = sortRows(R);
   const head = '<thead><tr class="headrow">'+
     '<th class="lead col-code">商品コード<button class="sortbtn'+(state.sort && state.sort.key === 'code' ? ' on' : '')+'" data-sort="code" title="商品コードで並び替え">'+sortMark('code')+'</button><span class="colgrip"></span></th>'+
@@ -2094,7 +2141,8 @@ function renderChange(){
     '<th class="gstart">判定結果</th>'+
     '<th class="reason"><span class="reason-label">判定理由</span><button class="colexp" data-colexp="1" type="button" aria-expanded="false" title="判定理由を開く／閉じる"><span class="colexp-mark">＋</span></button></th>'+'<th>対応状況</th><th></th></tr></thead>';
   const body = R2.map(({it,j}) =>
-    '<tr data-cat="'+j.cat+'" data-code="'+esc(it.code)+'">'+
+    '<tr data-cat="'+j.cat+'" data-code="'+esc(it.code)+'"'+
+    (isSticky({it}) ? ' class="sticky-row" title="この行はいま編集したため、絞り込み条件から外れても表示したままにしています"' : '')+'>'+
     '<td class="code stripe">'+esc(it.code)+'<span class="colgrip"></span></td>'+
     '<td class="name" data-code="'+esc(it.code)+'" title="ダブルクリックで編集：'+esc(it.name)+'">'+esc(it.name)+'<span class="colgrip"></span></td>'+
     '<td class="b-cur sto gstart">'+stoPill(it.curMain)+'</td>'+
@@ -2111,7 +2159,8 @@ function renderChange(){
 
 /* §33 コンテナ一時使用候補一覧。固定保管の変更ではなく、いま入りきらない可能性のあるSKU。 */
 function renderBuffer(){
-  const R = sortRows(rows().filter(r => r.j.buffer === 'コンテナ一時使用候補').filter(r => matches(r, state.filters3)));
+  const R = sortRows(rows().filter(r => isSticky(r) ||
+    (r.j.buffer === 'コンテナ一時使用候補' && matches(r, state.filters3))));
   const head = '<thead><tr class="headrow">'+
     '<th class="lead col-code">商品コード<button class="sortbtn'+(state.sort && state.sort.key === 'code' ? ' on' : '')+'" data-sort="code" title="商品コードで並び替え">'+sortMark('code')+'</button><span class="colgrip"></span></th>'+
     '<th class="lead col-name">商品名<span class="colgrip"></span></th>'+
@@ -2119,7 +2168,8 @@ function renderBuffer(){
     '<th class="b-qty n gstart">在庫定数</th><th class="b-qty n">フリー在庫</th>'+
     '<th class="n gstart">超過数量</th><th>対応状況</th><th></th></tr></thead>';
   const body = R.map(({it,j}) =>
-    '<tr data-code="'+esc(it.code)+'">'+
+    '<tr data-code="'+esc(it.code)+'"'+
+    (isSticky({it}) ? ' class="sticky-row" title="この行はいま編集したため、絞り込み条件から外れても表示したままにしています"' : '')+'>'+
     '<td class="code stripe">'+esc(it.code)+'<span class="colgrip"></span></td>'+
     '<td class="name" data-code="'+esc(it.code)+'" title="ダブルクリックで編集：'+esc(it.name)+'">'+esc(it.name)+'<span class="colgrip"></span></td>'+
     '<td class="b-cur sto gstart">'+stoPill(it.curMain)+'</td>'+
@@ -2147,10 +2197,12 @@ function baseRowsFor(target, R){
 /* ===== 商品コード選択（最初の「-」より前でまとめて絞り込む） ===== */
 let codePopTarget = null;
 function closeCodePop(){
+  if(!codePopTarget) return;
   $('codePop').hidden = true;
   codePopTarget = null;
+  if(!$('drawer').classList.contains('show') && $('csvModal').hidden) $('scrim').classList.remove('show');
 }
-function openCodePop(btn, target){
+function openCodePop(target){
   const f = state[target];
   const base = baseRowsFor(target);
   /* 商品コードの頭以外の絞り込みだけ効かせた状態で数える（＝押したら何件になるか） */
@@ -2166,29 +2218,53 @@ function openCodePop(btn, target){
   const pop = $('codePop');
   pop.innerHTML =
     '<div class="cp-head">'+
-      '<div><b>商品コードで絞り込む</b><span class="cp-sub">最初の「-」より前でまとめています（例：baby-24-01-sox-1s-1wh → baby）</span></div>'+
+      '<div><b>商品コードで絞り込む</b>'+
+        '<span class="cp-sub">最初の「-」より前でまとめています（例：baby-24-01-sox-1s-1wh → baby）。'+
+        '上から下へ順に並んでいます。'+list.length+'種類。</span></div>'+
       '<button class="iconbtn" id="cpClose" aria-label="閉じる">×</button>'+
     '</div>'+
+    '<button class="cp-chip cp-all'+(f.pre === 'すべて' ? ' on' : '')+'" data-pre="すべて">'+
+      'すべて<span class="cnt">'+pass.length+'件</span></button>'+
     '<div class="cp-list" id="cpList">'+
-      '<button class="cp-chip'+(f.pre === 'すべて' ? ' on' : '')+'" data-pre="すべて">すべて<span class="cnt">('+pass.length+')</span></button>'+
       list.map(x => '<button class="cp-chip'+(f.pre === x.key ? ' on' : '')+'" data-pre="'+esc(x.key)+'">'+
-        esc(x.label)+'<span class="cnt">('+x.n+')</span></button>').join('')+
+        '<span>'+esc(x.label)+'</span><span class="cnt">'+x.n+'件</span></button>').join('')+
     '</div>'+
     (list.length ? '' : '<p class="cp-empty">対象の商品がありません。</p>');
 
   pop.hidden = false;
+  pop.scrollTop = 0;
   codePopTarget = target;
-
-  /* ボタンの真下に出す。画面からはみ出す場合は左へ寄せる。 */
-  const r = btn.getBoundingClientRect();
-  pop.style.top = Math.round(r.bottom + 6) + 'px';
-  const w = pop.offsetWidth;
-  pop.style.left = Math.round(Math.max(8, Math.min(r.left, window.innerWidth - w - 8))) + 'px';
-  const maxH = window.innerHeight - r.bottom - 18;
-  pop.style.maxHeight = Math.max(200, maxH) + 'px';
+  $('scrim').classList.add('show');
 
   $('cpClose').onclick = closeCodePop;
 }
+/* いま何か絞り込んでいるか（検索欄・チップ・商品コード選択のどれか） */
+function hasFilter(f){
+  if(!f) return false;
+  return !!String(f.q || '').trim()
+      || ['res','sta','cap','buf','pre'].some(k => f[k] && f[k] !== 'すべて');
+}
+function clearFilters(target){
+  const f = state[target];
+  f.q = ''; f.res = f.sta = f.cap = f.buf = f.pre = 'すべて';
+  clearSticky();
+  const box = { filters:'q', filters2:'q2', filters3:'q3' }[target];
+  if(box && $(box)) $(box).value = '';
+  render();
+  toast('絞り込みをすべて解除しました');
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('[data-clear]');
+  if(b && !b.disabled) clearFilters(b.dataset.clear);
+});
+function renderClearButtons(){
+  document.querySelectorAll('[data-clear]').forEach(b => {
+    const on = hasFilter(state[b.dataset.clear]);
+    b.disabled = !on;
+    b.title = on ? '検索・絞り込み・商品コード選択をすべて解除します' : '絞り込みはかかっていません';
+  });
+}
+
 function renderCodeButtons(){
   document.querySelectorAll('[data-codepick]').forEach(b => {
     const f = state[b.dataset.codepick];
@@ -2292,7 +2368,7 @@ function applyColWidths(){
 
 function render(){
   applyColWidths();
-  renderTabCounts(); renderFilters(); renderCodeButtons(); renderMain(); renderChange(); renderBuffer(); renderSync(); renderShared(); save();
+  renderTabCounts(); renderFilters(); renderCodeButtons(); renderClearButtons(); renderMain(); renderChange(); renderBuffer(); renderSync(); renderShared(); save();
   applyReasonState();
   requestAnimationFrame(fitTable);
 }
@@ -2387,6 +2463,7 @@ function closeDrawer(){
 /* ============ 編集 ============ */
 function applyField(it, field, value){
   markDirty();
+  keepRow(it.code);
   if(field === 'name'){ it.name = String(value); return; }
   const numify = v => (v === '' || v === null) ? null : Number(v);
   if(field === 'kubun'){
@@ -2546,9 +2623,13 @@ function toast(msg){
   clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2600);
 }
 function switchTab(name){
+  /* タブを移ると残していた行は解除する。ただしタブ切り替えは表を描き直さないので、
+     解除したときだけ描き直さないと、消えるはずの行が残ったままになる。 */
+  const had = clearSticky();
   state.tab = name;
   document.querySelectorAll('.tab').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
   ['main','change','buffer','rules'].forEach(n => { $('panel-'+n).hidden = (n !== name); });
+  if(had) render();
   requestAnimationFrame(fitTable);
   save();
 }
@@ -2702,19 +2783,19 @@ document.addEventListener('click', e => {
   if(btn){
     const target = btn.dataset.codepick;
     if(codePopTarget === target) closeCodePop();
-    else openCodePop(btn, target);
+    else openCodePop(target);
     return;
   }
   const chip = e.target.closest('#codePop .cp-chip');
   if(chip){
-    state[codePopTarget].pre = chip.dataset.pre;
+    const f = state[codePopTarget], v = chip.dataset.pre;
+    f.pre = (f.pre === v && v !== 'すべて') ? 'すべて' : v;
     closeCodePop();
-    render();
+    clearSticky(); render();
     return;
   }
   if(codePopTarget && !e.target.closest('#codePop')) closeCodePop();
 });
-window.addEventListener('resize', () => { if(codePopTarget) closeCodePop(); });
 
 document.addEventListener('click', e => {
   const t = e.target.closest('[data-open], [data-sort], .chip, .tab');
@@ -2730,20 +2811,23 @@ document.addEventListener('click', e => {
     return;
   }
   if(t.classList.contains('chip')){
-    state[t.dataset.t][t.dataset.fk] = t.dataset.v;
-    render(); return;
+    /* 選択中のものをもう一度押したら解除して「すべて」に戻す。
+       絞り込みを外すのに、いちいち「すべて」を探して押さなくて済むように。 */
+    const f = state[t.dataset.t], key = t.dataset.fk, v = t.dataset.v;
+    f[key] = (f[key] === v && v !== 'すべて') ? 'すべて' : v;
+    clearSticky(); render(); return;
   }
 });
-$('q').addEventListener('input', e => { state.filters.q = e.target.value; renderMain(); });
-$('q2').addEventListener('input', e => { state.filters2.q = e.target.value; renderChange(); });
-$('q3').addEventListener('input', e => { state.filters3.q = e.target.value; renderBuffer(); });
+$('q').addEventListener('input', e => { state.filters.q = e.target.value; clearSticky(); renderMain(); renderClearButtons(); });
+$('q2').addEventListener('input', e => { state.filters2.q = e.target.value; clearSticky(); renderChange(); renderClearButtons(); });
+$('q3').addEventListener('input', e => { state.filters3.q = e.target.value; clearSticky(); renderBuffer(); renderClearButtons(); });
 $('manualMode').addEventListener('change', e => {
   state.manualMode = e.target.checked;
   toast(state.manualMode ? '手動入力モード：在庫定数・フリー在庫を編集できます（通常運用ではAPI取得値を優先）' : '通常モード：API取得値で判定します');
   render();
 });
 $('syncBtn').addEventListener('click', sync);
-$('scrim').addEventListener('click', () => { closeDrawer(); closeCsvModal(); });
+$('scrim').addEventListener('click', () => { closeDrawer(); closeCsvModal(); closeCodePop(); });
 document.addEventListener('keydown', e => { if(e.key === 'Escape'){ closeDrawer(); closeCsvModal(); closeCodePop(); } });
 $('copyBtn').addEventListener('click', () => {
   const R = rows().filter(r => needsChange(r.j) && r.it.status !== '例外運用');
