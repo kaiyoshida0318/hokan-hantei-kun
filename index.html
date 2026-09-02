@@ -320,6 +320,14 @@ section[hidden]{display:none}
 
 /* ---------- toolbar ---------- */
 .toolbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;padding:12px 14px}
+/* 絞り込みは「見出し1つ＝1行」に固定し、行と行の間隔を必ず12pxでそろえる。
+   以前は空の .rowbreak を挟んで改行させていたが、それ自体がフレックス項目なので前後に gap が
+   二重にかかり、「上限設定状態→基礎区分」だけ行間が広くなっていた（v1.10.1で撤去）。
+   **空の要素で改行させる方法に戻さないこと。**
+   ［選択をクリア］は行を1つ使わないよう右上に絶対配置し、その分だけ padding-right を空けてある。 */
+.filters .toolbar{position:relative;padding-right:134px}
+.filters .toolbar > .fgroup{flex:1 0 100%}
+.filters .toolbar > .clearbtn{position:absolute;top:12px;right:14px;margin:0}
 .search{flex:0 0 260px;min-width:180px;position:relative}
 .search input{width:100%;padding:8px 10px;border:1px solid var(--line-strong);background:var(--surface);border-radius:var(--radius)}
 .search input:focus-visible{outline:2px solid var(--accent);outline-offset:-1px}
@@ -726,7 +734,6 @@ select.cell-in.capsel{width:104px}
       <div class="toolbar">
         <div class="fgroup"><span class="glabel">上限設定状態</span><span id="capFilters"></span></div>
         <button class="btn btn-sm clearbtn" data-clear="filters" type="button">選択をクリア</button>
-        <div class="rowbreak"></div>
         <div class="fgroup"><span class="glabel">基礎区分</span><span id="kubFilters"></span></div>
         <div class="fgroup"><span class="glabel">現在の固定保管</span><span id="mainFilters"></span></div>
       </div>
@@ -751,9 +758,8 @@ select.cell-in.capsel{width:104px}
     <div class="panel filters">
       <div class="toolbar">
         <div class="fgroup"><span class="glabel">判定結果</span><span id="resFilters2"></span></div>
-        <div class="rowbreak"></div>
-        <div class="fgroup"><span class="glabel">対応状況</span><span id="staFilters2"></span></div>
         <button class="btn btn-sm clearbtn" data-clear="filters2" type="button">選択をクリア</button>
+        <div class="fgroup"><span class="glabel">対応状況</span><span id="staFilters2"></span></div>
       </div>
     </div>
     <div class="tablecard">
@@ -1021,6 +1027,8 @@ function seed(){
    （画面右上のバージョンを押すと、この CHANGELOG が表示される）
    v1.4.0 より前は v1.4000 のような4桁形式だった。履歴では旧番号を併記している。 */
 const CHANGELOG = [
+  { v:'v1.10.1', d:'2026-09-02', items:[
+    '絞り込みの行と行の間隔がそろっていなかったのを直した（どの見出しの間も同じ幅になります）' ] },
   { v:'v1.10.0', d:'2026-09-02', items:[
     '全SKU一覧から「変更要否」の列を外した（推奨と現在が違えば判定結果で分かるため）' ] },
   { v:'v1.9.0', d:'2026-09-02', items:[
