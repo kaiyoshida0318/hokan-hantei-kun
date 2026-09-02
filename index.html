@@ -381,7 +381,7 @@ section[hidden]{display:none}
 .tablewrap{scrollbar-color:var(--line-strong) var(--surface-2)}
 table{border-collapse:separate;border-spacing:0;width:100%;font-size:14px}
 #tblMain{min-width:2120px}
-#tblChange{min-width:1400px}
+#tblChange{min-width:1920px}
 thead th{
   position:sticky;background:var(--surface-2);text-align:center;font-weight:500;
   border-bottom:1px solid var(--line);white-space:nowrap;color:var(--ink-2);
@@ -1035,6 +1035,12 @@ function seed(){
    （画面右上のバージョンを押すと、この CHANGELOG が表示される）
    v1.4.0 より前は v1.4000 のような4桁形式だった。履歴では旧番号を併記している。 */
 const CHANGELOG = [
+  { v:'v1.7.4', d:'2026-09-02', items:[
+    '「一覧をテキストで表示」も同じ12項目にそろえた' ] },
+  { v:'v1.7.3', d:'2026-09-02', items:[
+    '一括更新用Excelを12列にした（在庫定数・フリー在庫の列を外し、表と同じ並びにそろえた）' ] },
+  { v:'v1.7.2', d:'2026-09-02', items:[
+    '保管変更対象の表を12項目にそろえた（基礎区分・収納上限・上限設定状態・固定保管理由・備考を追加し、在庫定数・フリー在庫・判定理由を外した）。この画面でもその場で直せます' ] },
   { v:'v1.7.1', d:'2026-09-02', items:[
     'Excel取込の確認画面が縦に長いとき、画面の低いパソコンで［この内容で反映］が押せなくなることがあったのを修正' ] },
   { v:'v1.7.0', d:'2026-09-02', items:[
@@ -1809,8 +1815,8 @@ function buildXlsx(sheetRows, opts){
 
 /* ① 一括更新用。取込で更新できる 小箱上限 / 箱上限 / 上限設定状態 にはうっすら色を付ける。 */
 const XLS_HEAD = ['商品コード','商品名','基礎区分','小箱上限','箱上限','上限設定状態','現在の\n固定保管','固定保管理由',
-                  '在庫定数','フリー在庫','推奨\n固定保管','判定結果','対応状況','備考'];
-const XLS_WIDTHS = [null, null, 13, 9.5, 9.5, 12, 16, 24, 9.5, 10, 16, 16, 10, 24];
+                  '推奨\n固定保管','判定結果','対応状況','備考'];
+const XLS_WIDTHS = [null, null, 13, 9.5, 9.5, 12, 16, 24, 16, 16, 10, 24];
 
 /* ② 現場チェック用。対応状況・備考は今の値をそのまま入れて、倉庫で見ながら直してもらう。 */
 const CHK_HEAD   = ['商品コード','商品名','現在の\n固定保管','推奨\n固定保管','判定結果','対応状況','備考'];
@@ -1867,7 +1873,6 @@ function exportXlsx(list){
     {v:it.code, s:2}, {v:String(it.name || ''), s:7}, {v:it.kubun, s:2},
     {v:capOut(it,'small'), s:3, n:true}, {v:capOut(it,'box'), s:3, n:true}, {v:it.capState, s:3},
     {v:it.curMain, s:5}, {v:String(it.fixReason || ''), s:7},
-    {v:fmtPlain(usedTeisu(it)), s:5, n:true}, {v:fmtPlain(usedFree(it)), s:5, n:true},
     {v:j.recMain || '―', s:5}, {v:j.result, s:5},
     {v:it.status, s:3}, {v:String(it.note || ''), s:7}
   ]));
@@ -2202,29 +2207,37 @@ function renderChange(){
     && (state.filters2.sta !== 'すべて' || r.it.status !== '例外運用')   // 例外運用は既定で伏せる
     && matches(r, state.filters2)));
   const R2 = sortRows(R);
+  /* 列は 商品コード／商品名／基礎区分／小箱上限／箱上限／上限設定状態／現在の固定保管／固定保管理由／
+     推奨固定保管／判定結果／対応状況／備考 の12項目（v1.7.2でこの並びに統一）。
+     在庫定数・フリー在庫・判定理由は出さない（判定理由は行の「詳細」で読める）。
+     全SKU一覧と同じように、ここでもその場で直せる。 */
   const head = '<thead><tr class="headrow">'+
     '<th class="lead col-code">商品コード<button class="sortbtn'+(state.sort && state.sort.key === 'code' ? ' on' : '')+'" data-sort="code" title="商品コードで並び替え">'+sortMark('code')+'</button><span class="colgrip"></span></th>'+
     '<th class="lead col-name">商品名<span class="colgrip"></span></th>'+
-    '<th class="b-cur gstart">現在の固定保管</th>'+
-    '<th class="b-qty n gstart">在庫定数</th><th class="b-qty n">小箱上限</th><th class="b-qty n">箱上限</th>'+
+    '<th>基礎区分</th><th class="n">小箱上限</th><th class="n">箱上限</th><th>上限設定状態</th>'+
+    '<th class="b-cur gstart">現在の固定保管</th><th class="b-cur">固定保管理由</th>'+
     '<th class="b-rec gstart">推奨固定保管</th>'+
-    '<th class="gstart">判定結果</th>'+
-    '<th class="reason"><span class="reason-label">判定理由</span><button class="colexp" data-colexp="1" type="button" aria-expanded="false" title="判定理由を開く／閉じる"><span class="colexp-mark">＋</span></button></th>'+'<th>対応状況</th><th></th></tr></thead>';
+    '<th class="gstart">判定結果</th><th>対応状況</th><th>備考</th></tr></thead>';
   const body = R2.map(({it,j}) =>
     '<tr data-cat="'+j.cat+'" data-code="'+esc(it.code)+'"'+
     (isSticky({it}) ? ' class="sticky-row" title="この行はいま編集したため、絞り込み条件から外れても表示したままにしています"' : '')+'>'+
     '<td class="code stripe">'+esc(it.code)+'<span class="colgrip"></span></td>'+
     '<td class="name" data-code="'+esc(it.code)+'" title="ダブルクリックで編集：'+esc(it.name)+'">'+esc(it.name)+'<span class="colgrip"></span></td>'+
-    '<td class="b-cur sto gstart">'+stoPill(it.curMain)+'</td>'+
-    '<td class="b-qty n qty-key gstart">'+fmt(j.teisu)+'</td>'+
-    '<td class="b-qty n">'+fmt(it.smallCap)+'</td><td class="b-qty n">'+fmt(it.boxCap)+'</td>'+
+    '<td class="kubuncell">'+selCell(it.kubun, KUBUN, 'data-f="kubun" data-code="'+esc(it.code)+'"', 'pillsel kubunsel')+'</td>'+
+    '<td class="n">'+(usesSmall(it.kubun) ? '<span class="capcell">'+numCell(it.smallCap,'data-f="smallCap" data-code="'+esc(it.code)+'"')+(it.smallCapEdited?'<span class="tag">個別</span>':'')+'</span>' : '<span class="ro">―</span>')+'</td>'+
+    '<td class="n">'+(usesBox(it.kubun) ? '<span class="capcell">'+numCell(it.boxCap,'data-f="boxCap" data-code="'+esc(it.code)+'"')+(it.boxCapEdited?'<span class="tag">個別</span>':'')+'</span>' : '<span class="ro">―</span>')+'</td>'+
+    '<td>'+selCell(it.capState, CAP_STATES, 'data-f="capState" data-code="'+esc(it.code)+'"', 'pillsel capsel')+'</td>'+
+    '<td class="b-cur sto gstart">'+selCell(it.curMain, allowedMains(it.kubun).includes(it.curMain) ? allowedMains(it.kubun) : [it.curMain].concat(allowedMains(it.kubun)), 'data-f="curMain" data-code="'+esc(it.code)+'"', 'pillsel')+'</td>'+
+    '<td class="b-cur">'+(hasFixedCont(it.curMain)
+      ? '<input class="cell-in note-in" value="'+esc(it.fixReason || '')+'" data-f="fixReason" data-code="'+esc(it.code)+'" placeholder="なぜこの形式にしたか">'
+      : '<span class="ro">―</span>')+'</td>'+
     '<td class="b-rec sto gstart">'+stoPill(j.recMain)+'</td>'+
     '<td class="gstart">'+pill(j.result, j.cat)+'</td>'+
-    '<td class="reason"><span class="reason-text">'+esc(j.reason)+'</span></td>'+
     '<td>'+selCell(it.status, STATUSES, 'data-f="status" data-code="'+esc(it.code)+'"', 'pillsel statsel')+'</td>'+
-    '<td><button class="rowbtn" data-open="'+esc(it.code)+'">詳細</button></td></tr>'
+    '<td><input class="cell-in note-in" value="'+esc(it.note)+'" data-f="note" data-code="'+esc(it.code)+'" placeholder="—"><button class="rowbtn" data-open="'+esc(it.code)+'">詳細</button></td>'+
+    '</tr>'
   ).join('');
-  $('tblChange').innerHTML = head + '<tbody>' + (body || '<tr><td colspan="11" class="empty">変更が必要な商品はありません。今月の移動作業はゼロです。</td></tr>') + '</tbody>';
+  $('tblChange').innerHTML = head + '<tbody>' + (body || '<tr><td colspan="12" class="empty">変更が必要な商品はありません。今月の移動作業はゼロです。</td></tr>') + '</tbody>';
 }
 
 const STA_CAT = { '未対応':'up', '対応済':'dn', '例外運用':'cnt' };
@@ -2867,8 +2880,11 @@ $('scrim').addEventListener('click', () => { closeDrawer(); closeCsvModal(); clo
 document.addEventListener('keydown', e => { if(e.key === 'Escape'){ closeDrawer(); closeCsvModal(); closeCodePop(); } });
 $('copyBtn').addEventListener('click', () => {
   const R = rows().filter(r => needsChange(r.j) && r.it.status !== '例外運用');
-  const head = ['商品コード','商品名','現在の固定保管','固定保管理由','在庫定数','小箱上限','箱上限','推奨固定保管','判定結果','判定理由','対応状況'].join('\t');
-  const body = R.map(({it,j}) => [it.code,it.name,it.curMain,it.fixReason||'',j.teisu,it.smallCap,it.boxCap,j.recMain||'―',j.result,j.reason,it.status].join('\t')).join('\n');
+  const head = ['商品コード','商品名','基礎区分','小箱上限','箱上限','上限設定状態','現在の固定保管','固定保管理由','推奨固定保管','判定結果','対応状況','備考'].join('\t');
+  const body = R.map(({it,j}) => [it.code,it.name,it.kubun,
+    usesSmall(it.kubun) ? (it.smallCap === null ? '' : it.smallCap) : CSV_NA,
+    usesBox(it.kubun)   ? (it.boxCap   === null ? '' : it.boxCap)   : CSV_NA,
+    it.capState,it.curMain,it.fixReason||'',j.recMain||'―',j.result,it.status,it.note||''].join('\t')).join('\n');
   const d = $('drawer');
   d.innerHTML = '<div class="dhead"><div><h2>保管変更対象（'+R.length+'件）</h2><span class="code">選択してコピーし、Excel等に貼り付けてください</span></div><button class="iconbtn" id="dclose" aria-label="閉じる">×</button></div>'+
     '<div class="dsec"><textarea style="width:100%;min-height:60vh;font-family:var(--f-num);font-size:11px;border:1px solid var(--line-strong);border-radius:6px;padding:10px;background:var(--surface-2)">'+esc(head+'\n'+body)+'</textarea></div>';
