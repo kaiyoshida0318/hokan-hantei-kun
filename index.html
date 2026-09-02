@@ -29,6 +29,8 @@ img,svg,video{max-width:100%;height:auto}
   --accent:#1B4B73;
   --accent-soft:#E6EEF5;
   --on-accent:#FFFFFF;
+  /* 「この端末に保存」を押してほしいときの色。判定結果のどのピルとも重ならないオレンジ。 */
+  --save:#C2410C;
   --brand:#1D6FD0;
   --up:#93450F;        /* 拡大方向：昇格・予備追加 */
   --up-bg:#FAECE0;
@@ -67,6 +69,7 @@ img,svg,video{max-width:100%;height:auto}
     --accent:#7FB3D9;
     --accent-soft:#1C2A36;
     --on-accent:#0E141A;
+    --save:#F0A868;
   --brand:#7FB3D9;
     --brand:#7FB3D9;
     --up:#E3A776;
@@ -102,6 +105,7 @@ img,svg,video{max-width:100%;height:auto}
   --accent:#7FB3D9;
   --accent-soft:#1C2A36;
   --on-accent:#0E141A;
+  --save:#F0A868;
   --brand:#7FB3D9;
   --up:#E3A776;
   --up-bg:#2E2119;
@@ -290,6 +294,13 @@ button,input,select,textarea{font:inherit;color:inherit}
 .headtoggle{margin-left:auto}
 .histbtn{margin-left:auto}
 .histbtn + .headtoggle{margin-left:0}
+/* この端末に保存。ヘッダーを隠しても押せるよう、表バーの右側（取込履歴の左）に置く。
+   ふだんはグレー、何か変更してまだ押していないときだけ色を付けて「押してほしい」を伝える。 */
+.savebtn{margin-left:auto}
+.savebtn + .histbtn{margin-left:0}
+.savebtn:not(.on){color:var(--ink-3)}
+.savebtn.on{background:var(--save);border-color:var(--save);color:var(--on-accent);font-weight:700}
+.savebtn.on:hover{filter:brightness(1.08)}
 body.head-hidden .masthead,
 body.head-hidden .databar,
 body.head-hidden .kpis,
@@ -616,6 +627,27 @@ select.cell-in[data-f="status"]{width:96px}
 }
 .toast.show{opacity:1;transform:translate(-50%,0)}
 
+/* 保存中のふた。保存が終わるまで、ほかの操作をさせない。
+   モーダル(55)・商品コード選択(60)・トースト(60)より必ず前に出すこと。 */
+.busy{
+  position:fixed;inset:0;z-index:90;display:grid;place-items:center;
+  background:color-mix(in srgb, var(--ground) 62%, transparent);
+  backdrop-filter:blur(1.5px);cursor:progress;
+}
+.busy[hidden]{display:none}
+.busy-card{
+  display:flex;align-items:center;gap:12px;
+  background:var(--surface);border:1px solid var(--line-strong);border-radius:12px;
+  padding:16px 22px;box-shadow:var(--shadow);font-size:14px;font-weight:600;color:var(--ink);
+}
+.spin{
+  width:18px;height:18px;border-radius:50%;flex:none;
+  border:2.5px solid var(--line-strong);border-top-color:var(--accent);
+  animation:spin .8s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin{animation-duration:2.4s}}
+
 /* ===== 商品コード選択 ===== */
 .codebtn.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600}
 /* 画面中央に出す大きめのモーダル。inset:0 + margin:auto で天地左右の中央に置く。 */
@@ -747,6 +779,7 @@ select.cell-in.capsel{width:104px}
         <button class="btn btn-sm" data-ops="xlsxCheck" title="倉庫へ持ち歩いて対応要否を判断するためのExcel。縦向き・A4に列が収まるよう設定済み（絞り込み中はその分だけ）">現場チェック用Excel</button>
         <button class="btn btn-sm" data-ops="xlsxIn" title="商品コードをキーに、小箱上限・箱上限・上限設定状態・対応状況を更新します">Excel取込</button>
         <label class="toggle"><input type="checkbox" class="manualchk"> 管理者：手動入力モード</label>
+        <button class="btn btn-sm savebtn" data-ops="saveLocal">この端末に保存</button>
         <button class="btn btn-sm ghost histbtn" data-ops="history">取込履歴</button>
         <button class="btn btn-sm headtoggle" aria-pressed="false">ヘッダーを隠す</button>
       </div>
@@ -772,6 +805,7 @@ select.cell-in.capsel{width:104px}
         <button class="btn btn-sm" data-ops="xlsxIn" title="商品コードをキーに、小箱上限・箱上限・上限設定状態・対応状況を更新します">Excel取込</button>
         <label class="toggle"><input type="checkbox" class="manualchk"> 管理者：手動入力モード</label>
         <button class="btn btn-sm" id="copyBtn">一覧をテキストで表示</button>
+        <button class="btn btn-sm savebtn" data-ops="saveLocal">この端末に保存</button>
         <button class="btn btn-sm ghost histbtn" data-ops="history">取込履歴</button>
         <button class="btn btn-sm headtoggle" aria-pressed="false">ヘッダーを隠す</button>
       </div>
@@ -817,6 +851,9 @@ select.cell-in.capsel{width:104px}
 </div>
 <div class="codepop" id="codePop" hidden role="dialog" aria-label="商品コードで絞り込む"></div>
 <aside class="drawer" id="drawer" aria-hidden="true"></aside>
+<div class="busy" id="busy" hidden aria-live="polite">
+  <div class="busy-card"><span class="spin" aria-hidden="true"></span><span id="busyMsg">保存しています…</span></div>
+</div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -1027,6 +1064,16 @@ function seed(){
    （画面右上のバージョンを押すと、この CHANGELOG が表示される）
    v1.4.0 より前は v1.4000 のような4桁形式だった。履歴では旧番号を併記している。 */
 const CHANGELOG = [
+  { v:'v1.12.3', d:'2026-09-02', items:[
+    '「この端末に保存」の色を、まわりに埋もれない濃いオレンジにした' ] },
+  { v:'v1.12.2', d:'2026-09-02', items:[
+    '「この端末に保存」を、ふだんはグレー・何か変更したら色が付くようにした' ] },
+  { v:'v1.12.1', d:'2026-09-02', items:[
+    '「この端末に保存」を表の上のバー（取込履歴の左）へ移した。ヘッダーを隠しても押せます' ] },
+  { v:'v1.12.0', d:'2026-09-02', items:[
+    '保存しているあいだは画面全体にふたをして、ほかの操作ができないようにした（この端末に保存・GitHubに保存の両方）' ] },
+  { v:'v1.11.0', d:'2026-09-02', items:[
+    '「この端末に保存」ボタンを追加した。保存できなかったときは理由を表示します' ] },
   { v:'v1.10.1', d:'2026-09-02', items:[
     '絞り込みの行と行の間隔がそろっていなかったのを直した（どの見出しの間も同じ幅になります）' ] },
   { v:'v1.10.0', d:'2026-09-02', items:[
@@ -1145,7 +1192,13 @@ function blankState(){
 let state = blankState();
 let sharedInfo = { status:'読み込み中', updatedAt:null, count:0 };
 function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(r) : null; }catch(e){ return null; } }
-function save(){ try{ localStorage.setItem(LS, JSON.stringify(state)); }catch(e){} }
+/* 保存できたかどうかを返す。これまでは失敗しても黙っていたので、
+   端末の保存容量がいっぱいのときに気づけなかった。 */
+let saveError = null;
+function save(){
+  try{ localStorage.setItem(LS, JSON.stringify(state)); saveError = null; return true; }
+  catch(e){ saveError = e; return false; }
+}
 
 /* ---- 商品1件を正規化（欠けた項目は基礎区分の初期値で補う） ---- */
 function normalize(raw){
@@ -1268,7 +1321,18 @@ function adoptShared(sh){
   state.dirty = false;
   save();
 }
-function markDirty(){ state.dirty = true; }
+/* 「この端末に保存」ボタンを光らせるための印。
+   編集のたびに自動保存はしているので、再読み込みしたら未保存は無い＝state には持たせない。 */
+let touched = false;
+function markDirty(){ state.dirty = true; touched = true; }
+function renderSaveButtons(){
+  document.querySelectorAll('.savebtn').forEach(b => {
+    b.classList.toggle('on', touched);
+    b.title = touched
+      ? 'この端末に変更が入っています。押すと、このパソコンのブラウザに保存します（他のPCには反映されません）'
+      : 'いま画面にある内容を、このパソコンのブラウザに保存します（他のPCには反映されません）';
+  });
+}
 function renderShared(){
   const el = $('sharedState');
   const s = sharedInfo;
@@ -2414,7 +2478,7 @@ function applyColWidths(){
 
 function render(){
   applyColWidths();
-  renderTabCounts(); renderFilters(); renderCodeButtons(); renderClearButtons(); renderMain(); renderChange(); renderSync(); renderShared(); save();
+  renderTabCounts(); renderFilters(); renderCodeButtons(); renderClearButtons(); renderMain(); renderChange(); renderSync(); renderShared(); renderSaveButtons(); save();
   requestAnimationFrame(fitTable);
 }
 
@@ -2660,6 +2724,27 @@ async function sync(){
 }
 
 /* ============ その他UI ============ */
+/* 保存のあいだは画面全体にふたをして、ほかの操作をさせない。
+   ふたは要素そのものがクリックを受け止めるので、下のボタンは押せない。
+   キーボード操作も止めるため、本体を inert にする（未対応ブラウザでもふたで防げる）。 */
+let busyCount = 0;
+function setBusy(msg){
+  busyCount++;
+  $('busyMsg').textContent = msg || '保存しています…';
+  $('busy').hidden = false;
+  document.body.setAttribute('aria-busy', 'true');
+  document.querySelectorAll('body > *:not(.busy)').forEach(el => { el.inert = true; });
+}
+function clearBusy(){
+  busyCount = Math.max(0, busyCount - 1);
+  if(busyCount) return;
+  $('busy').hidden = true;
+  document.body.removeAttribute('aria-busy');
+  document.querySelectorAll('body > *').forEach(el => { el.inert = false; });
+}
+/* 画面が固まったように見えないよう、ふたを描いてから重い処理に入る */
+const nextPaint = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
+
 let toastT;
 function toast(msg){
   const t = $('toast'); t.textContent = msg; t.classList.add('show');
@@ -3057,24 +3142,47 @@ function exportJsonFile(){
   if(!state.items.length){ toast('書き出す商品がありません'); return; }
   offerFile('data.json', sharedJSON(), 'application/json');
 }
+/* §v1.11.0 この端末に保存。編集のたびに自動保存はしているが、
+   「いま確かに保存された」ことを確かめられるようにする。
+   保存に失敗したとき（端末の保存容量がいっぱいなど）に気づけるのが本来の目的。 */
+async function saveLocal(){
+  setBusy('この端末に保存しています…');
+  await nextPaint();
+  const ok = save();
+  if(ok) touched = false;
+  renderSaveButtons();
+  clearBusy();
+  if(ok) toast('この端末に保存しました（'+state.items.length.toLocaleString('ja-JP')+'件）'
+              + (state.dirty ? '。共有するには「GitHubに保存」を押してください' : ''));
+  else showText('この端末に保存できませんでした',
+    'ブラウザの保存容量がいっぱいの可能性があります。\n'
+    + '「一括更新用Excel」で書き出して控えを取ってから、ブラウザの保存データを整理してください。\n\n'
+    + String((saveError && saveError.message) || saveError || ''), '');
+}
+
 $('pushShared').addEventListener('click', async () => {
   if(!ghReady()){ openGhSetup(); return; }
   if(!state.items.length){ toast('保存する商品がありません'); return; }
   const btn = $('pushShared');
   btn.disabled = true; btn.textContent = '保存中…';
+  setBusy('GitHubに保存しています…');
+  let err = null;
   try{
     const json = sharedJSON();
     await ghPut(json);
     state.sharedStamp = JSON.parse(json).updatedAt;
     state.dirty = false;
     sharedInfo = { status:'読込済', updatedAt:state.sharedStamp, count:state.items.length };
+    touched = false;
     render();
-    toast('GitHubに保存しました。ほかのPCは再読み込みで反映されます');
-  }catch(e){
-    showText('GitHubに保存できませんでした', String(e.message || e), '');
-  }finally{
+  }catch(e){ err = e; }
+  finally{
+    clearBusy();
     btn.disabled = false; btn.textContent = 'GitHubに保存';
   }
+  /* エラー表示はふたを外してから。ふたが載ったままだとドロワーを閉じられなくなる。 */
+  if(err) showText('GitHubに保存できませんでした', String(err.message || err), '');
+  else toast('GitHubに保存しました。ほかのPCは再読み込みで反映されます');
 });
 
 function openGhSetup(){
@@ -3172,6 +3280,7 @@ document.addEventListener('click', e => {
   if(b.dataset.ops === 'xlsxCheck') exportCheckXlsx(currentList());
   if(b.dataset.ops === 'xlsxIn')    openCsvModal();
   if(b.dataset.ops === 'history')   openHistory();
+  if(b.dataset.ops === 'saveLocal') saveLocal();
 });
 
 /* §30 Excel取込履歴。誤ったExcelを取り込んだとき、何が変わったか追える。 */
