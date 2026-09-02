@@ -592,6 +592,9 @@ select.cell-in[data-f="status"]{width:96px}
 .modal-card{
   width:min(520px,100%);background:var(--surface);border:1px solid var(--line);
   border-radius:calc(var(--radius) * 2);box-shadow:var(--shadow);padding:22px 24px 20px;
+  /* 説明文や変更一覧が増えると、画面の低いノートPCでは［この内容で反映］が画面外へ出てしまう。
+     カードごとスクロールできるようにして、必ずボタンに届くようにする。 */
+  max-height:calc(100vh - 40px);overflow:auto;
 }
 .modal-card h2{margin:0 0 6px;font-size:18px;font-weight:700}
 .modal-lead{margin:0 0 16px;font-family:var(--f-body);font-size:13px;color:var(--ink-2);line-height:1.7}
@@ -795,11 +798,13 @@ select.cell-in.capsel{width:104px}
 <div class="modal" id="csvModal" hidden>
   <div class="modal-card wide" role="dialog" aria-modal="true" aria-labelledby="csvTitle">
     <h2 id="csvTitle">Excel取込</h2>
-    <p class="modal-lead">商品コードをキーに照合し、<b>小箱上限・箱上限・上限設定状態・対応状況</b>を更新します。
+    <p class="modal-lead">商品コードをキーに照合し、<b>基礎区分・小箱上限・箱上限・上限設定状態・現在の固定保管・対応状況</b>を更新します。
       一括更新用・現場チェック用のどちらのExcelでも、そのまま読み込めます。
       商品名・在庫定数・フリー在庫はネクストエンジンから取得する情報なので上書きしません。
-      現在の固定保管も、実際の倉庫移動を伴うため一括更新の対象外です。
+      <b>現在の固定保管は実際の倉庫移動を伴います。</b>現物を動かしてから取り込んでください。
       <b>空欄は「今の値を維持」</b>です。値を消したいときだけ半角の <code>-</code> を入れてください。</p>
+    <p class="modal-lead">基礎区分を変えた行で収納上限が空欄・<code>対象外</code>のときは、
+      <b>新しい区分の初期値</b>に置き換わり、上限設定状態も<b>仮設定</b>に戻ります（画面で基礎区分を変えたときと同じです）。</p>
     <p class="modal-lead">書き出したExcelの収納上限欄は、<b><code>対象外</code></b>＝その基礎区分ではその保管形式を使わないので入力不要、
       <b>空欄</b>＝入力が必要なのにまだ値が入っていない、という意味です。<code>対象外</code> はそのまま取り込んでも何も変わりません。</p>
     <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Excelファイルを選択">
@@ -1030,6 +1035,10 @@ function seed(){
    （画面右上のバージョンを押すと、この CHANGELOG が表示される）
    v1.4.0 より前は v1.4000 のような4桁形式だった。履歴では旧番号を併記している。 */
 const CHANGELOG = [
+  { v:'v1.7.1', d:'2026-09-02', items:[
+    'Excel取込の確認画面が縦に長いとき、画面の低いパソコンで［この内容で反映］が押せなくなることがあったのを修正' ] },
+  { v:'v1.7.0', d:'2026-09-02', items:[
+    'Excel取込で「基礎区分」と「現在の固定保管」も更新できるようにした。基礎区分を変えた行で収納上限が空欄・対象外のときは、新しい区分の初期値に置き換わる' ] },
   { v:'v1.6.8', d:'2026-09-02', items:[
     '保管変更対象タブの表バーを全SKU一覧とそろえた（一括更新用Excel／現場チェック用Excel／Excel取込／手動入力モード／取込履歴を追加）' ] },
   { v:'v1.6.7', d:'2026-09-02', items:[
@@ -1278,7 +1287,7 @@ function renderShared(){
 /* 取込で更新できる列。商品名・在庫定数・フリー在庫はNEの情報なので上書きしない。
    現在の固定保管も実移動を伴うため一括更新の対象外（§25）。
    対応状況は、現場チェック用Excelに書いて戻してもらうため v1.2001 で追加した。 */
-const CSV_EDITABLE = ['小箱上限','箱上限','上限設定状態','対応状況'];
+const CSV_EDITABLE = ['基礎区分','小箱上限','箱上限','上限設定状態','現在の固定保管','対応状況'];
 /* §28 空欄は「既存値を維持」。意図して値を消すときだけ、この記号を書く。 */
 const CSV_CLEAR = '-';
 /* 収納上限の空欄が「まだ入れていない」のか「その区分では使わない」のか区別できるよう、
@@ -1335,8 +1344,21 @@ function planRows(rows, opts){
       return;
     }
 
-    /* 数値項目：空欄＝維持、CSV_CLEAR＝削除、それ以外は数値でなければエラー */
     let bad = false;
+
+    /* §v1.7.0 基礎区分を取込対象にした。収納上限の意味が変わるので、いちばん先に決める。 */
+    let kb = it.kubun;
+    const kbRaw = canonKubun(get(r, '基礎区分'));
+    if(kbRaw){
+      if(!KUBUN.includes(kbRaw)){ out.errors.push({ line, code, msg:'基礎区分「'+kbRaw+'」は使用できません（'+KUBUN.join(' / ')+'）' }); bad = true; }
+      else kb = kbRaw;
+    }
+    const kbChanged = kb !== it.kubun;
+    const kbDef = defCaps(kb);
+
+    /* 数値項目：空欄＝維持、CSV_CLEAR＝削除、それ以外は数値でなければエラー
+       基礎区分を変えた行で収納上限が空欄・対象外だったときは、前の区分の値を持ち越さず
+       新しい区分の初期値に置き換える（画面で基礎区分を変えたときと同じ挙動）。 */
     const readCap = (label, cur) => {
       const v = get(r, label);
       if(v === undefined || v === '') return { keep:true, value:cur };
@@ -1347,15 +1369,29 @@ function planRows(rows, opts){
       if(n < 0){ out.errors.push({ line, code, msg:label+'にマイナス値（'+v+'）が入力されています' }); bad = true; return { keep:true, value:cur }; }
       return { keep:false, value:n };
     };
-    const sc = readCap('小箱上限', it.smallCap);
-    const bc = readCap('箱上限',   it.boxCap);
+    const sc = readCap('小箱上限', kbChanged ? kbDef.s : it.smallCap);
+    const bc = readCap('箱上限',   kbChanged ? kbDef.b : it.boxCap);
 
-    let cs = it.capState;
+    /* 基礎区分を変えると上限は初期値に戻るので、上限設定状態も「仮設定」に戻す（Excelで指定があればそちら優先） */
+    let cs = kbChanged ? DEFAULT_CAP_STATE : it.capState;
     const csRaw = get(r, '上限設定状態');
     if(csRaw !== undefined && csRaw !== ''){
       if(!CAP_STATES.includes(csRaw)){ out.errors.push({ line, code, msg:'上限設定状態「'+csRaw+'」は使用できません（'+CAP_STATES.join(' / ')+'）' }); bad = true; }
       else cs = csRaw;
     }
+    /* §v1.7.0 現在の固定保管も取込対象にした。
+       実際の倉庫移動を伴う項目なので、書き換えるときは現物を動かしてから取り込むこと。 */
+    let cm = it.curMain;
+    const cmRaw = canonMain(get(r, '現在の固定保管') || get(r, '現在の主保管'));
+    if(cmRaw){
+      if(!MAINS.includes(cmRaw)){ out.errors.push({ line, code, msg:'現在の固定保管「'+cmRaw+'」は使用できません（'+MAINS.join(' / ')+'）' }); bad = true; }
+      else cm = cmRaw;
+    }
+    /* 基礎区分と現在の固定保管の組み合わせが合わないときは知らせる（判定は「要確認」になる）。
+       コンテナへの移行中・コンテナからの移行中は矛盾扱いしない。 */
+    if(!bad && !(routeOf(kb) === 'コンテナ' || cm === 'コンテナ固定') && !allowedMains(kb).includes(cm))
+      out.warns.push({ line, code, msg:'基礎区分「'+kb+'」では現在の固定保管に「'+cm+'」を使いません。判定は「要確認」になります' });
+
     /* 対応状況。現場チェック用Excelでは空欄で配るので、空欄＝今のまま。 */
     let st = it.status;
     const stRaw = get(r, '対応状況');
@@ -1368,16 +1404,27 @@ function planRows(rows, opts){
     if(sc.value !== null && bc.value !== null && sc.value > bc.value){
       out.errors.push({ line, code, msg:'小箱上限（'+sc.value+'）が箱上限（'+bc.value+'）より大きくなっています' }); return;
     }
-    const route = routeOf(it.kubun);
+    /* 取込後の基礎区分（kb）で見ること。it.kubun のままだと、区分を変えた行で判定がずれる。 */
+    const route = routeOf(kb);
     if(route === 'コンテナ' && (sc.value !== null || bc.value !== null))
       out.warns.push({ line, code, msg:'コンテナ固定商品ですが、小箱上限・箱上限が入力されています（判定には使いません）' });
     if(route === '箱' && sc.value !== null)
       out.warns.push({ line, code, msg:'箱区分の商品ですが、小箱上限が入力されています（この区分は小箱を使いません）' });
+    /* 基礎区分を変えたのに収納上限が前の区分の数値のまま、という取り違えが起きやすいので必ず知らせる。 */
+    if(kbChanged && ((!sc.keep && sc.value !== kbDef.s) || (!bc.keep && bc.value !== kbDef.b)))
+      out.warns.push({ line, code, msg:'基礎区分を「'+kb+'」に変えましたが、収納上限はExcelに書かれた値（小箱'+
+        (sc.value === null ? '―' : sc.value)+' / 箱'+(bc.value === null ? '―' : bc.value)+
+        '）をそのまま使います。新しい区分の初期値（小箱'+(kbDef.s === null ? '―' : kbDef.s)+' / 箱'+
+        (kbDef.b === null ? '―' : kbDef.b)+'）にするなら、その欄を空欄か「対象外」にしてください' });
 
+    /* 基礎区分をいちばん先に入れること。applyPlan がこの順に適用し、
+       収納上限の「個別」判定を新しい区分の初期値と比べるため。 */
     const diff = [];
+    if(kb !== it.kubun)          diff.push({ field:'基礎区分', before:it.kubun, after:kb });
     if(sc.value !== it.smallCap) diff.push({ field:'小箱上限', before:it.smallCap, after:sc.value });
     if(bc.value !== it.boxCap)   diff.push({ field:'箱上限',   before:it.boxCap,   after:bc.value });
     if(cs !== it.capState)       diff.push({ field:'上限設定状態', before:it.capState, after:cs });
+    if(cm !== it.curMain)        diff.push({ field:'現在の固定保管', before:it.curMain, after:cm });
     if(st !== it.status)         diff.push({ field:'対応状況',   before:it.status,   after:st });
     if(!diff.length){ out.same++; return; }
     out.changed++;
@@ -1393,11 +1440,19 @@ function applyPlan(plan, fileName){
   plan.changes.forEach(c => {
     const it = byCode.get(c.code);
     if(!it) return;
-    if(c.field === '小箱上限'){ it.smallCap = c.after; it.smallCapEdited = it.smallCap !== defCaps(it.kubun).s; }
-    else if(c.field === '箱上限'){ it.boxCap = c.after; it.boxCapEdited = it.boxCap !== defCaps(it.kubun).b; }
+    if(c.field === '基礎区分'){ it.kubun = c.after; }
+    else if(c.field === '小箱上限'){ it.smallCap = c.after; }
+    else if(c.field === '箱上限'){ it.boxCap = c.after; }
     else if(c.field === '上限設定状態'){ it.capState = c.after; }
+    else if(c.field === '現在の固定保管'){ it.curMain = c.after; }
     else if(c.field === '対応状況'){ it.status = c.after; }
     codes.add(c.code);
+  });
+  /* 「個別」の印は、基礎区分を入れ替えたあとの初期値と比べ直す */
+  codes.forEach(code => {
+    const it = byCode.get(code); if(!it) return;
+    it.smallCapEdited = it.smallCap !== defCaps(it.kubun).s;
+    it.boxCapEdited   = it.boxCap   !== defCaps(it.kubun).b;
   });
   let added = 0;
   plan.adds.forEach(a => {
@@ -1799,7 +1854,7 @@ function filterNote(list){
 
 function exportXlsx(list){
   if(!list.length){ toast('書き出す商品がありません'); return; }
-  const note = '編集できるのは 小箱上限 / 箱上限 / 上限設定状態 / 対応状況 の4列だけです。'
+  const note = '編集できるのは 基礎区分 / 小箱上限 / 箱上限 / 上限設定状態 / 現在の固定保管 / 対応状況 の6列です。'
     + '「対象外」＝その基礎区分では使わないので入力不要、空欄＝入力が必要だがまだ未入力。' + filterNote(list);
   const capOut = (it, kind) => {
     const uses = kind === 'small' ? usesSmall(it.kubun) : usesBox(it.kubun);
@@ -1829,6 +1884,7 @@ function exportXlsx(list){
 function exportCheckXlsx(list){
   if(!list.length){ toast('書き出す商品がありません'); return; }
   const note = '倉庫で現物を見て対応要否を判断し、「対応状況」を 未対応 / 対応済 / 例外運用 に直してください（今の値が入っています）。'
+    + '現物を移したときは「現在の固定保管」も直してください（この2列が取込で更新されます）。'
     + '例外運用＝推奨とは違うが担当者の判断でこのまま運用する、という意味です（保管形式の名前ではありません）。'
     + 'そのままExcel取込に読み込めば、対応状況だけが更新されます。' + filterNote(list);
   const rows = [[{v:note, s:6}], CHK_HEAD.map(h => ({v:h, s:1}))];
