@@ -292,12 +292,10 @@ button,input,select,textarea{font:inherit;color:inherit}
 /* ---------- tabs ---------- */
 .tabs{display:flex;gap:2px;margin:14px 0 0;border-bottom:1px solid var(--line);align-items:flex-end}
 .headtoggle{margin-left:auto}
-.histbtn{margin-left:auto}
-.histbtn + .headtoggle{margin-left:0}
-/* この端末に保存。ヘッダーを隠しても押せるよう、表バーの右側（取込履歴の左）に置く。
+/* この端末に保存。ヘッダーを隠しても押せるよう、表バーの右端（ヘッダーを隠すの左）に置く。
    ふだんはグレー、何か変更してまだ押していないときだけ色を付けて「押してほしい」を伝える。 */
 .savebtn{margin-left:auto}
-.savebtn + .histbtn{margin-left:0}
+.savebtn + .headtoggle{margin-left:0}
 .savebtn:not(.on){color:var(--ink-3)}
 .savebtn.on{background:var(--save);border-color:var(--save);color:var(--on-accent);font-weight:700}
 .savebtn.on:hover{filter:brightness(1.08)}
@@ -772,15 +770,14 @@ select.cell-in.capsel{width:104px}
     </div>
     <div class="tablecard">
       <div class="tablebar">
+        <label class="toggle"><input type="checkbox" class="manualchk"> 管理者：手動入力モード</label>
         <div class="search"><input type="search" id="q" placeholder="商品コード・商品名で検索"></div>
         <button class="btn btn-sm codebtn" data-codepick="filters">商品コード選択</button>
         <button class="btn btn-sm floorbtn" data-sort="floor">階数でソート</button>
         <button class="btn btn-sm" data-ops="xlsxOut" title="収納上限をまとめて直して取り込み直すためのExcel。横向き・A4に列が収まるよう設定済み（絞り込み中はその分だけ）">一括更新用Excel</button>
         <button class="btn btn-sm" data-ops="xlsxCheck" title="倉庫へ持ち歩いて対応要否を判断するためのExcel。縦向き・A4に列が収まるよう設定済み（絞り込み中はその分だけ）">現場チェック用Excel</button>
         <button class="btn btn-sm" data-ops="xlsxIn" title="商品コードをキーに、小箱上限・箱上限・上限設定状態・対応状況を更新します">Excel取込</button>
-        <label class="toggle"><input type="checkbox" class="manualchk"> 管理者：手動入力モード</label>
         <button class="btn btn-sm savebtn" data-ops="saveLocal">この端末に保存</button>
-        <button class="btn btn-sm ghost histbtn" data-ops="history">取込履歴</button>
         <button class="btn btn-sm headtoggle" aria-pressed="false">ヘッダーを隠す</button>
       </div>
       <div class="tablewrap"><table id="tblMain"></table></div>
@@ -797,16 +794,15 @@ select.cell-in.capsel{width:104px}
     </div>
     <div class="tablecard">
       <div class="tablebar">
+        <label class="toggle"><input type="checkbox" class="manualchk"> 管理者：手動入力モード</label>
         <div class="search"><input type="search" id="q2" placeholder="商品コード・商品名で検索"></div>
         <button class="btn btn-sm codebtn" data-codepick="filters2">商品コード選択</button>
         <button class="btn btn-sm floorbtn" data-sort="floor">階数でソート</button>
         <button class="btn btn-sm" data-ops="xlsxOut" title="収納上限をまとめて直して取り込み直すためのExcel。横向き・A4に列が収まるよう設定済み（この一覧に出ている分だけ）">一括更新用Excel</button>
         <button class="btn btn-sm" data-ops="xlsxCheck" title="倉庫へ持ち歩いて対応要否を判断するためのExcel。縦向き・A4に列が収まるよう設定済み（この一覧に出ている分だけ）">現場チェック用Excel</button>
         <button class="btn btn-sm" data-ops="xlsxIn" title="商品コードをキーに、小箱上限・箱上限・上限設定状態・対応状況を更新します">Excel取込</button>
-        <label class="toggle"><input type="checkbox" class="manualchk"> 管理者：手動入力モード</label>
         <button class="btn btn-sm" id="copyBtn">一覧をテキストで表示</button>
         <button class="btn btn-sm savebtn" data-ops="saveLocal">この端末に保存</button>
-        <button class="btn btn-sm ghost histbtn" data-ops="history">取込履歴</button>
         <button class="btn btn-sm headtoggle" aria-pressed="false">ヘッダーを隠す</button>
       </div>
       <div class="tablewrap"><table id="tblChange"></table></div>
@@ -1064,6 +1060,10 @@ function seed(){
    （画面右上のバージョンを押すと、この CHANGELOG が表示される）
    v1.4.0 より前は v1.4000 のような4桁形式だった。履歴では旧番号を併記している。 */
 const CHANGELOG = [
+  { v:'v1.13.0', d:'2026-09-02', items:[
+    '［取込履歴］をやめた。あわせて、取込のたびに端末へため込んでいた変更明細も持たないようにした（保存できなくなる原因になるため）' ] },
+  { v:'v1.12.4', d:'2026-09-02', items:[
+    '「管理者：手動入力モード」を検索欄の左へ移した' ] },
   { v:'v1.12.3', d:'2026-09-02', items:[
     '「この端末に保存」の色を、まわりに埋もれない濃いオレンジにした' ] },
   { v:'v1.12.2', d:'2026-09-02', items:[
@@ -1535,13 +1535,14 @@ function applyPlan(plan, fileName){
   return { updated:codes.size, added, errors:plan.errors.length };
 }
 
-/* §30 取込履歴。変更前の値も残して、誤った取込を追跡できるようにする。 */
+/* 取込の記録。v1.13.0 で［取込履歴］の画面をやめたので、変更前後の明細は持たない。
+   明細（1回の取込で最大2000件）を20回ぶん抱えると localStorage を数MB食い、
+   保存そのものが失敗する原因になるため。日時と件数のサマリだけ残す。 */
 function pushImportHistory(fileName, plan, updated, added){
   if(!Array.isArray(state.csvHistory)) state.csvHistory = [];
   state.csvHistory.unshift({
     at: nowStr(), file: fileName || '(名前なし)',
-    updated, added, errors: plan.errors.length, warns: plan.warns.length,
-    changes: plan.changes.slice(0, 2000).map(c => ({ code:c.code, field:c.field, before:c.before, after:c.after }))
+    updated, added, errors: plan.errors.length, warns: plan.warns.length
   });
   state.csvHistory = state.csvHistory.slice(0, 20);   // 直近20回ぶんだけ持つ
 }
@@ -3279,32 +3280,8 @@ document.addEventListener('click', e => {
   if(b.dataset.ops === 'xlsxOut')   exportXlsx(currentList());
   if(b.dataset.ops === 'xlsxCheck') exportCheckXlsx(currentList());
   if(b.dataset.ops === 'xlsxIn')    openCsvModal();
-  if(b.dataset.ops === 'history')   openHistory();
   if(b.dataset.ops === 'saveLocal') saveLocal();
 });
-
-/* §30 Excel取込履歴。誤ったExcelを取り込んだとき、何が変わったか追える。 */
-function openHistory(){
-  const h = Array.isArray(state.csvHistory) ? state.csvHistory : [];
-  const d = $('drawer');
-  const body = h.length ? h.map((r, i) =>
-    '<div class="dsec"><h3>'+esc(r.at)+'　'+esc(r.file)+'</h3>'+
-    '<p class="reason-box">更新 '+r.updated+'件'+(r.added?' / 新規追加 '+r.added+'件':'')+
-      ' / エラー '+r.errors+'件'+(r.warns?' / 警告 '+r.warns+'件':'')+'</p>'+
-    (r.changes && r.changes.length
-      ? '<table class="cpv-table"><thead><tr><th>商品コード</th><th>項目</th><th class="n">変更前</th><th class="n">変更後</th></tr></thead><tbody>'+
-        r.changes.slice(0, 200).map(c => '<tr><td class="code">'+esc(c.code)+'</td><td>'+esc(c.field)+'</td>'+
-          '<td class="n">'+esc(c.before === null || c.before === undefined ? '―' : c.before)+'</td>'+
-          '<td class="n after">'+esc(c.after === null || c.after === undefined ? '―' : c.after)+'</td></tr>').join('')+
-        '</tbody></table>'+(r.changes.length > 200 ? '<p class="cpv-more">ほか '+(r.changes.length-200)+' 項目</p>' : '')
-      : '<p class="cpv-more">変更された項目はありません。</p>')+
-    '</div>').join('')
-    : '<div class="dsec"><p class="cpv-more">まだCSV取込の履歴はありません。</p></div>';
-  d.innerHTML = '<div class="dhead"><div><h2>Excel取込履歴</h2><span class="code">直近20回ぶんを、この端末に保存しています</span></div>'+
-    '<button class="iconbtn" id="dclose" aria-label="閉じる">×</button></div>' + body;
-  $('scrim').classList.add('show'); d.classList.add('show'); d.setAttribute('aria-hidden','false');
-  $('dclose').onclick = closeDrawer;
-}
 
 /* バージョンを押すと変更履歴を出す。何が変わったのかをスタッフが自分で確かめられるように。 */
 $('ver').addEventListener('click', () => {
