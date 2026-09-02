@@ -256,13 +256,17 @@ button,input,select,textarea{font:inherit;color:inherit}
 .intro h2{font-family:var(--f-ui);font-size:17px;margin:0 0 6px}
 .intro p{font-size:13.5px;color:var(--ink-2);line-height:1.85;margin:0 0 14px}
 .steps{display:grid;gap:10px;margin:0 0 18px;padding:0;list-style:none;counter-reset:s}
+/* li はブロックのまま。grid/flex にすると <b> などの子要素が別セル扱いになり、
+   後ろの文字が細い列に押し込まれて縦書きのように見える（v1.4.7 で修正）。 */
 .steps li{
-  counter-increment:s;display:grid;grid-template-columns:26px 1fr;gap:12px;align-items:start;
-  background:var(--surface-2);border-radius:var(--radius);padding:11px 14px;font-size:13.5px;color:var(--ink-2);
+  counter-increment:s;display:block;position:relative;
+  background:var(--surface-2);border-radius:var(--radius);
+  padding:11px 14px 11px 46px;font-size:13.5px;line-height:1.75;color:var(--ink-2);
 }
 .steps li::before{
   content:counter(s);font-family:var(--f-num);font-size:11px;color:var(--on-accent);background:var(--accent);
-  width:20px;height:20px;border-radius:50%;display:grid;place-items:center;margin-top:2px;
+  width:20px;height:20px;border-radius:50%;display:grid;place-items:center;
+  position:absolute;left:14px;top:13px;
 }
 .csvspec{
   font-family:var(--f-num);font-size:11.5px;background:var(--surface-2);border:1px solid var(--line);
@@ -1034,6 +1038,11 @@ function seed(){
    （画面右上のバージョンを押すと、この CHANGELOG が表示される）
    v1.4.0 より前は v1.4000 のような4桁形式だった。履歴では旧番号を併記している。 */
 const CHANGELOG = [
+  { v:'v1.4.8', d:'2026-09-02', items:[
+    '判定ルールの「例外運用」の説明を書き直した（保管形式ではなく対応状況の値であること、使う場面、対応済との違い）',
+    '現場チェック用Excelの注記にも例外運用の意味を1行追加した' ] },
+  { v:'v1.4.7', d:'2026-09-02', items:[
+    '判定ルールの手順リストで、太字の直後の文が縦書きのように細く折り返されていた不具合を修正' ] },
   { v:'v1.4.6', d:'2026-08-31', items:[
     'ドロップダウンを変えた行が、絞り込み条件から外れてもその場に残るようにした（タブを移動するか絞り込みを変えるまで表示）' ] },
   { v:'v1.4.5', d:'2026-08-31', items:[
@@ -1819,6 +1828,7 @@ function exportXlsx(list){
 function exportCheckXlsx(list){
   if(!list.length){ toast('書き出す商品がありません'); return; }
   const note = '倉庫で現物を見て対応要否を判断し、「対応状況」を 未対応 / 対応済 / 例外運用 に直してください（今の値が入っています）。'
+    + '例外運用＝推奨とは違うが担当者の判断でこのまま運用する、という意味です（保管形式の名前ではありません）。'
     + 'そのままExcel取込に読み込めば、対応状況だけが更新されます。' + filterNote(list);
   const rows = [[{v:note, s:6}], CHK_HEAD.map(h => ({v:h, s:1}))];
   list.forEach(({it,j}) => rows.push([
@@ -2743,13 +2753,24 @@ function renderRules(){
     '<tr><td>対応済</td><td>倉庫で移動し、現在の固定保管も更新した</td><td>出ない</td></tr>'+
     '<tr><td>例外運用</td><td><b>推奨とは違うが、担当者の判断でこのまま運用する</b></td><td>出ない（既定で伏せる）</td></tr>'+
   '</tbody></table>'+
-  '<p><b>例外運用</b>は、ツールの推奨に従わないと決めたSKUに付けます。たとえば'+
-  '「昇格が推奨されているが、箱ロケーションに空きがないので当面このまま」'+
-  '「セール前の一時的な入荷なので、恒久的に移すほどではない」といった場合です。</p>'+
-  '<p>例外運用にすると<b>保管変更対象から伏せられ、件数からも外れます</b>ので、'+
-  '毎月同じSKUが作業リストに出続けるのを防げます。判定結果そのものは残るので、'+
-  '全SKU一覧で対応状況「例外運用」に絞り込めばいつでも見返せます。'+
-  '状況が変わったら「未対応」に戻してください。</p>'+
+  '<h2>「例外運用」とは</h2>'+
+  '<p><b>例外運用は保管形式の名前ではありません。</b>「対応状況」に付ける3つの値のうちの1つで、'+
+  '意味は<b>「ツールはこう推奨しているが、担当者の判断でこのまま動かさないと決めた」</b>です。'+
+  '小箱・箱・コンテナ固定・＋コンテナ固定は、どれも正式な保管形式であって例外運用ではありません。</p>'+
+  '<p>使うのは、推奨どおりに動かせない・動かす必要がないと判断したときです。</p>'+
+  '<ol class="steps">'+
+    '<li>昇格が推奨されているが、<b>箱ロケーションに空きがない</b>ので当面このままにする</li>'+
+    '<li><b>セール前の一時的な入荷</b>で、すぐ元の数量に戻るため恒久的に移すほどではない</li>'+
+    '<li>他の商品とまとめて置いている等の<b>倉庫側の事情</b>で、推奨どおりに分けられない</li>'+
+  '</ol>'+
+  '<p>例外運用にすると、そのSKUは<b>保管変更対象から伏せられ、件数からも外れます</b>。'+
+  '毎月同じSKUが作業リストに出続けるのを防ぐための機能です。'+
+  '判定結果そのものは消えないので、全SKU一覧で対応状況「例外運用」に絞り込めばいつでも一覧できます。'+
+  '<b>状況が変わったら「未対応」に戻してください。</b></p>'+
+  '<p>「対応済」との違いは<b>現物を動かしたかどうか</b>です。'+
+  '推奨どおり移動して現在の固定保管も更新したなら<b>対応済</b>、'+
+  '移動せずこのままでいくと決めたなら<b>例外運用</b>です。'+
+  '例外運用のSKUは現在の固定保管を変えないでください（変えると判定が「維持」になり、記録の意味がなくなります）。</p>'+
 
   '<h2>現在の固定保管は自動で書き換えない</h2>'+
   '<p>推奨固定保管が出ても、現在の固定保管は自動更新しません。倉庫担当者が実際に商品を移動したあとで、'+
