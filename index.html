@@ -325,6 +325,10 @@ section[hidden]{display:none}
 .search input:focus-visible{outline:2px solid var(--accent);outline-offset:-1px}
 .fgroup{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .fgroup > .glabel{font-size:13.5px;font-weight:700;letter-spacing:.04em;color:var(--ink);margin-right:5px}
+/* 見出しの文字数がばらばら（判定結果／対応状況／現在の固定保管…）だと、
+   グループごとにチップの左端がずれて段がそろわない。いちばん長い見出しに合わせて幅を固定する。
+   幅を変えるときは、いちばん長い見出しがはみ出さないか必ず確認すること。 */
+.fgroup > .glabel{display:inline-block;min-width:104px;flex:none}
 .chip{
   border:1.5px solid var(--line-strong);background:var(--surface);color:var(--ink);
   padding:7px 15px;border-radius:100px;font-size:14px;font-weight:600;cursor:pointer;
@@ -731,11 +735,9 @@ select.cell-in.capsel{width:104px}
   <section id="panel-main">
     <div class="panel filters">
       <div class="toolbar">
-        <div class="fgroup"><span class="glabel">判定結果</span><span id="resFilters"></span></div>
         <div class="fgroup"><span class="glabel">上限設定状態</span><span id="capFilters"></span></div>
         <button class="btn btn-sm clearbtn" data-clear="filters" type="button">選択をクリア</button>
         <div class="rowbreak"></div>
-        <div class="fgroup"><span class="glabel">対応状況</span><span id="staFilters"></span></div>
         <div class="fgroup"><span class="glabel">基礎区分</span><span id="kubFilters"></span></div>
         <div class="fgroup"><span class="glabel">現在の固定保管</span><span id="mainFilters"></span></div>
       </div>
@@ -745,11 +747,11 @@ select.cell-in.capsel{width:104px}
         <div class="search"><input type="search" id="q" placeholder="商品コード・商品名で検索"></div>
         <button class="btn btn-sm codebtn" data-codepick="filters">商品コード選択</button>
         <button class="btn btn-sm floorbtn" data-sort="floor">階数でソート</button>
-        <button class="btn btn-sm" id="opsCsvOut" title="収納上限をまとめて直して取り込み直すためのExcel。横向き・A4に列が収まるよう設定済み（絞り込み中はその分だけ）">一括更新用Excel</button>
-        <button class="btn btn-sm" id="opsCheckOut" title="倉庫へ持ち歩いて対応要否を判断するためのExcel。対応状況は空欄。縦向き・A4に列が収まるよう設定済み（絞り込み中はその分だけ）">現場チェック用Excel</button>
-        <button class="btn btn-sm" id="opsCsvIn" title="商品コードをキーに、小箱上限・箱上限・上限設定状態・対応状況を更新します">Excel取込</button>
-        <label class="toggle"><input type="checkbox" id="manualMode"> 管理者：手動入力モード</label>
-        <button class="btn btn-sm ghost histbtn" id="opsHistory">取込履歴</button>
+        <button class="btn btn-sm" data-ops="xlsxOut" title="収納上限をまとめて直して取り込み直すためのExcel。横向き・A4に列が収まるよう設定済み（絞り込み中はその分だけ）">一括更新用Excel</button>
+        <button class="btn btn-sm" data-ops="xlsxCheck" title="倉庫へ持ち歩いて対応要否を判断するためのExcel。縦向き・A4に列が収まるよう設定済み（絞り込み中はその分だけ）">現場チェック用Excel</button>
+        <button class="btn btn-sm" data-ops="xlsxIn" title="商品コードをキーに、小箱上限・箱上限・上限設定状態・対応状況を更新します">Excel取込</button>
+        <label class="toggle"><input type="checkbox" class="manualchk"> 管理者：手動入力モード</label>
+        <button class="btn btn-sm ghost histbtn" data-ops="history">取込履歴</button>
         <button class="btn btn-sm headtoggle" aria-pressed="false">ヘッダーを隠す</button>
       </div>
       <div class="tablewrap"><table id="tblMain"></table></div>
@@ -770,7 +772,12 @@ select.cell-in.capsel{width:104px}
         <div class="search"><input type="search" id="q2" placeholder="商品コード・商品名で検索"></div>
         <button class="btn btn-sm codebtn" data-codepick="filters2">商品コード選択</button>
         <button class="btn btn-sm floorbtn" data-sort="floor">階数でソート</button>
+        <button class="btn btn-sm" data-ops="xlsxOut" title="収納上限をまとめて直して取り込み直すためのExcel。横向き・A4に列が収まるよう設定済み（この一覧に出ている分だけ）">一括更新用Excel</button>
+        <button class="btn btn-sm" data-ops="xlsxCheck" title="倉庫へ持ち歩いて対応要否を判断するためのExcel。縦向き・A4に列が収まるよう設定済み（この一覧に出ている分だけ）">現場チェック用Excel</button>
+        <button class="btn btn-sm" data-ops="xlsxIn" title="商品コードをキーに、小箱上限・箱上限・上限設定状態・対応状況を更新します">Excel取込</button>
+        <label class="toggle"><input type="checkbox" class="manualchk"> 管理者：手動入力モード</label>
         <button class="btn btn-sm" id="copyBtn">一覧をテキストで表示</button>
+        <button class="btn btn-sm ghost histbtn" data-ops="history">取込履歴</button>
         <button class="btn btn-sm headtoggle" aria-pressed="false">ヘッダーを隠す</button>
       </div>
       <div class="tablewrap"><table id="tblChange"></table></div>
@@ -1023,6 +1030,14 @@ function seed(){
    （画面右上のバージョンを押すと、この CHANGELOG が表示される）
    v1.4.0 より前は v1.4000 のような4桁形式だった。履歴では旧番号を併記している。 */
 const CHANGELOG = [
+  { v:'v1.6.8', d:'2026-09-02', items:[
+    '保管変更対象タブの表バーを全SKU一覧とそろえた（一括更新用Excel／現場チェック用Excel／Excel取込／手動入力モード／取込履歴を追加）' ] },
+  { v:'v1.6.7', d:'2026-09-02', items:[
+    '全SKU一覧の絞り込みから「判定結果」のボタンを外した（保管変更対象タブには残しています）' ] },
+  { v:'v1.6.6', d:'2026-09-02', items:[
+    '全SKU一覧の絞り込みから「対応状況」のボタンを外した（保管変更対象タブには残しています）' ] },
+  { v:'v1.6.5', d:'2026-09-02', items:[
+    '絞り込みの見出し（判定結果／対応状況／現在の固定保管…）の幅をそろえ、行ごとにボタンの左端がずれないようにした' ] },
   { v:'v1.6.4', d:'2026-09-02', items:[
     'Excel取込の新規追加で、現在の固定保管が読み取れない値だったとき、黙って既定値にせず警告を出すようにした' ] },
   { v:'v1.6.3', d:'2026-09-02', items:[
@@ -2261,9 +2276,7 @@ function renderFilters(){
   const R2 = baseRowsFor('filters2', R);
 
   const f1 = state.filters, f2 = state.filters2;
-  $('resFilters').innerHTML  = mk('filters',  f1.res,  all(RESULTS),    'res',  chipCounts(R, f1, 'res',  all(RESULTS)));
   $('capFilters').innerHTML  = mk('filters',  f1.cap,  all(CAP_STATES), 'cap',  chipCounts(R, f1, 'cap',  all(CAP_STATES)));
-  $('staFilters').innerHTML  = mk('filters',  f1.sta,  all(STATUSES),   'sta',  chipCounts(R, f1, 'sta',  all(STATUSES)));
   $('kubFilters').innerHTML  = mk('filters',  f1.kub,  all(KUBUN),      'kub',  chipCounts(R, f1, 'kub',  all(KUBUN)));
   $('mainFilters').innerHTML = mk('filters',  f1.main, all(MAINS),      'main', chipCounts(R, f1, 'main', all(MAINS)));
 
@@ -2781,8 +2794,15 @@ document.addEventListener('click', e => {
 });
 $('q').addEventListener('input', e => { state.filters.q = e.target.value; clearSticky(); renderMain(); renderClearButtons(); });
 $('q2').addEventListener('input', e => { state.filters2.q = e.target.value; clearSticky(); renderChange(); renderClearButtons(); });
-$('manualMode').addEventListener('change', e => {
-  state.manualMode = e.target.checked;
+/* 手動入力モードのチェックは表バーごとにあるので、必ず全部そろえる */
+function syncManualChecks(){
+  document.querySelectorAll('.manualchk').forEach(c => { c.checked = !!state.manualMode; });
+}
+document.addEventListener('change', e => {
+  const c = e.target.closest && e.target.closest('.manualchk');
+  if(!c) return;
+  state.manualMode = c.checked;
+  syncManualChecks();
   toast(state.manualMode ? '手動入力モード：在庫定数・フリー在庫を編集できます（通常運用ではAPI取得値を優先）' : '通常モード：API取得値で判定します');
   render();
 });
@@ -2810,7 +2830,7 @@ $('reloadShared').addEventListener('click', async () => {
   sharedInfo = { status:sh.status, updatedAt:sh.updatedAt || null, count:(sh.items||[]).length };
   if(sh.status === '読込済'){
     adoptShared(sh);
-    $('manualMode').checked = false;
+    state.manualMode = false; syncManualChecks();
     renderHeadToggle(); switchTab(state.tab); render();
     setFlow('done', '✓ 準備完了：共有データ（' + sh.items.length.toLocaleString('ja-JP') + '件）を反映しました');
     toast('共有データを読み込みました（'+sh.items.length+'件）');
@@ -3076,14 +3096,24 @@ function openGhSetup(){
     msg('このブラウザからトークンを削除しました。', true);
   };
 }
-/* §21 全SKU一覧の操作ボタン（表バーに配置） */
-const currentList = () => sortRows(rows().filter(r => matches(r, state.filters)));
-$('opsCsvOut').addEventListener('click', () => exportXlsx(currentList()));
-$('opsCheckOut').addEventListener('click', () => exportCheckXlsx(currentList()));
-$('opsCsvIn').addEventListener('click', openCsvModal);
+/* §21 操作ボタン（表バーに配置）。全SKU一覧と保管変更対象の両方に同じ並びで置いてあるので、
+   id ではなく data-ops で受ける。Excel出力の対象は「いま開いているタブに出ている分」。 */
+const currentList = () => state.tab === 'change'
+  ? sortRows(rows().filter(r => needsChange(r.j)
+      && (state.filters2.sta !== 'すべて' || r.it.status !== '例外運用')
+      && matches(r, state.filters2)))
+  : sortRows(rows().filter(r => matches(r, state.filters)));
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('[data-ops]');
+  if(!b) return;
+  if(b.dataset.ops === 'xlsxOut')   exportXlsx(currentList());
+  if(b.dataset.ops === 'xlsxCheck') exportCheckXlsx(currentList());
+  if(b.dataset.ops === 'xlsxIn')    openCsvModal();
+  if(b.dataset.ops === 'history')   openHistory();
+});
 
-/* §30 CSV取込履歴。誤ったCSVを取り込んだとき、何が変わったか追える。 */
-$('opsHistory').addEventListener('click', () => {
+/* §30 Excel取込履歴。誤ったExcelを取り込んだとき、何が変わったか追える。 */
+function openHistory(){
   const h = Array.isArray(state.csvHistory) ? state.csvHistory : [];
   const d = $('drawer');
   const body = h.length ? h.map((r, i) =>
@@ -3103,7 +3133,7 @@ $('opsHistory').addEventListener('click', () => {
     '<button class="iconbtn" id="dclose" aria-label="閉じる">×</button></div>' + body;
   $('scrim').classList.add('show'); d.classList.add('show'); d.setAttribute('aria-hidden','false');
   $('dclose').onclick = closeDrawer;
-});
+}
 
 /* バージョンを押すと変更履歴を出す。何が変わったのかをスタッフが自分で確かめられるように。 */
 $('ver').addEventListener('click', () => {
@@ -3168,7 +3198,7 @@ $('clearAll').addEventListener('click', () => {
           + '消したあとはCSVを取り込み直すことになります。');
   if(!confirm(msg)) return;
   state = blankState();
-  $('manualMode').checked = false;
+  state.manualMode = false; syncManualChecks();
   renderHeadToggle();
   render();
   toast(canRestore
@@ -3185,11 +3215,15 @@ $('clearAll').addEventListener('click', () => {
     state = Object.assign(blankState(), saved);
     state.items = (saved.items || []).map(normalize);
   }
-  $('manualMode').checked = !!state.manualMode;
+  syncManualChecks();
   /* 旧バージョンの保存データには基礎区分・現在の固定保管の絞り込みが無いので補う */
   ['filters','filters2'].forEach(k => {
     ['res','sta','cap','kub','main','pre'].forEach(f => { if(!state[k][f]) state[k][f] = 'すべて'; });
   });
+  /* 全SKU一覧の「対応状況」チップ（v1.6.6）と「判定結果」チップ（v1.6.7）は廃止した。
+     旧バージョンで絞り込んだまま保存されていると、解除する手段が無いまま件数が減って見えるので必ず戻す。 */
+  state.filters.sta = 'すべて';
+  state.filters.res = 'すべて';
   delete state.filters3;
   if(!Array.isArray(state.csvHistory)) state.csvHistory = [];
   $('q').value = state.filters.q; $('q2').value = state.filters2.q;
