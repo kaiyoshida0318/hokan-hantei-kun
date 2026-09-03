@@ -670,6 +670,10 @@ select.cell-in[data-f="status"]{width:96px}
 
 /* ===== 商品コード選択 ===== */
 .codebtn.on{border-color:var(--accent);background:var(--accent-soft);color:var(--accent);font-weight:600}
+/* 商品コードで絞り込んでいるときだけ、そのボタンのすぐ右に出る解除ボタン */
+.codeclear{margin-left:-4px;border-color:var(--alert-line);color:var(--alert);font-weight:600}
+.codeclear[hidden]{display:none}
+.codeclear:hover{border-color:var(--alert);background:var(--alert-bg)}
 /* 画面中央に出す大きめのモーダル。inset:0 + margin:auto で天地左右の中央に置く。 */
 .codepop{
   position:fixed;z-index:60;inset:0;margin:auto;
@@ -805,6 +809,7 @@ select.cell-in.capsel{width:104px}
         <label class="toggle"><input type="checkbox" class="manualchk"> 管理者：手動入力モード</label>
         <div class="search"><input type="search" id="q" placeholder="商品コード・商品名で検索"></div>
         <button class="btn btn-sm codebtn" data-codepick="filters">商品コード選択</button>
+        <button class="btn btn-sm codeclear" data-codeclear="filters" type="button" hidden title="商品コードの絞り込みだけを解除します">絞り込み解除</button>
         <button class="btn btn-sm floorbtn" data-sort="floor">階数でソート</button>
         <button class="btn btn-sm" data-ops="xlsxOut" title="収納上限をまとめて直して取り込み直すためのExcel。横向き・A4に列が収まるよう設定済み（絞り込み中はその分だけ）">一括更新用Excel</button>
         <button class="btn btn-sm" data-ops="xlsxCheck" title="倉庫へ持ち歩いて対応要否を判断するためのExcel。縦向き・A4に列が収まるよう設定済み（絞り込み中はその分だけ）">現場チェック用Excel</button>
@@ -830,6 +835,7 @@ select.cell-in.capsel{width:104px}
         <label class="toggle"><input type="checkbox" class="manualchk"> 管理者：手動入力モード</label>
         <div class="search"><input type="search" id="q2" placeholder="商品コード・商品名で検索"></div>
         <button class="btn btn-sm codebtn" data-codepick="filters2">商品コード選択</button>
+        <button class="btn btn-sm codeclear" data-codeclear="filters2" type="button" hidden title="商品コードの絞り込みだけを解除します">絞り込み解除</button>
         <button class="btn btn-sm floorbtn" data-sort="floor">階数でソート</button>
         <button class="btn btn-sm" data-ops="xlsxOut" title="収納上限をまとめて直して取り込み直すためのExcel。横向き・A4に列が収まるよう設定済み（この一覧に出ている分だけ）">一括更新用Excel</button>
         <button class="btn btn-sm" data-ops="xlsxCheck" title="倉庫へ持ち歩いて対応要否を判断するためのExcel。縦向き・A4に列が収まるよう設定済み（この一覧に出ている分だけ）">現場チェック用Excel</button>
@@ -1099,6 +1105,10 @@ function seed(){
    （画面右上のバージョンを押すと、この CHANGELOG が表示される）
    v1.4.0 より前は v1.4000 のような4桁形式だった。履歴では旧番号を併記している。 */
 const CHANGELOG = [
+  { v:'v1.18.2', d:'2026-09-03', items:[
+    '商品コード選択の右に出るボタンの表示を「解除」から「絞り込み解除」にした' ] },
+  { v:'v1.18.1', d:'2026-09-03', items:[
+    '商品コードで絞り込んでいるときは、［商品コード：◯◯］のすぐ右に［解除］ボタンが出るようにした' ] },
   { v:'v1.18.0', d:'2026-09-03', items:[
     '左上のロゴを押すと、全SKU一覧に戻って絞り込みがすべて「すべて」に戻るようにした' ] },
   { v:'v1.17.0', d:'2026-09-03', items:[
@@ -2503,7 +2513,22 @@ function renderCodeButtons(){
     b.classList.toggle('on', !!on);
     b.textContent = on ? '商品コード：' + f.pre : '商品コード選択';
   });
+  /* 絞り込んでいるときだけ、すぐ右に解除ボタンを出す */
+  document.querySelectorAll('[data-codeclear]').forEach(b => {
+    const f = state[b.dataset.codeclear];
+    b.hidden = !(f && f.pre && f.pre !== 'すべて');
+  });
 }
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('[data-codeclear]');
+  if(!b) return;
+  const f = state[b.dataset.codeclear];
+  if(!f) return;
+  f.pre = 'すべて';
+  clearSticky();
+  render();
+  toast('商品コードの絞り込みを解除しました');
+});
 
 function renderFilters(){
   const mk = (target, cur, list, key, counts) => list.map(v =>
