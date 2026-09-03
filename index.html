@@ -346,6 +346,16 @@ section[hidden]{display:none}
 .filters .toolbar{position:relative;padding-right:134px}
 .filters .toolbar > .fgroup{flex:1 0 100%}
 .filters .toolbar > .clearbtn{position:absolute;top:12px;right:14px;margin:0}
+/* 終売は「調整することがない」ので、ふだんの一覧・件数から外して別扱いにする。
+   ほかの絞り込みと混ざらないよう、区切り線の下に離して置く。 */
+.endrow{
+  flex:1 0 100%;display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  margin-top:2px;padding-top:12px;border-top:1px dashed var(--line-strong);
+}
+.endbtn{border-color:var(--line-strong);color:var(--ink-3);font-weight:600}
+.endbtn[aria-pressed="true"]{background:var(--ink-3);border-color:var(--ink-3);color:var(--ground);font-weight:700}
+.endnote{font-size:12.5px;color:var(--ink-3)}
+.endnote code{font-family:var(--f-num);font-size:12px}
 .search{flex:0 0 260px;min-width:180px;position:relative}
 .search input{width:100%;padding:8px 10px;border:1px solid var(--line-strong);background:var(--surface);border-radius:var(--radius)}
 .search input:focus-visible{outline:2px solid var(--accent);outline-offset:-1px}
@@ -802,6 +812,10 @@ select.cell-in.capsel{width:104px}
         <button class="btn btn-sm clearbtn" data-clear="filters" type="button">選択をクリア</button>
         <div class="fgroup"><span class="glabel">基礎区分</span><span id="kubFilters"></span></div>
         <div class="fgroup"><span class="glabel">現在の固定保管</span><span id="mainFilters"></span></div>
+        <div class="endrow">
+          <button class="btn btn-sm endbtn" data-endonly="filters" type="button" aria-pressed="false"></button>
+          <span class="endnote">終売（商品名の末尾が <code>(out)</code>）は、ふだんの一覧・件数には出しません。</span>
+        </div>
       </div>
     </div>
     <div class="tablecard">
@@ -828,6 +842,10 @@ select.cell-in.capsel{width:104px}
         <div class="fgroup"><span class="glabel">判定結果</span><span id="resFilters2"></span></div>
         <button class="btn btn-sm clearbtn" data-clear="filters2" type="button">選択をクリア</button>
         <div class="fgroup"><span class="glabel">対応状況</span><span id="staFilters2"></span></div>
+        <div class="endrow">
+          <button class="btn btn-sm endbtn" data-endonly="filters2" type="button" aria-pressed="false"></button>
+          <span class="endnote">終売（商品名の末尾が <code>(out)</code>）は、ふだんの一覧・件数には出しません。</span>
+        </div>
       </div>
     </div>
     <div class="tablecard">
@@ -1105,6 +1123,8 @@ function seed(){
    （画面右上のバージョンを押すと、この CHANGELOG が表示される）
    v1.4.0 より前は v1.4000 のような4桁形式だった。履歴では旧番号を併記している。 */
 const CHANGELOG = [
+  { v:'v1.19.0', d:'2026-09-03', items:[
+    '終売の商品を、ふだんの一覧にも件数にも出さないようにした。見たいときは絞り込み欄の下にある［終売のみ表示］を押してください（全SKU一覧・保管変更対象の両方）' ] },
   { v:'v1.18.2', d:'2026-09-03', items:[
     '商品コード選択の右に出るボタンの表示を「解除」から「絞り込み解除」にした' ] },
   { v:'v1.18.1', d:'2026-09-03', items:[
@@ -1244,8 +1264,8 @@ function blankState(){
     items: [],
     sync:{ status:'未同期', at:null, message:'' },
     manualMode:false,
-    filters:{ q:'', res:'すべて', sta:'すべて', cap:'すべて', kub:'すべて', main:'すべて', pre:'すべて' },
-    filters2:{ q:'', res:'すべて', sta:'すべて', cap:'すべて', kub:'すべて', main:'すべて', pre:'すべて' },
+    filters:{ q:'', res:'すべて', sta:'すべて', cap:'すべて', kub:'すべて', main:'すべて', pre:'すべて', endOnly:false },
+    filters2:{ q:'', res:'すべて', sta:'すべて', cap:'すべて', kub:'すべて', main:'すべて', pre:'すべて', endOnly:false },
     csvHistory:[],
     tab:'main',
     hideHead:false,
@@ -2314,7 +2334,7 @@ function renderMain(){
     return;
   }
   /* 編集した行は、条件から外れても並び順そのままの位置に残す */
-  const R = sortRows(rows().filter(r => matches(r, state.filters) || isSticky(r)));
+  const R = sortRows(rows().filter(r => isSticky(r) || (endPass('filters', r) && matches(r, state.filters))));
   const head =
     '<thead>'+
     '<tr class="grouprow"><th colspan="3" class="lead">商品</th><th colspan="3">収納上限</th><th class="b-cur gstart">現在</th>'+
@@ -2359,9 +2379,9 @@ function renderMain(){
 }
 
 function renderChange(){
-  const R = rows().filter(r => isSticky(r) || (
-       needsChange(r.j)
-    && (state.filters2.sta !== 'すべて' || r.it.status !== '例外運用')   // 例外運用は既定で伏せる
+  const R = rows().filter(r => isSticky(r) || (endPass('filters2', r)
+    && (state.filters2.endOnly || needsChange(r.j))
+    && (state.filters2.endOnly || state.filters2.sta !== 'すべて' || r.it.status !== '例外運用')   // 例外運用は既定で伏せる
     && matches(r, state.filters2)));
   const R2 = sortRows(R);
   /* 列は 商品コード／商品名／基礎区分／小箱上限／箱上限／上限設定状態／現在の固定保管／
@@ -2401,9 +2421,18 @@ const KUB_CAT  = { '小箱-少収納':'sml', '小箱-多収納':'sml', '箱-少�
 const MAIN_CAT = { '小箱':'sml', '箱':'box', '小箱＋コンテナ固定':'cnt', '箱＋コンテナ固定':'cnt', 'コンテナ固定':'cnt' };
 function chipCat(v){ return v === 'すべて' ? 'all' : (CAT[v] || STA_CAT[v] || CAP_CAT[v] || KUB_CAT[v] || MAIN_CAT[v] || 'hold'); }
 /* そのタブが対象にしている商品の集合（絞り込みを掛ける前の母集団） */
+/* そのタブが対象にしている商品の集合（絞り込みを掛ける前の母集団）。
+   終売は「終売のみ表示」を押したときだけ出す。ふだんは件数にも入れない（v1.19.0）。 */
+function isEnd(r){ return r.j.result === '終売'; }
+function endPass(target, r){
+  return (state[target] && state[target].endOnly) ? isEnd(r) : !isEnd(r);
+}
 function baseRowsFor(target, R){
-  const all = R || rows();
-  if(target === 'filters2') return all.filter(r => needsChange(r.j) && r.it.status !== '例外運用');
+  const all = (R || rows()).filter(r => endPass(target, r));
+  if(target === 'filters2'){
+    if(state.filters2.endOnly) return all;              // 終売のみ表示のときは needsChange を見ない
+    return all.filter(r => needsChange(r.j) && r.it.status !== '例外運用');
+  }
   return all;
 }
 
@@ -2454,12 +2483,12 @@ function openCodePop(target){
 /* いま何か絞り込んでいるか（検索欄・チップ・商品コード選択のどれか） */
 function hasFilter(f){
   if(!f) return false;
-  return !!String(f.q || '').trim()
+  return !!String(f.q || '').trim() || !!f.endOnly
       || ['res','sta','cap','kub','main','pre'].some(k => f[k] && f[k] !== 'すべて');
 }
 function clearFilters(target){
   const f = state[target];
-  f.q = ''; f.res = f.sta = f.cap = f.kub = f.main = f.pre = 'すべて';
+  f.q = ''; f.res = f.sta = f.cap = f.kub = f.main = f.pre = 'すべて'; f.endOnly = false;
   clearSticky();
   const box = { filters:'q', filters2:'q2' }[target];
   if(box && $(box)) $(box).value = '';
@@ -2473,19 +2502,21 @@ document.addEventListener('click', e => {
 /* 絞り込み中は、表のすぐ上に「全◯件のうち◯件」を出す。
    検索欄の文字が残ったままで件数が減っていることに気づけるようにするのが目的（v1.16.0）。 */
 function renderFilterNote(){
-  const total = state.items.length;
+  const R0 = rows();
   const conf = [
-    { id:'filterNote',  key:'filters',  box:'q',  shown: () => sortRows(rows().filter(r => matches(r, state.filters) || isSticky(r))).length },
-    { id:'filterNote2', key:'filters2', box:'q2', shown: () => rows().filter(r => isSticky(r) || (
-        needsChange(r.j)
-        && (state.filters2.sta !== 'すべて' || r.it.status !== '例外運用')
+    { id:'filterNote',  key:'filters',  shown: () => R0.filter(r => isSticky(r) || (endPass('filters', r) && matches(r, state.filters))).length },
+    { id:'filterNote2', key:'filters2', shown: () => R0.filter(r => isSticky(r) || (endPass('filters2', r)
+        && (state.filters2.endOnly || needsChange(r.j))
+        && (state.filters2.endOnly || state.filters2.sta !== 'すべて' || r.it.status !== '例外運用')
         && matches(r, state.filters2))).length }
   ];
   conf.forEach(c => {
     const el = $(c.id); if(!el) return;
     const f = state[c.key];
-    if(!total || !hasFilter(f)){ el.hidden = true; el.innerHTML = ''; return; }
+    const total = baseRowsFor(c.key, R0).length;   // 終売の出し分けを反映した母数
+    if(!state.items.length || !hasFilter(f)){ el.hidden = true; el.innerHTML = ''; return; }
     const parts = [];
+    if(f.endOnly) parts.push('終売のみ');
     if(String(f.q || '').trim()) parts.push('検索「'+esc(f.q.trim())+'」');
     if(f.pre  && f.pre  !== 'すべて') parts.push('商品コード「'+esc(f.pre)+'」');
     [['res','判定結果'],['sta','対応状況'],['cap','上限設定状態'],['kub','基礎区分'],['main','現在の固定保管']]
@@ -2505,6 +2536,31 @@ function renderClearButtons(){
     b.title = on ? '検索・絞り込み・商品コード選択をすべて解除します' : '絞り込みはかかっていません';
   });
 }
+
+/* 終売ボタン。押している間は終売だけを表示する（隔離ビュー）。 */
+function renderEndButtons(){
+  const R0 = rows();
+  const n = R0.filter(isEnd).length;
+  document.querySelectorAll('[data-endonly]').forEach(b => {
+    const f = state[b.dataset.endonly] || {};
+    const on = !!f.endOnly;
+    b.setAttribute('aria-pressed', String(on));
+    b.innerHTML = (on ? '終売のみ表示中' : '終売のみ表示') + '<span class="cnt">('+n.toLocaleString('ja-JP')+')</span>';
+    b.title = on ? '押すと、ふだんの一覧（終売を除く）に戻ります'
+                 : '終売の商品だけを表示します。ふだんの一覧・件数には出していません';
+    b.disabled = !n && !on;
+  });
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest && e.target.closest('[data-endonly]');
+  if(!b || b.disabled) return;
+  const f = state[b.dataset.endonly];
+  if(!f) return;
+  f.endOnly = !f.endOnly;
+  clearSticky();
+  render();
+  toast(f.endOnly ? '終売の商品だけを表示しています' : 'ふだんの一覧（終売を除く）に戻しました');
+});
 
 function renderCodeButtons(){
   document.querySelectorAll('[data-codepick]').forEach(b => {
@@ -2538,15 +2594,18 @@ function renderFilters(){
     + ' aria-pressed="'+(cur === v)+'">'
     + esc(v) + (counts ? '<span class="cnt">('+(counts[v] || 0)+')</span>' : '') + '</button>').join('');
   const all = list => ['すべて'].concat(list);
-  const R  = rows();
-  const R2 = baseRowsFor('filters2', R);
+  const R0 = rows();
+  const R  = baseRowsFor('filters', R0);
+  const R2 = baseRowsFor('filters2', R0);
 
   const f1 = state.filters, f2 = state.filters2;
   $('capFilters').innerHTML  = mk('filters',  f1.cap,  all(CAP_STATES), 'cap',  chipCounts(R, f1, 'cap',  all(CAP_STATES)));
   $('kubFilters').innerHTML  = mk('filters',  f1.kub,  all(KUBUN),      'kub',  chipCounts(R, f1, 'kub',  all(KUBUN)));
   $('mainFilters').innerHTML = mk('filters',  f1.main, all(MAINS),      'main', chipCounts(R, f1, 'main', all(MAINS)));
 
-  $('resFilters2').innerHTML = mk('filters2', f2.res, all(RESULTS),  'res', chipCounts(R2, f2, 'res', all(RESULTS)));
+  /* 終売は別ボタンにしたので、判定結果のチップからは外す */
+  const RES_CHIPS = RESULTS.filter(v => v !== '終売');
+  $('resFilters2').innerHTML = mk('filters2', f2.res, all(RES_CHIPS), 'res', chipCounts(R2, f2, 'res', all(RES_CHIPS)));
   $('staFilters2').innerHTML = mk('filters2', f2.sta, all(STATUSES), 'sta', chipCounts(R2, f2, 'sta', all(STATUSES)));
 
   document.querySelectorAll('.floorbtn').forEach(b => {
@@ -2620,7 +2679,7 @@ function applyColWidths(){
 
 function render(){
   applyColWidths();
-  renderTabCounts(); renderFilters(); renderCodeButtons(); renderClearButtons(); renderMain(); renderChange(); renderFilterNote(); renderSync(); renderShared(); renderSaveButtons(); save();
+  renderTabCounts(); renderFilters(); renderCodeButtons(); renderClearButtons(); renderMain(); renderChange(); renderFilterNote(); renderEndButtons(); renderSync(); renderShared(); renderSaveButtons(); save();
   requestAnimationFrame(fitTable);
 }
 
@@ -3002,6 +3061,9 @@ function renderRules(){
   '<p><b>商品名の末尾が <code>(out)</code> または <code>（out）</code> の商品</b>は、もう仕入れをせず'+
   '在庫がなくなり次第の終売予定として扱い、<b>固定保管の判定を行いません</b>。'+
   '判定結果は「終売」になり、保管変更対象には出てきません。在庫がはけるまで現状のまま置いてください。</p>'+
+  '<p><b>終売の商品は、ふだんの一覧にも件数にも出しません。</b>'+
+  '調整することがないので、絞り込み欄の下にある<b>［終売のみ表示］</b>を押したときだけ見られるようにしています'+
+  '（全SKU一覧・保管変更対象の両方にあります）。</p>'+
   '<p>判定の材料は商品名だけなので、ネクストエンジン側で <code>(out)</code> を付ければ次の同期で自動的に終売扱いになり、'+
   '外せば通常の判定に戻ります。<b>ツール側で操作する必要はありません。</b>'+
   '半角・全角の括弧、大文字小文字、括弧の前後の空白はどれでも構いません。'+
@@ -3455,7 +3517,7 @@ document.addEventListener('click', e => {
 $('homeBtn').addEventListener('click', () => {
   ['filters','filters2'].forEach(k => {
     const f = state[k];
-    f.q = ''; f.res = f.sta = f.cap = f.kub = f.main = f.pre = 'すべて';
+    f.q = ''; f.res = f.sta = f.cap = f.kub = f.main = f.pre = 'すべて'; f.endOnly = false;
   });
   $('q').value = ''; $('q2').value = '';
   clearSticky();
@@ -3531,6 +3593,9 @@ $('clearAll').addEventListener('click', () => {
   /* 旧バージョンの保存データには基礎区分・現在の固定保管の絞り込みが無いので補う */
   ['filters','filters2'].forEach(k => {
     ['res','sta','cap','kub','main','pre'].forEach(f => { if(!state[k][f]) state[k][f] = 'すべて'; });
+    state[k].endOnly = !!state[k].endOnly;
+    /* 終売は判定結果のチップから外したので、古い保存データが「終売」で止まらないようにする */
+    if(state[k].res === '終売') state[k].res = 'すべて';
   });
   /* 全SKU一覧の「対応状況」チップ（v1.6.6）と「判定結果」チップ（v1.6.7）は廃止した。
      旧バージョンで絞り込んだまま保存されていると、解除する手段が無いまま件数が減って見えるので必ず戻す。 */
