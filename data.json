@@ -11,7 +11,7 @@
     "missingGoodsProductCodes": [],
     "message": ""
   },
-  "updatedAt": "2026-09-03 12:10",
+  "updatedAt": "2026-09-03 18:43",
   "items": [
     {
       "code": "baby-23-01-3set-miton-b-1s",
@@ -136,7 +136,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "対応済",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -154,7 +154,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "対応済",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -172,7 +172,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "対応済",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -190,7 +190,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "対応済",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -208,7 +208,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "対応済",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -226,7 +226,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "対応済",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -244,7 +244,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "対応済",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -262,7 +262,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "対応済",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -280,7 +280,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "対応済",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -298,7 +298,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "対応済",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -316,7 +316,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "対応済",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -334,7 +334,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "対応済",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -352,7 +352,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "対応済",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -370,7 +370,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "対応済",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -388,7 +388,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "対応済",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -2980,7 +2980,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "対応済",
       "note": ""
     },
     {
@@ -3034,7 +3034,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "対応済",
       "note": ""
     },
     {
@@ -3322,7 +3322,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -3340,7 +3340,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -4438,7 +4438,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "対応済",
       "note": ""
     },
     {
@@ -4726,7 +4726,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -4744,7 +4744,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -4762,7 +4762,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -4780,7 +4780,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -4798,7 +4798,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -4816,7 +4816,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -4834,7 +4834,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -4852,7 +4852,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -4870,7 +4870,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -4888,7 +4888,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -4906,7 +4906,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -4924,7 +4924,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -4942,7 +4942,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -4960,7 +4960,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -4978,7 +4978,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -4996,7 +4996,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -5014,7 +5014,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -5032,7 +5032,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -5050,7 +5050,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -5068,7 +5068,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -5086,7 +5086,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -5104,7 +5104,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -5122,7 +5122,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -5140,7 +5140,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -5158,7 +5158,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -5176,7 +5176,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -5194,7 +5194,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "対応済",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -6922,7 +6922,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "対応済",
       "note": ""
     },
     {
@@ -11494,7 +11494,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -11512,7 +11512,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -11530,7 +11530,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -11548,7 +11548,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -11584,7 +11584,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -11620,7 +11620,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -11710,7 +11710,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -11728,7 +11728,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -11926,7 +11926,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "対応済",
       "note": ""
     },
     {
@@ -11944,7 +11944,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "対応済",
       "note": ""
     },
     {
@@ -12034,7 +12034,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "対応済",
       "note": ""
     },
     {
@@ -12052,7 +12052,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "対応済",
       "note": ""
     },
     {
@@ -21250,7 +21250,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -21268,7 +21268,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -21286,7 +21286,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -21304,7 +21304,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -21322,7 +21322,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -21340,7 +21340,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -21358,7 +21358,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -21376,7 +21376,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -21394,7 +21394,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -21412,7 +21412,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -21430,7 +21430,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -21448,7 +21448,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -21466,7 +21466,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -21484,7 +21484,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -21502,7 +21502,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     },
     {
@@ -21520,7 +21520,7 @@
       "matchError": false,
       "neStockFound": true,
       "neGoodsFound": true,
-      "status": "未対応",
+      "status": "例外運用",
       "note": ""
     }
   ]
