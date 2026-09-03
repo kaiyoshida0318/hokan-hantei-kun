@@ -150,6 +150,15 @@ button,input,select,textarea{font:inherit;color:inherit}
 .masthead .sync{margin-top:10px}
 .masthead .flow{background:var(--surface);border-color:var(--line-strong)}
 .brandline{display:flex;align-items:center;gap:11px}
+/* ロゴを押すと「全SKU一覧・絞り込みなし」の最初の画面に戻る。
+   絞り込んだまま迷子になったときの逃げ道なので、必ず押せる場所に置いておくこと。 */
+.homebtn{
+  display:flex;align-items:center;gap:11px;
+  background:none;border:1px solid transparent;border-radius:var(--radius);
+  padding:2px 8px 2px 2px;margin:-2px;cursor:pointer;color:inherit;font:inherit;
+}
+.homebtn:hover{background:var(--surface-2);border-color:var(--line)}
+.homebtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .logomark{width:58px;height:46px;flex:none;display:block}
 .brand h1{
   margin:0;font-size:27px;font-weight:700;letter-spacing:.02em;line-height:1.15;white-space:nowrap;
@@ -388,6 +397,19 @@ section[hidden]{display:none}
 .toggle input{accent-color:var(--accent);width:15px;height:15px}
 
 /* ---------- table ---------- */
+/* 絞り込み中であることを表の真上ではっきり出す。
+   検索欄に文字が残ったまま「データが消えた」と誤解する事故が実際に起きたので、
+   絞り込みが掛かっているあいだは必ずこの帯を出すこと。 */
+.filternote{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  padding:9px 14px;border-bottom:1px solid var(--line);
+  background:color-mix(in srgb, var(--save) 12%, var(--surface));
+  font-size:13.5px;font-weight:600;color:var(--ink);
+}
+.filternote[hidden]{display:none}
+.filternote .fn-what{font-weight:500;color:var(--ink-2)}
+.filternote .fn-n{font-family:var(--f-num);font-weight:700}
+
 .tablewrap{overflow:auto;max-height:min(72vh,780px)}   /* JSの fitTable() が起動後に実寸へ上書きする */
 /* 横スクロールバーを掴みやすく */
 .tablewrap::-webkit-scrollbar{height:13px;width:13px}
@@ -685,7 +707,15 @@ tr.sticky-row > td{background:var(--up-bg)}
 tr.sticky-row > td.stripe{box-shadow:inset 3px 0 0 var(--up)}
 select.cell-in.capsel{width:104px}
 .modal-card.wide{max-width:900px;width:min(900px,94vw)}
-.toggle.csvadd{display:flex;align-items:center;gap:7px;margin:10px 0 0;font-size:12.5px;color:var(--ink-2)}
+.toggle.csvadd{
+  display:flex;align-items:flex-start;gap:10px;margin:12px 0 0;padding:11px 14px;
+  font-size:13px;color:var(--ink);line-height:1.6;
+  border:1.5px dashed var(--line-strong);border-radius:var(--radius);background:var(--surface-2);
+}
+.toggle.csvadd:hover{border-color:var(--accent)}
+.toggle.csvadd input{margin-top:2px}
+.toggle.csvadd:has(input:checked){border-style:solid;border-color:var(--save);background:color-mix(in srgb, var(--save) 10%, var(--surface))}
+.csvadd-sub{font-size:12.5px;color:var(--ink-2);font-weight:400}
 .csvpreview{margin-top:12px;max-height:44vh;overflow:auto;border:1px solid var(--line);border-radius:8px;padding:10px 12px;background:var(--surface-2)}
 .cpv-h{margin:10px 0 6px;font-size:12.5px;font-weight:700;color:var(--ink)}
 .cpv-h:first-child{margin-top:0}
@@ -703,6 +733,7 @@ select.cell-in.capsel{width:104px}
   <header class="masthead">
   <div class="brand">
     <div class="brandline">
+      <button class="homebtn" id="homeBtn" type="button" title="全SKU一覧に戻り、絞り込みをすべて解除します">
       <svg class="logomark" viewBox="18 34 196 156" role="img" aria-label="保管形式判定くん">
         <g fill="none" stroke="var(--ink)" stroke-width="9" stroke-linejoin="round" stroke-linecap="round">
           <rect x="24" y="126" width="60" height="56" rx="4"/>
@@ -717,6 +748,7 @@ select.cell-in.capsel{width:104px}
         </g>
       </svg>
       <h1>保管形式<span class="hl">判定</span>くん</h1>
+      </button>
       <button class="ver" id="ver" type="button" title="変更履歴を見る"></button>
     </div>
   </div>
@@ -780,6 +812,7 @@ select.cell-in.capsel{width:104px}
         <button class="btn btn-sm savebtn" data-ops="saveLocal">この端末に保存</button>
         <button class="btn btn-sm headtoggle" aria-pressed="false">ヘッダーを隠す</button>
       </div>
+      <div class="filternote" id="filterNote" hidden></div>
       <div class="tablewrap"><table id="tblMain"></table></div>
     </div>
   </section>
@@ -805,6 +838,7 @@ select.cell-in.capsel{width:104px}
         <button class="btn btn-sm savebtn" data-ops="saveLocal">この端末に保存</button>
         <button class="btn btn-sm headtoggle" aria-pressed="false">ヘッダーを隠す</button>
       </div>
+      <div class="filternote" id="filterNote2" hidden></div>
       <div class="tablewrap"><table id="tblChange"></table></div>
     </div>
   </section>
@@ -826,7 +860,8 @@ select.cell-in.capsel{width:104px}
       <b>現在の固定保管は実際の倉庫移動を伴います。</b>現物を動かしてから取り込んでください。
       <b>空欄は「今の値を維持」</b>です。値を消したいときだけ半角の <code>-</code> を入れてください。</p>
     <p class="modal-lead">基礎区分を変えた行で収納上限が空欄・<code>対象外</code>のときは、
-      <b>新しい区分の初期値</b>に置き換わり、上限設定状態も<b>仮設定</b>に戻ります（画面で基礎区分を変えたときと同じです）。</p>
+      <b>新しい区分の初期値</b>に置き換わり、上限設定状態も<b>仮設定</b>に戻ります（画面で基礎区分を変えたときと同じです）。
+      ただし<b>上限設定状態が「SKU確認済」の商品は、実測した上限をそのまま残します。</b></p>
     <p class="modal-lead">書き出したExcelの収納上限欄は、<b><code>対象外</code></b>＝その基礎区分ではその保管形式を使わないので入力不要、
       <b>空欄</b>＝入力が必要なのにまだ値が入っていない、という意味です。<code>対象外</code> はそのまま取り込んでも何も変わりません。</p>
     <div class="dropzone" id="dropzone" tabindex="0" role="button" aria-label="Excelファイルを選択">
@@ -834,7 +869,9 @@ select.cell-in.capsel{width:104px}
       <div class="dz-main">ここに Excel ファイル（.xlsx）をドロップ</div>
       <div class="dz-sub">またはクリックしてファイルを選ぶ</div>
     </div>
-    <label class="toggle csvadd"><input type="checkbox" id="csvAllowAdd"> ツールに無い商品コードは新規追加する（初回の商品登録に使います）</label>
+    <label class="toggle csvadd" for="csvAllowAdd"><input type="checkbox" id="csvAllowAdd">
+      <span><b>ツールに無い商品コードは新規追加する</b><br>
+      <span class="csvadd-sub">初回の商品登録や、消えてしまったデータの復旧に使います。ふだんの更新ではチェックを外したままにしてください。</span></span></label>
     <p class="modal-lead" id="xlsxWarn" hidden></p>
     <div class="dz-info" id="csvInfo"></div>
     <div class="csvpreview" id="csvPreview" hidden></div>
@@ -1062,6 +1099,16 @@ function seed(){
    （画面右上のバージョンを押すと、この CHANGELOG が表示される）
    v1.4.0 より前は v1.4000 のような4桁形式だった。履歴では旧番号を併記している。 */
 const CHANGELOG = [
+  { v:'v1.18.0', d:'2026-09-03', items:[
+    '左上のロゴを押すと、全SKU一覧に戻って絞り込みがすべて「すべて」に戻るようにした' ] },
+  { v:'v1.17.0', d:'2026-09-03', items:[
+    '上限設定状態が「SKU確認済」の商品は、基礎区分を変えても実測した収納上限をそのまま残すようにした（これまでは初期値に戻っていました）' ] },
+  { v:'v1.16.2', d:'2026-09-03', items:[
+    'Excel取込の「ツールに無い商品コードは新規追加する」を、枠で囲って説明を付け、気づきやすくした' ] },
+  { v:'v1.16.1', d:'2026-09-03', items:[
+    '検索欄の中身を保存しないようにした。次に開いたときは必ず全件から始まります' ] },
+  { v:'v1.16.0', d:'2026-09-03', items:[
+    '絞り込み中は表のすぐ上に「全1,195件のうち◯件を表示しています」と出すようにした。［絞り込みを解除］もそこから押せます' ] },
   { v:'v1.15.1', d:'2026-09-03', items:[
     'サンプルデータを読み込んだときの件数表示が実際と合っていなかったのを直した' ] },
   { v:'v1.15.0', d:'2026-09-03', items:[
@@ -1206,8 +1253,15 @@ function load(){ try{ const r = localStorage.getItem(LS); return r ? JSON.parse(
    端末の保存容量がいっぱいのときに気づけなかった。 */
 let saveError = null;
 function save(){
-  try{ localStorage.setItem(LS, JSON.stringify(state)); saveError = null; return true; }
-  catch(e){ saveError = e; return false; }
+  try{
+    /* 検索欄の中身だけは保存しない。残っていると、次に開いたときに1件しか出ず
+       「データが消えた」と誤解する事故が実際に起きた（v1.16.1）。 */
+    const snap = Object.assign({}, state, {
+      filters:  Object.assign({}, state.filters,  { q:'' }),
+      filters2: Object.assign({}, state.filters2, { q:'' })
+    });
+    localStorage.setItem(LS, JSON.stringify(snap)); saveError = null; return true;
+  }catch(e){ saveError = e; return false; }
 }
 
 /* ---- 商品1件を正規化（欠けた項目は基礎区分の初期値で補う） ---- */
@@ -1319,7 +1373,9 @@ async function fetchShared(){
   }
 }
 function adoptShared(sh){
-  const ui = { tab:state.tab, hideHead:state.hideHead, filters:state.filters, filters2:state.filters2 };
+  const ui = { tab:state.tab, hideHead:state.hideHead,
+               filters:Object.assign({}, state.filters, { q:'' }),
+               filters2:Object.assign({}, state.filters2, { q:'' }) };
   state = blankState();
   Object.assign(state, ui);
   state.items = sh.items;
@@ -1435,6 +1491,9 @@ function planRows(rows, opts){
     }
     const kbChanged = kb !== it.kubun;
     const kbDef = defCaps(kb);
+    /* v1.17.0 実測済み（SKU確認済）の上限は、基礎区分が変わっても初期値に入れ替えない */
+    const keepCaps = it.capState === 'SKU確認済';
+    const resetCaps = kbChanged && !keepCaps;
 
     /* 数値項目：空欄＝維持、CSV_CLEAR＝削除、それ以外は数値でなければエラー
        基礎区分を変えた行で収納上限が空欄・対象外だったときは、前の区分の値を持ち越さず
@@ -1449,11 +1508,11 @@ function planRows(rows, opts){
       if(n < 0){ out.errors.push({ line, code, msg:label+'にマイナス値（'+v+'）が入力されています' }); bad = true; return { keep:true, value:cur }; }
       return { keep:false, value:n };
     };
-    const sc = readCap('小箱上限', kbChanged ? kbDef.s : it.smallCap);
-    const bc = readCap('箱上限',   kbChanged ? kbDef.b : it.boxCap);
+    const sc = readCap('小箱上限', resetCaps ? kbDef.s : it.smallCap);
+    const bc = readCap('箱上限',   resetCaps ? kbDef.b : it.boxCap);
 
-    /* 基礎区分を変えると上限は初期値に戻るので、上限設定状態も「仮設定」に戻す（Excelで指定があればそちら優先） */
-    let cs = kbChanged ? DEFAULT_CAP_STATE : it.capState;
+    /* 上限を初期値へ戻したときだけ、上限設定状態も「仮設定」に戻す（Excelで指定があればそちら優先） */
+    let cs = resetCaps ? DEFAULT_CAP_STATE : it.capState;
     const csRaw = get(r, '上限設定状態');
     if(csRaw !== undefined && csRaw !== ''){
       if(!CAP_STATES.includes(csRaw)){ out.errors.push({ line, code, msg:'上限設定状態「'+csRaw+'」は使用できません（'+CAP_STATES.join(' / ')+'）' }); bad = true; }
@@ -1492,7 +1551,7 @@ function planRows(rows, opts){
     if(route === '箱' && sc.value !== null)
       out.warns.push({ line, code, msg:'箱区分の商品ですが、小箱上限が入力されています（この区分は小箱を使いません）' });
     /* 基礎区分を変えたのに収納上限が前の区分の数値のまま、という取り違えが起きやすいので必ず知らせる。 */
-    if(kbChanged && ((!sc.keep && sc.value !== kbDef.s) || (!bc.keep && bc.value !== kbDef.b)))
+    if(resetCaps && ((!sc.keep && sc.value !== kbDef.s) || (!bc.keep && bc.value !== kbDef.b)))
       out.warns.push({ line, code, msg:'基礎区分を「'+kb+'」に変えましたが、収納上限はExcelに書かれた値（小箱'+
         (sc.value === null ? '―' : sc.value)+' / 箱'+(bc.value === null ? '―' : bc.value)+
         '）をそのまま使います。新しい区分の初期値（小箱'+(kbDef.s === null ? '―' : kbDef.s)+' / 箱'+
@@ -2401,6 +2460,34 @@ document.addEventListener('click', e => {
   const b = e.target.closest && e.target.closest('[data-clear]');
   if(b && !b.disabled) clearFilters(b.dataset.clear);
 });
+/* 絞り込み中は、表のすぐ上に「全◯件のうち◯件」を出す。
+   検索欄の文字が残ったままで件数が減っていることに気づけるようにするのが目的（v1.16.0）。 */
+function renderFilterNote(){
+  const total = state.items.length;
+  const conf = [
+    { id:'filterNote',  key:'filters',  box:'q',  shown: () => sortRows(rows().filter(r => matches(r, state.filters) || isSticky(r))).length },
+    { id:'filterNote2', key:'filters2', box:'q2', shown: () => rows().filter(r => isSticky(r) || (
+        needsChange(r.j)
+        && (state.filters2.sta !== 'すべて' || r.it.status !== '例外運用')
+        && matches(r, state.filters2))).length }
+  ];
+  conf.forEach(c => {
+    const el = $(c.id); if(!el) return;
+    const f = state[c.key];
+    if(!total || !hasFilter(f)){ el.hidden = true; el.innerHTML = ''; return; }
+    const parts = [];
+    if(String(f.q || '').trim()) parts.push('検索「'+esc(f.q.trim())+'」');
+    if(f.pre  && f.pre  !== 'すべて') parts.push('商品コード「'+esc(f.pre)+'」');
+    [['res','判定結果'],['sta','対応状況'],['cap','上限設定状態'],['kub','基礎区分'],['main','現在の固定保管']]
+      .forEach(([k, label]) => { if(f[k] && f[k] !== 'すべて') parts.push(label+'「'+esc(f[k])+'」'); });
+    el.innerHTML = '<span>絞り込み中：全<span class="fn-n">'+total.toLocaleString('ja-JP')+'</span>件のうち'
+      + '<span class="fn-n">'+c.shown().toLocaleString('ja-JP')+'</span>件を表示しています</span>'
+      + '<span class="fn-what">'+parts.join(' / ')+'</span>'
+      + '<button class="btn btn-sm clearbtn" data-clear="'+c.key+'" type="button" style="margin-left:auto;position:static">絞り込みを解除</button>';
+    el.hidden = false;
+  });
+}
+
 function renderClearButtons(){
   document.querySelectorAll('[data-clear]').forEach(b => {
     const on = hasFilter(state[b.dataset.clear]);
@@ -2508,7 +2595,7 @@ function applyColWidths(){
 
 function render(){
   applyColWidths();
-  renderTabCounts(); renderFilters(); renderCodeButtons(); renderClearButtons(); renderMain(); renderChange(); renderSync(); renderShared(); renderSaveButtons(); save();
+  renderTabCounts(); renderFilters(); renderCodeButtons(); renderClearButtons(); renderMain(); renderChange(); renderFilterNote(); renderSync(); renderShared(); renderSaveButtons(); save();
   requestAnimationFrame(fitTable);
 }
 
@@ -2606,16 +2693,27 @@ function applyField(it, field, value){
   if(field === 'kubun'){
     it.kubun = value;
     const d = defCaps(value);
-    it.smallCap = d.s; it.boxCap = d.b; it.smallCapEdited = false; it.boxCapEdited = false;
-    it.capState = DEFAULT_CAP_STATE;   // 初期値に戻したので「仮設定」へ
+    /* v1.17.0 実測して「SKU確認済」にした収納上限は、基礎区分を変えても消さない。
+       せっかく測った値が区分変更のたびに初期値へ戻ると、測り直しになってしまうため。
+       まだ実測していない（仮設定）ものだけ、新しい区分の初期値へ入れ替える。 */
+    const keepCaps = it.capState === 'SKU確認済';
+    if(!keepCaps){
+      it.smallCap = d.s; it.boxCap = d.b;
+      it.capState = DEFAULT_CAP_STATE;   // 初期値に戻したので「仮設定」へ
+    }
+    it.smallCapEdited = it.smallCap !== d.s;
+    it.boxCapEdited   = it.boxCap   !== d.b;
     const am = allowedMains(value);
     /* §34 現在の固定保管は自動で書き換えない。現物を移してから担当者が更新する。
        ここで勝手に合わせてしまうと、現物が箱にあるのに帳簿だけコンテナになり、
        作業リストから消えて移動漏れが起きる。 */
+    const capMsg = keepCaps
+      ? '収納上限は「SKU確認済」の実測値をそのまま残しました'
+      : '収納上限を基礎区分の初期値に戻しました（上限設定状態は「仮設定」に戻ります）';
     if(!am.includes(it.curMain))
-      toast('収納上限を初期値に戻しました。現在の固定保管は'+it.curMain+'のままです（現物を移してから更新してください）');
+      toast(capMsg + '。現在の固定保管は'+it.curMain+'のままです（現物を移してから更新してください）');
     else
-      toast('収納上限を基礎区分の初期値に戻しました（上限設定状態は「仮設定」に戻ります）');
+      toast(capMsg);
   }
   else if(field === 'smallCap'){ it.smallCap = numify(value); it.smallCapEdited = it.smallCap !== defCaps(it.kubun).s; }
   else if(field === 'boxCap'){ it.boxCap = numify(value); it.boxCapEdited = it.boxCap !== defCaps(it.kubun).b; }
@@ -2868,6 +2966,8 @@ function renderRules(){
   '<h2>収納上限の初期値と上限設定状態</h2>'+
   '<table class="rtable"><thead><tr><th>基礎区分</th><th>小箱上限</th><th>箱上限</th></tr></thead><tbody>'+capRows+'</tbody></table>'+
   '<p>初期値は基礎区分ごとに自動設定され、SKU単位で上書きできます。<b>最終的な判定に使われるのは、SKUごとの数値です。</b></p>'+
+  '<p><b>基礎区分を変えると、収納上限は新しい区分の初期値に戻ります。</b>'+
+  'ただし<b>上限設定状態が「SKU確認済」の商品は、実測した上限をそのまま残します</b>（測り直しにならないようにするためです）。</p>'+
   '<p><b>上限設定状態</b>は、その上限が基礎区分の仮の初期値なのか、実際に確認した値なのかを表します。'+
   '<b>仮設定</b>＝まだ実測していない／<b>SKU確認済</b>＝実際の収納上限を確認済み。'+
   '「上限設定状態＝仮設定」で絞り込むと、これから調査すべきSKUだけを抽出できます。</p>'+
@@ -2979,8 +3079,8 @@ document.addEventListener('click', e => {
     clearSticky(); render(); return;
   }
 });
-$('q').addEventListener('input', e => { state.filters.q = e.target.value; clearSticky(); renderMain(); renderClearButtons(); });
-$('q2').addEventListener('input', e => { state.filters2.q = e.target.value; clearSticky(); renderChange(); renderClearButtons(); });
+$('q').addEventListener('input', e => { state.filters.q = e.target.value; clearSticky(); renderMain(); renderClearButtons(); renderFilterNote(); });
+$('q2').addEventListener('input', e => { state.filters2.q = e.target.value; clearSticky(); renderChange(); renderClearButtons(); renderFilterNote(); });
 /* 手動入力モードのチェックは表バーごとにあるので、必ず全部そろえる */
 function syncManualChecks(){
   document.querySelectorAll('.manualchk').forEach(c => { c.checked = !!state.manualMode; });
@@ -3326,6 +3426,21 @@ document.addEventListener('click', e => {
 });
 
 /* バージョンを押すと変更履歴を出す。何が変わったのかをスタッフが自分で確かめられるように。 */
+/* ロゴ：全SKU一覧に戻して絞り込みを全部外す（迷子になったときの戻り道） */
+$('homeBtn').addEventListener('click', () => {
+  ['filters','filters2'].forEach(k => {
+    const f = state[k];
+    f.q = ''; f.res = f.sta = f.cap = f.kub = f.main = f.pre = 'すべて';
+  });
+  $('q').value = ''; $('q2').value = '';
+  clearSticky();
+  switchTab('main');
+  render();
+  window.scrollTo({ top:0, behavior:'smooth' });
+  document.querySelectorAll('.tablewrap').forEach(el => { el.scrollTop = 0; el.scrollLeft = 0; });
+  toast('全SKU一覧を全件表示に戻しました');
+});
+
 $('ver').addEventListener('click', () => {
   const d = $('drawer');
   d.innerHTML = '<div class="dhead"><div><h2>変更履歴</h2>'+
@@ -3398,7 +3513,8 @@ $('clearAll').addEventListener('click', () => {
   state.filters.res = 'すべて';
   delete state.filters3;
   if(!Array.isArray(state.csvHistory)) state.csvHistory = [];
-  $('q').value = state.filters.q; $('q2').value = state.filters2.q;
+  state.filters.q = ''; state.filters2.q = '';   // 検索欄は毎回まっさらから始める（v1.16.1）
+  $('q').value = ''; $('q2').value = '';
   renderGhButton();
   renderHeadToggle();
   switchTab(state.tab || 'main');
