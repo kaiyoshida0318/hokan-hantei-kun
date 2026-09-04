@@ -342,10 +342,13 @@ section[hidden]{display:none}
    以前は空の .rowbreak を挟んで改行させていたが、それ自体がフレックス項目なので前後に gap が
    二重にかかり、「上限設定状態→基礎区分」だけ行間が広くなっていた（v1.10.1で撤去）。
    **空の要素で改行させる方法に戻さないこと。**
-   ［選択をクリア］は行を1つ使わないよう右上に絶対配置し、その分だけ padding-right を空けてある。 */
-.filters .toolbar{position:relative;padding-right:134px}
-.filters .toolbar > .fgroup{flex:1 0 100%}
-.filters .toolbar > .clearbtn{position:absolute;top:12px;right:14px;margin:0}
+   ［選択をクリア］は v1.20.1 でいちばん下の行の左端へ移した（見出しと同じ左端にそろえるため）。 */
+.filters .toolbar{padding-right:14px}
+/* 1行＝`.frow`。1つの行に見出しを複数並べたいときは、同じ .frow に入れる。
+   .fgroup を直接 toolbar に置くと行の作り方がばらつくので、必ず .frow で包むこと。 */
+.filters .toolbar > .frow{flex:1 0 100%;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.filters .toolbar > .frow > .fgroup{flex:0 1 auto}
+.endrow > .clearbtn{margin:0}
 /* 終売は「調整することがない」ので、ふだんの一覧・件数から外して別扱いにする。
    ほかの絞り込みと混ざらないよう、区切り線の下に離して置く。 */
 .endrow{
@@ -364,7 +367,9 @@ section[hidden]{display:none}
 /* 見出しの文字数がばらばら（判定結果／対応状況／現在の固定保管…）だと、
    グループごとにチップの左端がずれて段がそろわない。いちばん長い見出しに合わせて幅を固定する。
    幅を変えるときは、いちばん長い見出しがはみ出さないか必ず確認すること。 */
-.fgroup > .glabel{display:inline-block;min-width:104px;flex:none}
+.fgroup > .glabel{display:inline-block;flex:none}
+/* 幅をそろえるのは、行の先頭の見出しだけ。2つ目以降まで104pxにすると横に伸びて折り返してしまう。 */
+.frow > .fgroup:first-child > .glabel{min-width:104px}
 .chip{
   border:1.5px solid var(--line-strong);background:var(--surface);color:var(--ink);
   padding:7px 15px;border-radius:100px;font-size:14px;font-weight:600;cursor:pointer;
@@ -472,7 +477,6 @@ select.pillsel:hover{filter:brightness(.97)}
 .rowbreak{flex-basis:100%;height:0}
 /* 絞り込みをまとめて外すボタン。何も絞り込んでいないときは押せないようにして、
    いま絞り込みが掛かっているかどうかが一目で分かるようにする。 */
-.clearbtn{margin-left:auto}
 .clearbtn:disabled{opacity:.4;cursor:default}
 .clearbtn:not(:disabled){border-color:var(--alert-line);color:var(--alert)}
 .clearbtn:not(:disabled):hover{border-color:var(--alert);background:var(--alert-bg)}
@@ -807,11 +811,15 @@ select.cell-in.capsel{width:104px}
   <section id="panel-main">
     <div class="panel filters">
       <div class="toolbar">
-        <div class="fgroup"><span class="glabel">上限設定状態</span><span id="capFilters"></span></div>
-        <button class="btn btn-sm clearbtn" data-clear="filters" type="button">選択をクリア</button>
-        <div class="fgroup"><span class="glabel">基礎区分</span><span id="kubFilters"></span></div>
-        <div class="fgroup"><span class="glabel">現在の固定保管</span><span id="mainFilters"></span></div>
+        <div class="frow">
+          <div class="fgroup"><span class="glabel">基礎区分</span><span id="kubFilters"></span></div>
+          <div class="fgroup"><span class="glabel">上限設定状態</span><span id="capFilters"></span></div>
+        </div>
+        <div class="frow">
+          <div class="fgroup"><span class="glabel">現在の固定保管</span><span id="mainFilters"></span></div>
+        </div>
         <div class="endrow">
+          <button class="btn btn-sm clearbtn" data-clear="filters" type="button">選択をクリア</button>
           <button class="btn btn-sm endbtn" data-endonly="filters" type="button" aria-pressed="false"></button>
           <span class="endnote">終売（商品名の末尾が <code>(out)</code>）は、ふだんの一覧・件数には出しません。</span>
         </div>
@@ -839,10 +847,14 @@ select.cell-in.capsel{width:104px}
   <section id="panel-change" hidden>
     <div class="panel filters">
       <div class="toolbar">
-        <div class="fgroup"><span class="glabel">判定結果</span><span id="resFilters2"></span></div>
-        <button class="btn btn-sm clearbtn" data-clear="filters2" type="button">選択をクリア</button>
-        <div class="fgroup"><span class="glabel">対応状況</span><span id="staFilters2"></span></div>
+        <div class="frow">
+          <div class="fgroup"><span class="glabel">判定結果</span><span id="resFilters2"></span></div>
+        </div>
+        <div class="frow">
+          <div class="fgroup"><span class="glabel">対応状況</span><span id="staFilters2"></span></div>
+        </div>
         <div class="endrow">
+          <button class="btn btn-sm clearbtn" data-clear="filters2" type="button">選択をクリア</button>
           <button class="btn btn-sm endbtn" data-endonly="filters2" type="button" aria-pressed="false"></button>
           <span class="endnote">終売（商品名の末尾が <code>(out)</code>）は、ふだんの一覧・件数には出しません。</span>
         </div>
@@ -1124,6 +1136,10 @@ function seed(){
    （画面右上のバージョンを押すと、この CHANGELOG が表示される）
    v1.4.0 より前は v1.4000 のような4桁形式だった。履歴では旧番号を併記している。 */
 const CHANGELOG = [
+  { v:'v1.20.2', d:'2026-09-03', items:[
+    '全SKU一覧の絞り込みを、1行目に「基礎区分」と「上限設定状態」、2行目に「現在の固定保管」の並びにした' ] },
+  { v:'v1.20.1', d:'2026-09-03', items:[
+    '［選択をクリア］を、絞り込み欄の右上からいちばん下の行の左端へ移した（見出しと同じ左端にそろえて押しやすくした）' ] },
   { v:'v1.20.0', d:'2026-09-03', items:[
     '表の上に出していた「絞り込み中：全◯件のうち◯件」の帯をやめた' ] },
   { v:'v1.19.1', d:'2026-09-03', items:[
