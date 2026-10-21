@@ -385,6 +385,8 @@ section[hidden]{display:none}
 /* 基礎区分・現在の固定保管のチップは、表のピル（.spill）と同じ色系統にそろえる */
 .chip[data-cat="sml"]  {color:var(--c-sml); border-color:var(--c-sml-line)}
 .chip[data-cat="box"]  {color:var(--c-box); border-color:var(--c-box-line)}
+/* 終売のみ表示中に使えなくなるチップ（基礎区分・上限設定状態・現在の固定保管） */
+.chip:disabled{opacity:.42;cursor:not-allowed}
 .chip[aria-pressed="true"]{color:var(--on-accent);font-weight:700}
 .chip[data-cat="all"][aria-pressed="true"] {background:var(--accent); border-color:var(--accent)}
 .chip[data-cat="hold"][aria-pressed="true"]{background:var(--hold);   border-color:var(--hold)}
@@ -821,7 +823,7 @@ select.cell-in.capsel{width:104px}
         <div class="endrow">
           <button class="btn btn-sm clearbtn" data-clear="filters" type="button">選択をクリア</button>
           <button class="btn btn-sm endbtn" data-endonly="filters" type="button" aria-pressed="false"></button>
-          <span class="endnote">終売（商品名の末尾が <code>(out)</code>）は、ふだんの一覧・件数には出しません。</span>
+          <span class="endnote">終売（商品名の末尾が <code>(out)</code>）は、ふだんの一覧・件数には出しません。基礎区分・上限設定状態・現在の固定保管での絞り込みにも出ません。</span>
         </div>
       </div>
     </div>
@@ -1136,6 +1138,14 @@ function seed(){
    （画面右上のバージョンを押すと、この CHANGELOG が表示される）
    v1.4.0 より前は v1.4000 のような4桁形式だった。履歴では旧番号を併記している。 */
 const CHANGELOG = [
+  { v:'v1.22.2', d:'2026-10-21', items:[
+    '終売の商品は、直前に手直しした行であっても、ふだんの一覧には出さないようにした' ] },
+  { v:'v1.22.1', d:'2026-10-21', items:[
+    'Excel取込で、ツール内で終売になっている商品に変更があるときは、確認画面で知らせるようにした' ] },
+  { v:'v1.22.0', d:'2026-10-21', items:[
+    '一括更新用Excel・現場チェック用Excelにも、画面と同じく終売の商品を出さないようにした' ] },
+  { v:'v1.21.0', d:'2026-10-21', items:[
+    '終売の商品を、基礎区分・上限設定状態・現在の固定保管の絞り込み（件数も）に出さないようにした' ] },
   { v:'v1.20.2', d:'2026-09-03', items:[
     '全SKU一覧の絞り込みを、1行目に「基礎区分」と「上限設定状態」、2行目に「現在の固定保管」の並びにした' ] },
   { v:'v1.20.1', d:'2026-09-03', items:[
@@ -1472,6 +1482,8 @@ function renderShared(){
 /* ---- CSV ---- */
 /* ---- CSV取込：商品コードをキーに照合し、変更内容を先に確認してから反映する ---- */
 /* 取込で更新できる列。商品名・在庫定数・フリー在庫はNEの情報なので上書きしない。
+   商品名を上書きしないので、ネクストエンジン側で (out) が付いて終売になった商品は、
+   古い商品名（outなし）のExcelを取り込んでも終売のままになる（終売を外すのは手入力だけ）。
    現在の固定保管も実移動を伴うため一括更新の対象外（§25）。
    対応状況は、現場チェック用Excelに書いて戻してもらうため v1.2001 で追加した。 */
 const CSV_EDITABLE = ['基礎区分','小箱上限','箱上限','上限設定状態','現在の固定保管','対応状況'];
@@ -1618,6 +1630,13 @@ function planRows(rows, opts){
     if(cm !== it.curMain)        diff.push({ field:'現在の固定保管', before:it.curMain, after:cm });
     if(st !== it.status)         diff.push({ field:'対応状況',   before:it.status,   after:st });
     if(!diff.length){ out.same++; return; }
+    /* 一括更新用Excelを配ってから戻ってくるまでの間に、ネクストエンジン側で (out) が付いて
+       終売になることがある。商品名は取込で上書きしない（CSV_EDITABLE）ので終売のままになるが、
+       「入れた上限が消えた」と見えないよう、確認画面で必ず知らせる（v1.22.1）。 */
+    if(isDiscontinued(it.name))
+      out.warns.push({ line, code, msg:'この商品はツール内では終売（商品名の末尾が (out)）です。入力された値は反映しますが、終売扱いのままなので、ふだんの一覧には出ません（［終売のみ表示］で見られます）' });
+    else if(isDiscontinued(get(r, '商品名')))
+      out.warns.push({ line, code, msg:'取込ファイルの商品名には (out) が付いていますが、ツール内の商品名にはまだ付いていません。商品名はネクストエンジンから取得する情報なので取込では上書きしません（次の同期で終売になります）' });
     out.changed++;
     diff.forEach(d => out.changes.push({ line, code, name:it.name, field:d.field, before:d.before, after:d.after }));
   });
@@ -2266,7 +2285,15 @@ function clearSticky(){
   return true;
 }
 
+/* 終売は「基礎区分・上限設定状態・現在の固定保管」での絞り込み先には出さない（v1.21.0）。
+   終売商品は保管形式を変えないので、この3つのボタンを押した一覧・件数には載せない。
+   終売を見るのは［終売のみ表示］だけ、という隔離の考え方（v1.19.0）をここまで広げたもの。 */
+const END_EXCLUDE_KEYS = ['cap','kub','main'];
+function endExcluded(r, f){
+  return isEnd(r) && END_EXCLUDE_KEYS.some(k => f[k] && f[k] !== 'すべて');
+}
 function matches(r, f, skip){
+  if(endExcluded(r, f)) return false;
   const q = f.q.trim().toLowerCase();
   if(q && !(r.it.code.toLowerCase().includes(q) || r.it.name.toLowerCase().includes(q))) return false;
   if(skip !== 'res' && f.res !== 'すべて' && r.j.result !== f.res) return false;
@@ -2355,7 +2382,9 @@ function renderMain(){
     return;
   }
   /* 編集した行は、条件から外れても並び順そのままの位置に残す */
-  const R = sortRows(rows().filter(r => isSticky(r) || (endPass('filters', r) && matches(r, state.filters))));
+  /* いま編集した行（sticky）は絞り込み条件から外れても残すが、終売の出し分け（endPass）は
+     それより強い。取込で終売の商品を更新した直後に、ふだんの一覧へ顔を出さないように（v1.22.2）。 */
+  const R = sortRows(rows().filter(r => endPass('filters', r) && (isSticky(r) || matches(r, state.filters))));
   const head =
     '<thead>'+
     '<tr class="grouprow"><th colspan="3" class="lead">商品</th><th colspan="3">収納上限</th><th class="b-cur gstart">現在</th>'+
@@ -2400,10 +2429,10 @@ function renderMain(){
 }
 
 function renderChange(){
-  const R = rows().filter(r => isSticky(r) || (endPass('filters2', r)
-    && (state.filters2.endOnly || needsChange(r.j))
+  const R = rows().filter(r => endPass('filters2', r) && (isSticky(r) || (
+       (state.filters2.endOnly || needsChange(r.j))
     && (state.filters2.endOnly || state.filters2.sta !== 'すべて' || r.it.status !== '例外運用')   // 例外運用は既定で伏せる
-    && matches(r, state.filters2)));
+    && matches(r, state.filters2))));
   const R2 = sortRows(R);
   /* 列は 商品コード／商品名／基礎区分／小箱上限／箱上限／上限設定状態／現在の固定保管／
      推奨固定保管／判定結果／対応状況／備考 の11項目（v1.10.0時点）。
@@ -2548,6 +2577,9 @@ document.addEventListener('click', e => {
   const f = state[b.dataset.endonly];
   if(!f) return;
   f.endOnly = !f.endOnly;
+  /* 終売は基礎区分・上限設定状態・現在の固定保管では絞り込めないので、
+     これらが選ばれたまま終売のみ表示に入ると0件になってしまう。入る前に外しておく（v1.21.0）。 */
+  if(f.endOnly) END_EXCLUDE_KEYS.forEach(k => { f[k] = 'すべて'; });
   clearSticky();
   render();
   toast(f.endOnly ? '終売の商品だけを表示しています' : 'ふだんの一覧（終売を除く）に戻しました');
@@ -2578,21 +2610,28 @@ document.addEventListener('click', e => {
 });
 
 function renderFilters(){
-  const mk = (target, cur, list, key, counts) => list.map(v =>
-    '<button class="chip" data-cat="'+chipCat(v)+'" data-fk="'+key+'" data-t="'+target+'" data-v="'+esc(v)+'"'
-    + (v === '未対応' ? ' title="変更が必要な商品のうち、まだ対応していないものだけを表示します（維持は含みません）"' : '')
-    + (v === '仮設定' ? ' title="収納上限がまだ基礎区分の初期値のままで、実測していないSKUです"' : '')
-    + ' aria-pressed="'+(cur === v)+'">'
-    + esc(v) + (counts ? '<span class="cnt">('+(counts[v] || 0)+')</span>' : '') + '</button>').join('');
+  /* off … 終売のみ表示中は、基礎区分・上限設定状態・現在の固定保管では絞り込めない（v1.21.0）。
+     押しても0件になるだけなので、［すべて］以外は押せない見た目にしておく。 */
+  const mk = (target, cur, list, key, counts, dis) => list.map(v => {
+    const off = !!dis && v !== 'すべて';
+    const tip = off      ? '終売の商品は、この絞り込みの対象外です'
+      : v === '未対応' ? '変更が必要な商品のうち、まだ対応していないものだけを表示します（維持は含みません）'
+      : v === '仮設定' ? '収納上限がまだ基礎区分の初期値のままで、実測していないSKUです' : '';
+    return '<button class="chip" data-cat="'+chipCat(v)+'" data-fk="'+key+'" data-t="'+target+'" data-v="'+esc(v)+'"'
+      + (tip ? ' title="'+esc(tip)+'"' : '') + (off ? ' disabled' : '')
+      + ' aria-pressed="'+(cur === v)+'">'
+      + esc(v) + (counts ? '<span class="cnt">('+(counts[v] || 0)+')</span>' : '') + '</button>';
+  }).join('');
   const all = list => ['すべて'].concat(list);
   const R0 = rows();
   const R  = baseRowsFor('filters', R0);
   const R2 = baseRowsFor('filters2', R0);
 
   const f1 = state.filters, f2 = state.filters2;
-  $('capFilters').innerHTML  = mk('filters',  f1.cap,  all(CAP_STATES), 'cap',  chipCounts(R, f1, 'cap',  all(CAP_STATES)));
-  $('kubFilters').innerHTML  = mk('filters',  f1.kub,  all(KUBUN),      'kub',  chipCounts(R, f1, 'kub',  all(KUBUN)));
-  $('mainFilters').innerHTML = mk('filters',  f1.main, all(MAINS),      'main', chipCounts(R, f1, 'main', all(MAINS)));
+  const endDis = !!f1.endOnly;   /* 終売のみ表示中は、この3グループは使えない（v1.21.0） */
+  $('capFilters').innerHTML  = mk('filters',  f1.cap,  all(CAP_STATES), 'cap',  chipCounts(R, f1, 'cap',  all(CAP_STATES)),  endDis);
+  $('kubFilters').innerHTML  = mk('filters',  f1.kub,  all(KUBUN),      'kub',  chipCounts(R, f1, 'kub',  all(KUBUN)),       endDis);
+  $('mainFilters').innerHTML = mk('filters',  f1.main, all(MAINS),      'main', chipCounts(R, f1, 'main', all(MAINS)),       endDis);
 
   /* 終売は別ボタンにしたので、判定結果のチップからは外す */
   const RES_CHIPS = RESULTS.filter(v => v !== '終売');
@@ -3104,8 +3143,13 @@ function renderRules(){
   '<h2>SKU別収納上限の整備</h2>'+
   '<p>① 全SKU一覧で「上限設定状態＝仮設定」に絞る → ②［CSVダウンロード］→ ③ Excel等で小箱上限・箱上限を入力し、上限設定状態を「SKU確認済」にする → '+
   '④［CSV取込］→ ⑤ 変更内容を確認して［この内容で反映］→ ⑥ 対象SKUの判定が自動で計算し直される。</p>'+
-  '<p>CSV取込で更新できるのは<b>小箱上限・箱上限・上限設定状態</b>だけです。商品名・在庫定数・フリー在庫はNEから取得する情報なので上書きしません。'+
-  '<b>空欄は「今の値を維持」</b>です（Excel編集時の空欄で上限が消える事故を防ぐため）。値を消したいときだけ半角の <code>-</code> を入れてください。</p>';
+  '<p>Excel取込で更新できるのは<b>基礎区分・小箱上限・箱上限・上限設定状態・現在の固定保管・対応状況</b>です。'+
+  '商品名・在庫定数・フリー在庫はNEから取得する情報なので上書きしません。'+
+  '<b>空欄は「今の値を維持」</b>です（Excel編集時の空欄で上限が消える事故を防ぐため）。値を消したいときだけ半角の <code>-</code> を入れてください。</p>'+
+  '<p><b>目視している途中で終売になった商品。</b>一括更新用Excelを配ってから戻ってくるまでの間に、ネクストエンジン側で '+
+  '<code>(out)</code> が付くことがあります。商品名は取込で上書きしないので、<b>ツール内で終売になっている商品は終売のまま</b>です。'+
+  '入力された上限などの値はそのまま反映しますが、ふだんの一覧には出ないので［終売のみ表示］で確認してください。'+
+  '取込の確認画面でも、その商品に注意を出します。</p>';
 }
 
 /* ============ イベント ============ */
@@ -3489,11 +3533,15 @@ function openGhSetup(){
 }
 /* §21 操作ボタン（表バーに配置）。全SKU一覧と保管変更対象の両方に同じ並びで置いてあるので、
    id ではなく data-ops で受ける。Excel出力の対象は「いま開いているタブに出ている分」。 */
+/* 終売の出し分け（endPass）も画面と同じにそろえる。v1.22.0 より前は、画面には出していない
+   終売の商品が一括更新用Excel・現場チェック用Excelには入っていた。倉庫で目視する紙に、
+   もう保管形式を変えない商品が混ざってしまうため。 */
 const currentList = () => state.tab === 'change'
-  ? sortRows(rows().filter(r => needsChange(r.j)
-      && (state.filters2.sta !== 'すべて' || r.it.status !== '例外運用')
+  ? sortRows(rows().filter(r => endPass('filters2', r)
+      && (state.filters2.endOnly || needsChange(r.j))
+      && (state.filters2.endOnly || state.filters2.sta !== 'すべて' || r.it.status !== '例外運用')
       && matches(r, state.filters2)))
-  : sortRows(rows().filter(r => matches(r, state.filters)));
+  : sortRows(rows().filter(r => endPass('filters', r) && matches(r, state.filters)));
 document.addEventListener('click', e => {
   const b = e.target.closest && e.target.closest('[data-ops]');
   if(!b) return;
